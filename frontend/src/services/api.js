@@ -11,6 +11,23 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// 요청 인터셉터 - User ID 헤더 자동 추가
+api.interceptors.request.use(
+  (config) => {
+    // axios.defaults.headers.common에서 헤더 복사
+    if (axios.defaults.headers.common['X-User-ID']) {
+      config.headers['X-User-ID'] = axios.defaults.headers.common['X-User-ID'];
+    }
+    if (axios.defaults.headers.common['X-User-Email']) {
+      config.headers['X-User-Email'] = axios.defaults.headers.common['X-User-Email'];
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Characters API
 export const charactersAPI = {
   // 모든 공개 캐릭터 목록 조회

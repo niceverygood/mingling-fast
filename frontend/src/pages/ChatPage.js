@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, HeartIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import api, { heartsAPI, chatsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const ChatPage = () => {
@@ -27,7 +27,7 @@ const ChatPage = () => {
 
   const fetchHeartBalance = async () => {
     try {
-      const response = await axios.get('/api/hearts/balance');
+      const response = await heartsAPI.getBalance();
       setHearts(response.data.hearts);
     } catch (error) {
       console.error('Error fetching heart balance:', error);
@@ -38,7 +38,7 @@ const ChatPage = () => {
   const fetchChatInfo = async () => {
     try {
       // 채팅 목록에서 해당 채팅 정보 찾기
-      const response = await axios.get('/api/chats');
+      const response = await chatsAPI.getAll();
       if (Array.isArray(response.data)) {
         const chat = response.data.find(c => c.id === chatId);
         setChatInfo(chat);
@@ -52,7 +52,7 @@ const ChatPage = () => {
 
   const fetchMessages = async () => {
     try {
-      const response = await axios.get(`/api/chats/${chatId}/messages`);
+      const response = await chatsAPI.getMessages(chatId);
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setMessages(response.data);
@@ -81,13 +81,10 @@ const ChatPage = () => {
 
     try {
       // 하트 차감
-      const heartResponse = await axios.post('/api/hearts/spend', {
-        amount: 1,
-        description: '채팅 메시지 전송'
-      });
+      const heartResponse = await heartsAPI.spend(1, '채팅 메시지 전송');
 
       // 메시지 전송
-      const messageResponse = await axios.post(`/api/chats/${chatId}/messages`, {
+      const messageResponse = await chatsAPI.sendMessage(chatId, {
         content: newMessage
       });
       
