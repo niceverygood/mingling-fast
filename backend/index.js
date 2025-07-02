@@ -27,7 +27,9 @@ app.use(limiter);
 
 app.use(cors({
   origin: allowedOrigins,
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID', 'X-User-Email'],
+  exposedHeaders: ['X-User-ID', 'X-User-Email']
 }));
 
 app.use(express.json({ limit: '10mb' }));
