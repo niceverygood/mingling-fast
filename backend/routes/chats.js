@@ -304,15 +304,19 @@ router.post('/', async (req, res) => {
 async function generateAIResponseWithOpenAI(userMessage, character, persona, messageHistory) {
   // 테스트 환경이거나 OpenAI가 설정되지 않은 경우 기본 응답 사용
   if (!openai) {
+    console.log('OpenAI not configured, using fallback response');
     return generateAIResponse(userMessage);
   }
 
   try {
+    console.log('Generating OpenAI response for character:', character.name);
+    
     // 캐릭터 정보 구성
     const characterInfo = `
 캐릭터 이름: ${character.name}
 나이: ${character.age || '불명'}
 성별: ${character.gender === 'male' ? '남성' : character.gender === 'female' ? '여성' : '비공개'}
+캐릭터 유형: ${character.characterType || '정보 없음'}
 성격: ${character.personality || '정보 없음'}
 배경: ${character.background || '정보 없음'}
 첫인상: ${character.firstImpression || '정보 없음'}
@@ -321,6 +325,7 @@ async function generateAIResponseWithOpenAI(userMessage, character, persona, mes
 싫어하는 것: ${character.dislikes || '정보 없음'}
 MBTI: ${character.mbti || '정보 없음'}
 키: ${character.height || '정보 없음'}
+설명: ${character.description || '정보 없음'}
 `;
 
     // 페르소나 정보 구성 (사용자의 역할)
@@ -339,8 +344,9 @@ MBTI: ${character.mbti || '정보 없음'}
 기본 사용자 프로필을 사용 중입니다. 특별한 페르소나 설정은 없습니다.
 `;
 
-    // 대화 히스토리 구성
-    const conversationHistory = messageHistory.map(msg => 
+    // 대화 히스토리 구성 (최근 10개 메시지만)
+    const recentHistory = messageHistory.slice(-10);
+    const conversationHistory = recentHistory.map(msg => 
       `${msg.isFromUser ? persona?.name || '사용자' : character.name}: ${msg.content}`
     ).join('\n');
 
@@ -359,12 +365,14 @@ ${personaInfo}
 5. 캐릭터의 첫인상과 기본 설정을 반영하세요
 6. 대화 상대의 페르소나 정보도 고려하여 적절히 반응하세요
 7. 한국어로 자연스럽게 대화하세요
-8. 응답은 2-3문장 정도로 적당한 길이로 해주세요
+8. 응답은 1-3문장 정도로 간결하고 자연스럽게 해주세요
+9. 캐릭터의 유형(${character.characterType || '일반'})에 맞는 말투와 태도를 보여주세요
+10. 감정을 표현할 때는 자연스럽고 캐릭터에 맞게 표현하세요
 
-이전 대화:
+이전 대화 기록:
 ${conversationHistory}
 
-현재 대화 상대가 "${userMessage}"라고 말했습니다. ${character.name}의 입장에서 자연스럽게 응답해주세요.`;
+현재 대화 상대가 "${userMessage}"라고 말했습니다. ${character.name}의 입장에서 이 메시지에 대해 자연스럽고 캐릭터다운 응답을 해주세요.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -378,20 +386,26 @@ ${conversationHistory}
           content: userMessage
         }
       ],
-      max_tokens: 150,
-      temperature: 0.8,
+      max_tokens: 200,
+      temperature: 0.9,
+      presence_penalty: 0.3,
+      frequency_penalty: 0.2,
     });
 
-    return completion.choices[0].message.content.trim();
+    const response = completion.choices[0].message.content.trim();
+    console.log('OpenAI response generated successfully:', response.substring(0, 50) + '...');
+    return response;
+    
   } catch (error) {
-    console.error('OpenAI API Error:', error);
-    // OpenAI 실패 시 기본 응답
-    return generateAIResponse(userMessage);
+    console.error('OpenAI API Error:', error.message);
+    console.log('Falling back to simple response');
+    // OpenAI 실패 시 캐릭터 기반 응답
+    return generateCharacterBasedResponse(userMessage, character);
   }
 }
 
 // 간단한 AI 응답 생성 함수 (백업용)
-function generateAIResponse(userMessage) {
+function generateAIResponse(_userMessage) {
   const responses = [
     '흥미롭네요! 더 자세히 말씀해 주시겠어요?',
     '그런 생각을 하셨군요. 저도 비슷하게 느낀 적이 있어요.',
@@ -400,6 +414,33 @@ function generateAIResponse(userMessage) {
     '그럴 때 어떤 기분이셨나요?'
   ];
   
+  return responses[Math.floor(Math.random() * responses.length)];
+}
+
+// 캐릭터 기반 응답 생성 함수
+function generateCharacterBasedResponse(_userMessage, character) {
+  const characterResponses = {
+    '아이아': [
+      '그런데 말이에요, 정말 흥미로운 이야기네요!',
+      '아하! 그렇게 생각하시는군요. 저도 그런 느낌이 드는 것 같아요.',
+      '와, 정말 멋진 아이디어예요! 더 들려주세요.',
+      '그런 경험을 하셨군요. 어떤 기분이셨는지 궁금해요.'
+    ],
+    '루나': [
+      '음... 정말 신비로운 이야기네요.',
+      '그렇다면... 당신의 마음 속 깊은 곳에서는 어떤 느낌이 드나요?',
+      '흥미롭습니다. 운명이 당신을 이끌고 있는 것 같아요.',
+      '그런 순간들이 삶을 더욱 의미 있게 만드는 것 같아요.'
+    ]
+  };
+
+  const responses = characterResponses[character.name] || [
+    '정말 흥미로운 이야기네요!',
+    '그런 생각을 하시는군요.',
+    '더 자세히 이야기해 주세요.',
+    '정말 좋은 질문이에요!'
+  ];
+
   return responses[Math.floor(Math.random() * responses.length)];
 }
 

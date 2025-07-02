@@ -195,11 +195,16 @@ router.post('/', async (req, res) => {
     });
 
     if (!user) {
+      // 고유한 username 생성
+      const baseUsername = firebaseUserEmail?.split('@')[0] || '사용자';
+      const timestamp = Date.now();
+      const uniqueUsername = `${baseUsername}_${timestamp}`;
+      
       user = await prisma.user.create({
         data: {
           id: firebaseUserId,
           email: firebaseUserEmail || `${firebaseUserId}@firebase.user`,
-          username: firebaseUserEmail?.split('@')[0] || '사용자',
+          username: uniqueUsername,
           hearts: 150
         }
       });
