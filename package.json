@@ -1,0 +1,19 @@
+{
+  "name": "mingling-fast",
+  "version": "1.0.0",
+  "description": "AI 캐릭터 채팅 모바일 웹 애플리케이션",
+  "scripts": {
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
+    "build": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "install:all": "cd frontend && npm install && cd ../backend && npm install",
+    "db:setup": "cd backend && npx prisma generate && npx prisma db push"
+  },
+  "keywords": ["ai", "chat", "react", "nodejs", "mysql"],
+  "author": "Mingling Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+} 

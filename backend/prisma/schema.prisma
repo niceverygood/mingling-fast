@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  username    String   @unique
+  avatarUrl   String?
+  hearts      Int      @default(150)
+  joinedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  characters  Character[]
+  personas    Persona[]   // 사용자가 만든 페르소나들
+  chats       Chat[]
+  messages    Message[]
+  heartTransactions HeartTransaction[]
+
+  @@map("users")
+}
+
+model Character {
+  id              String   @id @default(cuid())
+  name            String
+  age             String?  // 나이 (문자열로 변경)
+  description     String?  @db.Text
+  avatarUrl       String?
+  personality     String?  @db.Text
+  isPublic        Boolean  @default(true)
+  
+  // 새로운 캐릭터 생성 필드들
+  characterType   String?  // 애니메이션&만화, 개인캐릭터, 순수창작 등
+  background      String?  @db.Text // 배경 설정
+  mbti            String?  // MBTI 유형
+  height          String?  // 키
+  likes           String?  @db.Text // 좋아하는 것들
+  dislikes        String?  @db.Text // 싫어하는 것들
+  hashtags        Json?    // 해시태그들 (JSON 배열)
+  gender          String?  // 성별: male, female, undisclosed
+  firstImpression String?  @db.Text // 캐릭터 첫인상 설정
+  basicSetting    String?  @db.Text // 캐릭터 기본 설정
+  
+  // 새로 추가된 필드들
+  weapons         Json?    // 무기 정보 배열
+  isCommercial    Boolean  @default(false) // 상업 전용 캐릭터
+  
+  // 설정 옵션들
+  allowViolence   Boolean  @default(false) // 심한 폭력 캐릭터 허용
+  backupChats     Boolean  @default(true) // 대화 내용 백업
+  hashtagCode     String?  // 해시태그 코드
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  userId          String   // creatorId에서 userId로 변경
+  user            User     @relation(fields: [userId], references: [id])
+  chats           Chat[]
+
+  @@map("characters")
+}
+
+model Chat {
+  id          String   @id @default(cuid())
+  lastMessage String?
+  lastMessageAt DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id])
+  personaId   String?   // 선택된 페르소나 ID (선택사항)
+  persona     Persona?  @relation(fields: [personaId], references: [id])
+  messages    Message[]
+
+  @@unique([userId, characterId])
+  @@map("chats")
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String   @db.Text
+  isFromUser  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  chatId      String
+  chat        Chat     @relation(fields: [chatId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("messages")
+}
+
+model Persona {
+  id          String   @id @default(cuid())
+  name        String
+  age         String?
+  gender      String?  // 'male', 'female', 'undisclosed'
+  job         String?  // 직업
+  avatarUrl   String?
+  basicInfo   String?  @db.Text // 기본 정보 (성격, 취미 등)
+  habits      String?  @db.Text // 습관적인 말과 행동
+  appearance  String?  @db.Text // 외모
+  personality String?  @db.Text // 성격
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  chats       Chat[]   // 이 페르소나로 진행한 채팅들
+
+  @@map("personas")
+}
+
+model HeartTransaction {
+  id          String   @id @default(cuid())
+  amount      Int      // positive for charge, negative for spend
+  type        String   // 'charge', 'spend', 'gift'
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("heart_transactions")
+} 
