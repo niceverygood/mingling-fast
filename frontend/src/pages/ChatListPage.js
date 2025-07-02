@@ -23,9 +23,17 @@ const ChatListPage = () => {
   const fetchChats = async () => {
     try {
       const response = await axios.get('/api/chats');
-      setChats(response.data);
+      // 응답이 배열인지 확인
+      if (Array.isArray(response.data)) {
+        setChats(response.data);
+      } else {
+        console.warn('API response is not an array:', response.data);
+        setChats([]);
+      }
     } catch (error) {
       console.error('Error fetching chats:', error);
+      // API 실패 시 빈 배열로 설정
+      setChats([]);
     } finally {
       setLoading(false);
     }
@@ -222,7 +230,7 @@ const ChatListPage = () => {
 
       {/* Chat List */}
       <div className="divide-y divide-gray-100">
-        {chats.map((chat) => (
+        {Array.isArray(chats) && chats.map((chat) => (
           <div 
             key={chat.id} 
             className="px-4 py-4 hover:bg-gray-50 cursor-pointer"
@@ -308,7 +316,7 @@ const ChatListPage = () => {
       </div>
 
       {/* Empty State (if no chats) */}
-      {chats.length === 0 && (
+      {Array.isArray(chats) && chats.length === 0 && (
         <div className="text-center py-16">
           <div className="w-16 h-16 mx-auto mb-4 text-gray-300">
             💬
