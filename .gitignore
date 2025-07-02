@@ -94,3 +94,6 @@ public
 tmp/
 temp/
 *.tar.gz
+backend.zip
+mingling_new.pem
+*.pem
