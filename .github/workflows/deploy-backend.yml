@@ -14,15 +14,28 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@v1.0.3
+      uses: appleboy/ssh-action@v0.1.8
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        debug: true
         script: |
-          cd ~/backend
-          git pull origin main
-          npm install --production
-          pm2 restart mingling-backend
+          echo "🚀 Starting deployment..."
+          cd ~/backend || { echo "❌ Backend directory not found"; exit 1; }
+          echo "📁 Current directory: $(pwd)"
+          
+          echo "📥 Pulling latest code..."
+          git pull origin main || { echo "❌ Git pull failed"; exit 1; }
+          
+          echo "📦 Installing dependencies..."
+          npm install --production || { echo "❌ npm install failed"; exit 1; }
+          
+          echo "🔄 Restarting backend..."
+          pm2 restart mingling-backend || pm2 start index.js --name "mingling-backend"
+          
+          echo "📊 Checking PM2 status..."
           pm2 status
+          
           echo "✅ Backend deployment completed!" 
