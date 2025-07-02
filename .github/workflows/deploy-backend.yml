@@ -25,19 +25,52 @@ jobs:
         debug: true
         script: |
           echo "🚀 Starting deployment..."
-          cd ~/backend || { echo "❌ Backend directory not found"; exit 1; }
-          echo "📁 Current directory: $(pwd)"
           
-          echo "📥 Pulling latest code..."
-          git pull origin main || { echo "❌ Git pull failed"; exit 1; }
+          # EC2 백엔드 디렉토리 정리 및 설정
+          echo "📁 Setting up backend directory..."
+          rm -rf ~/backend_temp
+          mkdir -p ~/backend_temp
+          cd ~/backend_temp
+          
+          echo "📥 Cloning latest code..."
+          git clone https://github.com/niceverygood/mingling-fast.git .
+          
+          echo "🔄 Stopping existing backend..."
+          pm2 stop mingling-backend 2>/dev/null || echo "Backend not running"
+          pm2 delete mingling-backend 2>/dev/null || echo "Backend process not found"
+          
+          echo "📦 Preparing backend files..."
+          # 기존 백엔드 디렉토리 백업
+          if [ -f ~/backend/.env ]; then
+            cp ~/backend/.env ~/backend_env_backup
+            echo "📄 .env file backed up"
+          fi
+          
+          # 새로운 백엔드 파일들로 교체
+          rm -rf ~/backend
+          cp -r backend ~/backend
+          
+          # .env 파일 복원
+          if [ -f ~/backend_env_backup ]; then
+            cp ~/backend_env_backup ~/backend/.env
+            echo "📄 .env file restored"
+          fi
           
           echo "📦 Installing dependencies..."
+          cd ~/backend
           npm install --production || { echo "❌ npm install failed"; exit 1; }
           
-          echo "🔄 Restarting backend..."
-          pm2 restart mingling-backend || pm2 start index.js --name "mingling-backend"
+          echo "🔄 Starting backend..."
+          pm2 start index.js --name "mingling-backend"
           
           echo "📊 Checking PM2 status..."
           pm2 status
+          
+          echo "🧪 Testing API..."
+          sleep 3
+          curl -s localhost:8001/api/health || echo "⚠️ API test failed"
+          
+          echo "🗑️ Cleanup temporary files..."
+          rm -rf ~/backend_temp ~/backend_env_backup
           
           echo "✅ Backend deployment completed!" 

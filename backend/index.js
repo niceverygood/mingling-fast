@@ -49,8 +49,8 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     autoDeployment: 'enabled',
-    version: '1.0.6',
-    securityGroupFix: 'Testing AWS Security Group SSH rule fix for GitHub Actions! 🔓'
+    version: '1.0.7',
+    deploymentMethod: 'Improved GitHub Actions workflow with clean directory structure! 🎯'
   });
 });
 
