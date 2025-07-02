@@ -8,6 +8,7 @@ import BottomNavigation from './components/BottomNavigation';
 import PersonaManagement from './pages/PersonaCreation/PersonaManagement';
 import PersonaCreation from './pages/PersonaCreation/PersonaCreation';
 import PersonaEdit from './pages/PersonaCreation/PersonaEdit';
+import TestPage from './TestPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './App.css';
 
@@ -43,7 +44,7 @@ function AppContent() {
       {/* Main Content */}
       <div className="max-w-md mx-auto bg-white min-h-screen relative">
         <Routes>
-          <Route path="/" element={<ChatListPage />} />
+          <Route path="/app" element={<ChatListPage />} />
           <Route path="/chats" element={<ChatListPage />} />
           <Route path="/for-you" element={<ForYouPage />} />
           <Route path="/my" element={<MyPage />} />
@@ -62,11 +63,16 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
+    <Router>
+      <Routes>
+        <Route path="/" element={<TestPage />} />
+        <Route path="/*" element={
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        } />
+      </Routes>
+    </Router>
   );
 }
 
