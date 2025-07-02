@@ -1,11 +1,11 @@
 {
   "version": 2,
   "name": "mingling-fast-frontend",
-  "buildCommand": "cd frontend && npm ci && npm run build",
-  "outputDirectory": "frontend/build",
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
   "framework": "create-react-app",
-  "installCommand": "cd frontend && npm ci",
-  "devCommand": "cd frontend && npm start",
+  "installCommand": "npm ci",
+  "devCommand": "npm start",
   "rewrites": [
     {
       "source": "/api/(.*)",
