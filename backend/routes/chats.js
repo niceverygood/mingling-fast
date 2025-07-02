@@ -5,11 +5,22 @@ const prisma = new PrismaClient();
 
 // OpenAI 설정 (테스트 환경이 아닐 때만)
 let openai = null;
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
+console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length);
+
 if (process.env.NODE_ENV !== 'test' && process.env.OPENAI_API_KEY) {
-  const OpenAI = require('openai');
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  });
+  try {
+    const OpenAI = require('openai');
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+    console.log('✅ OpenAI initialized successfully');
+  } catch (error) {
+    console.error('❌ OpenAI initialization failed:', error.message);
+  }
+} else {
+  console.log('❌ OpenAI not initialized - NODE_ENV:', process.env.NODE_ENV, 'API_KEY exists:', !!process.env.OPENAI_API_KEY);
 }
 
 // GET /api/chats - 채팅 목록 조회
@@ -101,10 +112,10 @@ router.get('/', async (req, res) => {
         });
 
         // 샘플 메시지 생성
-                  await prisma.message.create({
-            data: {
-              chatId: chat.id,
-              userId: firebaseUserId,
+        await prisma.message.create({
+          data: {
+            chatId: chat.id,
+            userId: firebaseUserId,
             content: chat.lastMessage,
             isFromUser: false
           }
@@ -375,21 +386,21 @@ ${conversationHistory}
 현재 대화 상대가 "${userMessage}"라고 말했습니다. ${character.name}의 입장에서 이 메시지에 대해 자연스럽고 캐릭터다운 응답을 해주세요.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: 'gpt-3.5-turbo',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content: systemPrompt
         },
         {
-          role: "user",
+          role: 'user',
           content: userMessage
         }
       ],
       max_tokens: 200,
       temperature: 0.9,
       presence_penalty: 0.3,
-      frequency_penalty: 0.2,
+      frequency_penalty: 0.2
     });
 
     const response = completion.choices[0].message.content.trim();

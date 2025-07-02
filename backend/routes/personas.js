@@ -234,7 +234,7 @@ router.put('/:id', async (req, res) => {
         basicInfo: basicInfo?.trim() || null,
         habits: habits?.trim() || null,
         appearance: appearance?.trim() || null,
-        personality: personality?.trim() || null,
+        personality: personality?.trim() || null
       },
       select: {
         id: true,

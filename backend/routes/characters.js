@@ -223,11 +223,11 @@ router.post('/', async (req, res) => {
         height: height?.trim() || null,
         likes: likes?.trim() || null,
         dislikes: dislikes?.trim() || null,
-        hashtags: hashtags || null,
+        hashtags: hashtags || undefined,
         gender: gender || 'undisclosed',
         firstImpression: firstImpression?.trim() || null,
         basicSetting: basicSetting?.trim() || null,
-        weapons: weapons || null,
+        weapons: weapons || undefined,
         isCommercial: isCommercial || false,
         allowViolence: allowViolence || false,
         backupChats: backupChats !== false,
@@ -251,7 +251,9 @@ router.post('/', async (req, res) => {
     res.status(201).json(character);
   } catch (error) {
     console.error('Error creating character:', error);
-    res.status(500).json({ error: 'Failed to create character' });
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ error: 'Failed to create character', details: error.message });
   }
 });
 
@@ -403,11 +405,11 @@ router.put('/:id', async (req, res) => {
         height: height?.trim() || null,
         likes: likes?.trim() || null,
         dislikes: dislikes?.trim() || null,
-        hashtags: hashtags || null,
+        hashtags: hashtags || undefined,
         gender: gender || 'undisclosed',
         firstImpression: firstImpression?.trim() || null,
         basicSetting: basicSetting?.trim() || null,
-        weapons: weapons || null,
+        weapons: weapons || undefined,
         isCommercial: isCommercial || false,
         allowViolence: allowViolence || false,
         backupChats: backupChats !== false,
