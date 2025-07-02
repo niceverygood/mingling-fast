@@ -49,8 +49,8 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     autoDeployment: 'enabled',
-    version: '1.0.4',
-    deploymentStatus: 'GitHub Actions auto-deployment fully operational! 🚀'
+    version: '1.0.5',
+    connectionStatus: 'Testing improved SSH timeout settings for GitHub Actions 🔧'
   });
 });
 
