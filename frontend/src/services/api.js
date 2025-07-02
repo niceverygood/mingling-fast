@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // API 베이스 URL 설정
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'http://54.206.56.18:8001'
+  ? 'http://3.35.49.121:8001'
   : 'http://localhost:8001';
 
 // Axios 인스턴스 생성
