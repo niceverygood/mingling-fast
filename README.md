@@ -107,6 +107,83 @@ NODE_ENV=development
 - Tailwind CSS를 활용한 모던 UI
 - 하단 네비게이션을 통한 직관적인 탐색
 
+---
+
+# 🚀 **배포 가이드**
+
+## 📦 **Vercel 프론트엔드 배포**
+
+### **1단계: 저장소 연결**
+1. [Vercel Dashboard](https://vercel.com/dashboard) 접속
+2. "New Project" 클릭  
+3. GitHub 저장소 선택: `niceverygood/mingling-fast`
+
+### **2단계: 프로젝트 설정**
+```bash
+Framework Preset: Create React App
+Root Directory: frontend
+Build Command: npm run build  
+Output Directory: build
+Install Command: npm ci
+```
+
+### **3단계: 환경변수 설정**
+Vercel 프로젝트 설정에서 다음 환경변수들을 추가:
+
+```bash
+# Firebase 설정
+REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+
+# 백엔드 API URL (백엔드 배포 후 설정)
+REACT_APP_API_BASE_URL=https://your-backend-domain.com
+```
+
+### **4단계: 배포 실행**
+"Deploy" 버튼 클릭하여 자동 배포 시작
+
+## 🖥 **백엔드 배포 옵션**
+
+### **Railway 배포 (권장)**
+1. [Railway](https://railway.app) 접속
+2. GitHub 저장소 연결
+3. Root Directory: `backend` 설정
+4. 환경변수 설정:
+```bash
+DATABASE_URL=mysql://user:pass@host:port/database
+OPENAI_API_KEY=your_openai_api_key
+JWT_SECRET=your_jwt_secret_key_here
+PORT=8001
+NODE_ENV=production
+ALLOWED_ORIGINS=https://your-vercel-domain.vercel.app
+```
+
+### **AWS EC2 배포**
+```bash
+# 서버 세팅
+sudo apt update
+sudo apt install nodejs npm mysql-server
+
+# 애플리케이션 배포
+git clone https://github.com/niceverygood/mingling-fast.git
+cd mingling-fast/backend
+npm install --production
+npm run db:generate
+npm run db:push
+npm start
+```
+
+## 🔐 **보안 설정**
+- ✅ Helmet.js (보안 헤더)
+- ✅ HPP (파라미터 오염 방지)
+- ✅ Rate Limiting (15분/100요청)
+- ✅ CORS 환경변수 관리
+- ✅ Winston 로깅 시스템
+
 ## 📄 라이선스
 
 MIT License 
