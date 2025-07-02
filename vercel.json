@@ -9,7 +9,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://your-backend-url.com/api/$1"
+      "destination": "http://3.35.49.121:8001/api/$1"
     }
   ],
   "headers": [
