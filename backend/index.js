@@ -9,13 +9,12 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 8001;
 
-// CORS 설정
-const allowedOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:3000'];
+// CORS 설정 - 개발용으로 간소화
 
 // Security middlewares
-app.use(helmet());
+app.use(helmet({
+  crossOriginEmbedderPolicy: false
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -26,10 +25,11 @@ const limiter = rateLimit({
 app.use(limiter);
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: true, // 개발용: 모든 origin 허용
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID', 'X-User-Email'],
-  exposedHeaders: ['X-User-ID', 'X-User-Email']
+  exposedHeaders: ['X-User-ID', 'X-User-Email'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 app.use(express.json({ limit: '10mb' }));

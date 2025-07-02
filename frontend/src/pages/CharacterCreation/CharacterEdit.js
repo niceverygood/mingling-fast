@@ -129,6 +129,11 @@ const CharacterEdit = ({ characterId, onClose, onUpdate }) => {
       return;
     }
 
+    if (!formData.avatarUrl) {
+      alert('프로필 이미지를 선택해주세요.');
+      return;
+    }
+
     if (!formData.characterType) {
       alert('캐릭터 카테고리를 선택해주세요.');
       return;

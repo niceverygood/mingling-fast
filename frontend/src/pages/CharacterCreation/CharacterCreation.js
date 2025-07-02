@@ -94,6 +94,11 @@ const CharacterCreation = ({ onClose, onComplete }) => {
       return;
     }
 
+    if (!formData.avatarUrl) {
+      alert('프로필 이미지를 선택해주세요.');
+      return;
+    }
+
     if (!formData.characterType) {
       alert('캐릭터 카테고리를 선택해주세요.');
       return;
@@ -135,9 +140,9 @@ const CharacterCreation = ({ onClose, onComplete }) => {
           <h1 className="text-lg font-medium text-black">캐릭터 만들기</h1>
           <button 
             onClick={handleComplete}
-            disabled={loading || !formData.name.trim() || !formData.characterType}
+            disabled={loading || !formData.name.trim() || !formData.avatarUrl || !formData.characterType}
             className={`text-sm font-medium ${
-              loading || !formData.name.trim() || !formData.characterType
+              loading || !formData.name.trim() || !formData.avatarUrl || !formData.characterType
                 ? 'text-gray-300'
                 : 'text-pink-500'
             }`}
@@ -150,11 +155,13 @@ const CharacterCreation = ({ onClose, onComplete }) => {
         <div className="p-4 space-y-6 pb-32">
           {/* 프로필 이미지 */}
           <div>
-            <h3 className="text-base font-medium text-black mb-3">프로필 이미지</h3>
+            <h3 className="text-base font-medium text-black mb-3">프로필 이미지 (필수)</h3>
             <div className="flex flex-col items-center">
               <button 
                 onClick={handleImageUpload}
-                className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mb-3"
+                className={`w-20 h-20 rounded-full flex items-center justify-center mb-3 ${
+                  formData.avatarUrl ? 'bg-pink-100' : 'bg-red-100 border-2 border-red-300'
+                }`}
               >
                 {formData.avatarUrl ? (
                   <img 
@@ -163,7 +170,7 @@ const CharacterCreation = ({ onClose, onComplete }) => {
                     className="w-20 h-20 rounded-full object-cover"
                   />
                 ) : (
-                  <CameraIcon className="w-8 h-8 text-pink-500" />
+                  <CameraIcon className="w-8 h-8 text-red-500" />
                 )}
               </button>
               <span className="text-sm text-gray-600">이미지</span>
@@ -443,17 +450,13 @@ const CharacterCreation = ({ onClose, onComplete }) => {
             </div>
           </div>
 
-
-
-
-
           {/* 완료 버튼 */}
           <div className="pt-6">
             <button
               onClick={handleComplete}
-              disabled={loading || !formData.name.trim() || !formData.characterType}
+              disabled={loading || !formData.name.trim() || !formData.avatarUrl || !formData.characterType}
               className={`w-full py-4 rounded-xl font-medium ${
-                loading || !formData.name.trim() || !formData.characterType
+                loading || !formData.name.trim() || !formData.avatarUrl || !formData.characterType
                   ? 'bg-gray-200 text-gray-400'
                   : 'bg-pink-500 text-white'
               }`}
