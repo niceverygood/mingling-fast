@@ -20,12 +20,19 @@ const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
     try {
       setLoading(true);
       const response = await axios.get('/api/personas');
-      setPersonas(response.data);
-      if (response.data.length > 0) {
-        setSelectedPersona(response.data[0].id);
+      // 응답이 배열인지 확인
+      if (Array.isArray(response.data)) {
+        setPersonas(response.data);
+        if (response.data.length > 0) {
+          setSelectedPersona(response.data[0].id);
+        }
+      } else {
+        console.error('Received non-array response:', response.data);
+        setPersonas([]);
       }
     } catch (error) {
       console.error('Error fetching personas:', error);
+      setPersonas([]);
     } finally {
       setLoading(false);
     }

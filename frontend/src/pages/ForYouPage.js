@@ -25,9 +25,16 @@ const ForYouPage = () => {
   const fetchRecommendedCharacters = async () => {
     try {
       const response = await axios.get('/api/characters/recommended');
-      setCharacters(response.data);
+      // 응답이 배열인지 확인
+      if (Array.isArray(response.data)) {
+        setCharacters(response.data);
+      } else {
+        console.error('Received non-array response:', response.data);
+        setCharacters([]);
+      }
     } catch (error) {
       console.error('Error fetching recommended characters:', error);
+      setCharacters([]);
     } finally {
       setLoading(false);
     }

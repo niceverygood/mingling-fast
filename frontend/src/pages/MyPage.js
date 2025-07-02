@@ -85,18 +85,32 @@ const MyPage = () => {
   const fetchMyCharacters = async () => {
     try {
       const response = await axios.get('/api/characters/my');
-      setMyCharacters(response.data);
+      // 응답이 배열인지 확인
+      if (Array.isArray(response.data)) {
+        setMyCharacters(response.data);
+      } else {
+        console.error('Received non-array response:', response.data);
+        setMyCharacters([]);
+      }
     } catch (error) {
       console.error('Error fetching my characters:', error);
+      setMyCharacters([]);
     }
   };
 
   const fetchMyPersonas = async () => {
     try {
       const response = await axios.get('/api/personas/my');
-      setMyPersonas(response.data);
+      // 응답이 배열인지 확인
+      if (Array.isArray(response.data)) {
+        setMyPersonas(response.data);
+      } else {
+        console.error('Received non-array response:', response.data);
+        setMyPersonas([]);
+      }
     } catch (error) {
       console.error('Error fetching my personas:', error);
+      setMyPersonas([]);
     }
   };
 

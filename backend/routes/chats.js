@@ -89,11 +89,11 @@ router.get('/', async (req, res) => {
 
       const characters = await prisma.character.findMany({ take: 2 });
       
-        // 샘플 채팅 생성
-        for (const char of characters) {
-          const chat = await prisma.chat.create({
-            data: {
-              userId: firebaseUserId,
+      // 샘플 채팅 생성
+      for (const char of characters) {
+        const chat = await prisma.chat.create({
+          data: {
+            userId: firebaseUserId,
             characterId: char.id,
             lastMessage: char.name === '아이아' ? '왜 개발자시군요. 어떤 언어를 주로 사용하세요?' : '좋아해줘서 어떤 종류의 마음을 다루고 계시니요?',
             lastMessageAt: new Date(Date.now() - (char.name === '아이아' ? 14 * 60 * 60 * 1000 : 23 * 60 * 60 * 1000))

@@ -1,9 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
-const logger = require('./utils/logger');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
@@ -11,29 +9,28 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 8001;
 
+// CORS 설정
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',')
+  : ['http://localhost:3000'];
+
+// Security middlewares
+app.use(helmet());
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP'
 });
-
-// Security middleware
-app.use(helmet());
-app.use(hpp());
 app.use(limiter);
-
-// CORS 설정
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:8000', 'http://127.0.0.1:8000'];
 
 app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // API Routes
 app.use('/api/users', require('./routes/users'));
@@ -50,15 +47,15 @@ app.get('/api/health', (req, res) => {
 });
 
 // Error handling
-app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', { error: err.message, stack: err.stack });
+app.use((err, req, res, _next) => {
+  console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // 테스트 환경이 아닐 때만 서버 시작
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    logger.info(`🚀 Backend server running on http://localhost:${PORT}`);
+    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
   });
 }
 

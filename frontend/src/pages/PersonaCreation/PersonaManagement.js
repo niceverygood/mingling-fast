@@ -15,9 +15,16 @@ const PersonaManagement = () => {
   const fetchPersonas = async () => {
     try {
       const response = await axios.get('/api/personas');
-      setPersonas(response.data);
+      // 응답이 배열인지 확인
+      if (Array.isArray(response.data)) {
+        setPersonas(response.data);
+      } else {
+        console.error('Received non-array response:', response.data);
+        setPersonas([]);
+      }
     } catch (error) {
       console.error('Error fetching personas:', error);
+      setPersonas([]);
     } finally {
       setLoading(false);
     }

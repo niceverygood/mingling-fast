@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeftIcon, CameraIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 
@@ -16,12 +16,7 @@ const PersonaEdit = ({ personaId, onClose, onUpdate }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchPersonaData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personaId]);
-
-  const fetchPersonaData = async () => {
+  const fetchPersonaData = useCallback(async () => {
     try {
       const response = await axios.get(`/api/personas/${personaId}`);
       const persona = response.data;
@@ -40,7 +35,11 @@ const PersonaEdit = ({ personaId, onClose, onUpdate }) => {
       alert('페르소나 정보를 불러오는데 실패했습니다.');
       onClose();
     }
-  };
+  }, [personaId, onClose]);
+
+  useEffect(() => {
+    fetchPersonaData();
+  }, [fetchPersonaData]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({

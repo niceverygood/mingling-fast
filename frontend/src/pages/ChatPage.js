@@ -39,8 +39,12 @@ const ChatPage = () => {
     try {
       // 채팅 목록에서 해당 채팅 정보 찾기
       const response = await axios.get('/api/chats');
-      const chat = response.data.find(c => c.id === chatId);
-      setChatInfo(chat);
+      if (Array.isArray(response.data)) {
+        const chat = response.data.find(c => c.id === chatId);
+        setChatInfo(chat);
+      } else {
+        console.error('Received non-array response for chats:', response.data);
+      }
     } catch (error) {
       console.error('Error fetching chat info:', error);
     }
@@ -49,9 +53,16 @@ const ChatPage = () => {
   const fetchMessages = async () => {
     try {
       const response = await axios.get(`/api/chats/${chatId}/messages`);
-      setMessages(response.data);
+      // 응답이 배열인지 확인
+      if (Array.isArray(response.data)) {
+        setMessages(response.data);
+      } else {
+        console.error('Received non-array response for messages:', response.data);
+        setMessages([]);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
@@ -80,7 +91,16 @@ const ChatPage = () => {
         content: newMessage
       });
       
-      setMessages([...messages, ...messageResponse.data]);
+      // 응답이 배열인지 확인
+      if (Array.isArray(messageResponse.data)) {
+        setMessages([...messages, ...messageResponse.data]);
+      } else {
+        console.error('Received non-array response for new messages:', messageResponse.data);
+        // 단일 메시지인 경우를 대비하여 배열로 감싸서 추가
+        if (messageResponse.data && typeof messageResponse.data === 'object') {
+          setMessages([...messages, messageResponse.data]);
+        }
+      }
       setNewMessage('');
       setHearts(heartResponse.data.hearts); // 업데이트된 하트 수 반영
     } catch (error) {
