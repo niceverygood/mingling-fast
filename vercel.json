@@ -3,5 +3,30 @@
     "backend/index.js": {
       "runtime": "nodejs18.x"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://api.minglingchat.com/api/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
 } 
