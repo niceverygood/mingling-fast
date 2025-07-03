@@ -3,11 +3,37 @@ const cors = require('cors');
 // const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
+const OpenAI = require('openai');
 require('dotenv').config();
+
+// OpenAI 초기화
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
+console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length);
+
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  try {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+    console.log('✅ OpenAI initialized successfully');
+  } catch (error) {
+    console.error('❌ OpenAI initialization failed:', error.message);
+  }
+} else {
+  console.log('❌ OpenAI not initialized - NODE_ENV:', process.env.NODE_ENV, 'API_KEY exists:', !!process.env.OPENAI_API_KEY);
+}
+
+// OpenAI 인스턴스를 전역으로 내보내기
+global.openai = openai;
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 8001;
+
+// Trust proxy 설정 - Cloudflare 프록시 환경에서 필요
+app.set('trust proxy', true);
 
 // Express 기본 설정 - 헤더 크기 제한 증가
 app.use(express.json({ limit: '10mb' }));
@@ -35,13 +61,15 @@ app.use(cors({
       'https://minglingchat.com',
       'https://www.minglingchat.com', 
       'https://mingling-new.vercel.app',
-      'https://mingling-lqhx1ktyj-malshues-projects.vercel.app', // Vercel 프리뷰 도메인
       'http://localhost:3000', // 로컬 개발
       'http://localhost:8001'  // 로컬 백엔드
     ];
     
     // Origin이 없거나 (직접 접근) 허용된 도메인인 경우 허용
     if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else if (origin && origin.includes('vercel.app')) {
+      // Vercel 프리뷰 도메인들 허용
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
@@ -74,11 +102,13 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-// Rate limiting
+// Rate limiting - Trust proxy 설정 후 적용
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 개발환경에서는 제한 완화
-  message: 'Too many requests from this IP'
+  message: 'Too many requests from this IP',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false // Disable the `X-RateLimit-*` headers
 });
 app.use(limiter);
 
