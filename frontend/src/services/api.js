@@ -13,10 +13,11 @@ console.log('🔧 API Configuration:', {
 // Axios 인스턴스 생성
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000, // 타임아웃 증가
+  withCredentials: true, // 쿠키 포함
 });
 
-// 요청 인터셉터 - User ID 헤더 자동 추가
+// 요청 인터셉터 - User ID 헤더 자동 추가 및 개선
 api.interceptors.request.use(
   (config) => {
     // axios.defaults.headers.common에서 헤더 복사
@@ -26,9 +27,51 @@ api.interceptors.request.use(
     if (axios.defaults.headers.common['X-User-Email']) {
       config.headers['X-User-Email'] = axios.defaults.headers.common['X-User-Email'];
     }
+    
+    // 디버깅용 로그
+    console.log('🚀 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      headers: {
+        'X-User-ID': config.headers['X-User-ID'],
+        'X-User-Email': config.headers['X-User-Email'],
+        'Content-Type': config.headers['Content-Type']
+      }
+    });
+    
     return config;
   },
   (error) => {
+    console.error('🚨 API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// 응답 인터셉터 - 에러 처리 개선
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data ? 'Data received' : 'No data'
+    });
+    return response;
+  },
+  (error) => {
+    console.error('🚨 API Response Error:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      message: error.message,
+      data: error.response?.data
+    });
+    
+    if (error.response?.status === 401) {
+      console.warn('🔐 Authentication required - redirecting to login');
+      // 인증 오류 시 로그인 페이지로 리다이렉트하지 않고 에러만 로그
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -157,17 +200,5 @@ export const authAPI = {
   // 회원탈퇴
   withdraw: () => api.delete('/api/auth/withdraw'),
 };
-
-// 에러 처리를 위한 인터셉터
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // 인증 오류 시 로그인 페이지로 리다이렉트
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
 
 export default api; 

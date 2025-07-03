@@ -27,31 +27,42 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS 설정 - 개발용으로 간소화
-
-// Security middlewares - 개발환경에서는 helmet 비활성화
-// app.use(helmet({
-//   crossOriginEmbedderPolicy: false
-// }));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 개발환경에서는 제한 완화
-  message: 'Too many requests from this IP'
-});
-app.use(limiter);
-
+// CORS 설정 - Cloudflare 및 Vercel 환경 최적화
 app.use(cors({
   origin: function (origin, callback) {
-    // 모든 origin 허용 (CORS 문제 해결을 위해)
-    callback(null, true);
+    // 허용된 도메인 목록
+    const allowedOrigins = [
+      'https://minglingchat.com',
+      'https://www.minglingchat.com', 
+      'https://mingling-new.vercel.app',
+      'https://mingling-lqhx1ktyj-malshues-projects.vercel.app', // Vercel 프리뷰 도메인
+      'http://localhost:3000', // 로컬 개발
+      'http://localhost:8001'  // 로컬 백엔드
+    ];
+    
+    // Origin이 없거나 (직접 접근) 허용된 도메인인 경우 허용
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // 개발 중에는 모든 origin 허용
+    }
   },
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID', 'X-User-Email'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-User-ID', 
+    'X-User-Email',
+    'X-Forwarded-For',
+    'X-Real-IP',
+    'CF-Ray',
+    'CF-IPCountry'
+  ],
   exposedHeaders: ['X-User-ID', 'X-User-Email'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  optionsSuccessStatus: 200
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 }));
 
 // 프리플라이트 요청 명시적 처리
@@ -62,6 +73,14 @@ app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   res.sendStatus(200);
 });
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 개발환경에서는 제한 완화
+  message: 'Too many requests from this IP'
+});
+app.use(limiter);
 
 // API Routes
 app.use('/api/users', require('./routes/users'));
