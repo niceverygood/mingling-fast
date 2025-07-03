@@ -5,6 +5,13 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://api.minglingchat.com'
   : 'http://localhost:8001';
 
+// 디버깅용 로그
+console.log('🔧 API Configuration:', {
+  NODE_ENV: process.env.NODE_ENV,
+  API_BASE_URL: API_BASE_URL,
+  window_location: typeof window !== 'undefined' ? window.location.href : 'N/A'
+});
+
 // Axios 인스턴스 생성
 const api = axios.create({
   baseURL: API_BASE_URL,
