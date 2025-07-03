@@ -7,6 +7,9 @@ import PersonaEdit from './PersonaEdit';
 const PersonaManagement = () => {
   const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedPersonaId, setSelectedPersonaId] = useState(null);
 
   useEffect(() => {
     fetchPersonas();
@@ -46,15 +49,27 @@ const PersonaManagement = () => {
   };
 
   const handleBack = () => {
-    // Implement the back functionality
+    window.history.back();
   };
 
   const handleCreatePersona = () => {
-    // Implement the create persona functionality
+    setShowCreateModal(true);
   };
 
   const handleEditPersona = (personaId) => {
-    // Implement the edit persona functionality
+    setSelectedPersonaId(personaId);
+    setShowEditModal(true);
+  };
+
+  const handlePersonaCreated = (newPersona) => {
+    setPersonas([...personas, newPersona]);
+    setShowCreateModal(false);
+  };
+
+  const handlePersonaUpdated = (updatedPersona) => {
+    setPersonas(personas.map(p => p.id === updatedPersona.id ? updatedPersona : p));
+    setShowEditModal(false);
+    setSelectedPersonaId(null);
   };
 
   return (
@@ -153,6 +168,26 @@ const PersonaManagement = () => {
           </div>
         )}
       </div>
+
+      {/* 페르소나 생성 모달 */}
+      {showCreateModal && (
+        <PersonaCreation
+          onClose={() => setShowCreateModal(false)}
+          onComplete={handlePersonaCreated}
+        />
+      )}
+
+      {/* 페르소나 편집 모달 */}
+      {showEditModal && selectedPersonaId && (
+        <PersonaEdit
+          personaId={selectedPersonaId}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedPersonaId(null);
+          }}
+          onUpdate={handlePersonaUpdated}
+        />
+      )}
     </div>
   );
 };
