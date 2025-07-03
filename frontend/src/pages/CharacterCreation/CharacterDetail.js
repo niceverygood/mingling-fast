@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { ChevronLeftIcon, PencilIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { charactersAPI } from '../../services/api';
+import PersonaSelection from '../PersonaCreation/PersonaSelection';
 
 const CharacterDetail = ({ characterId, onClose, onEdit }) => {
   const [character, setCharacter] = useState(null);
@@ -13,7 +14,7 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
 
   const fetchCharacterData = async () => {
     try {
-      const response = await axios.get(`/api/characters/${characterId}`);
+              const response = await charactersAPI.getById(characterId);
       setCharacter(response.data);
       setLoading(false);
     } catch (error) {
@@ -57,7 +58,7 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
                   <PencilIcon className="w-5 h-5" />
                 </button>
                 <button onClick={onClose} className="p-2">
-                  <XMarkIcon className="w-6 h-6 text-gray-600" />
+                  <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
                 </button>
               </div>
             </div>

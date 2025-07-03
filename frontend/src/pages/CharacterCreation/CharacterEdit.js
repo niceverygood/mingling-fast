@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeftIcon, CameraIcon, PlusIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { charactersAPI } from '../../services/api';
 import CategorySelection from './CategorySelection';
 import HashtagSelection from './HashtagSelection';
 
@@ -35,8 +35,8 @@ const CharacterEdit = ({ characterId, onClose, onUpdate }) => {
 
   const fetchCharacterData = async () => {
     try {
-      const response = await axios.get(`/api/characters/${characterId}`);
-      const character = response.data;
+              const response = await charactersAPI.getById(characterId);
+        const character = response.data;
       setFormData({
         name: character.name || '',
         age: character.age || '',
@@ -147,7 +147,7 @@ const CharacterEdit = ({ characterId, onClose, onUpdate }) => {
         backupChats: formData.allowBackup
       };
 
-      const response = await axios.put(`/api/characters/${characterId}`, characterData);
+              const response = await charactersAPI.update(characterId, characterData);
       onUpdate(response.data);
       onClose();
     } catch (error) {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeftIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { personasAPI } from '../../services/api';
+import PersonaCreation from './PersonaCreation';
+import PersonaEdit from './PersonaEdit';
 
 const PersonaManagement = () => {
   const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchPersonas();
@@ -14,7 +14,7 @@ const PersonaManagement = () => {
 
   const fetchPersonas = async () => {
     try {
-      const response = await axios.get('/api/personas');
+              const response = await personasAPI.getAll();
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setPersonas(response.data);
@@ -36,7 +36,7 @@ const PersonaManagement = () => {
     }
 
     try {
-      await axios.delete(`/api/personas/${personaId}`);
+              await personasAPI.delete(personaId);
       setPersonas(personas.filter(p => p.id !== personaId));
       alert('페르소나가 삭제되었습니다.');
     } catch (error) {
@@ -46,15 +46,15 @@ const PersonaManagement = () => {
   };
 
   const handleBack = () => {
-    navigate(-1);
+    // Implement the back functionality
   };
 
   const handleCreatePersona = () => {
-    navigate('/persona-creation');
+    // Implement the create persona functionality
   };
 
   const handleEditPersona = (personaId) => {
-    navigate(`/persona-edit/${personaId}`);
+    // Implement the edit persona functionality
   };
 
   return (
@@ -66,7 +66,7 @@ const PersonaManagement = () => {
             onClick={handleBack}
             className="p-2 hover:bg-gray-100 rounded-full"
           >
-            <ArrowLeftIcon className="w-6 h-6 text-gray-600" />
+            <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
           </button>
           <h1 className="text-lg font-semibold text-gray-900">멀티프로필 관리</h1>
         </div>

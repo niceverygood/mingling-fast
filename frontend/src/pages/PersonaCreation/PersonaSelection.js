@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { personasAPI, chatsAPI } from '../../services/api';
 
 const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
   const [personas, setPersonas] = useState([]);
@@ -19,7 +19,7 @@ const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
   const fetchPersonas = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/personas');
+              const response = await personasAPI.getAll();
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setPersonas(response.data);
@@ -45,10 +45,10 @@ const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
     }
 
     try {
-      const response = await axios.post('/api/chats', { 
-        characterId,
-        personaId: selectedPersona
-      });
+              const response = await chatsAPI.create({ 
+          characterId,
+          personaId: selectedPersona
+        });
       
       onClose();
       // 채팅 페이지로 이동

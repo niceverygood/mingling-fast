@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { personasAPI } from '../../services/api';
 
 const PersonaDetail = ({ personaId, onClose, onEdit }) => {
   const [persona, setPersona] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchPersonaData = useCallback(async () => {
+  const fetchPersonaData = async () => {
     try {
-      const response = await axios.get(`/api/personas/${personaId}`);
+              const response = await personasAPI.getById(personaId);
       setPersona(response.data);
       setLoading(false);
     } catch (error) {
@@ -16,11 +16,11 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
       alert('페르소나 정보를 불러오는데 실패했습니다.');
       onClose();
     }
-  }, [personaId, onClose]);
+  };
 
   useEffect(() => {
     fetchPersonaData();
-  }, [fetchPersonaData]);
+  }, []);
 
   const handleEdit = () => {
     onEdit(persona);
@@ -56,7 +56,7 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
                   <PencilIcon className="w-5 h-5" />
                 </button>
                 <button onClick={onClose} className="p-2">
-                  <XMarkIcon className="w-6 h-6 text-gray-600" />
+                  <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
                 </button>
               </div>
             </div>

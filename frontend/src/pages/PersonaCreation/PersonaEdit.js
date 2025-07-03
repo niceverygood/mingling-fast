@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeftIcon, CameraIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { personasAPI } from '../../services/api';
 
 const PersonaEdit = ({ personaId, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
@@ -18,8 +18,8 @@ const PersonaEdit = ({ personaId, onClose, onUpdate }) => {
 
   const fetchPersonaData = useCallback(async () => {
     try {
-      const response = await axios.get(`/api/personas/${personaId}`);
-      const persona = response.data;
+              const response = await personasAPI.getById(personaId);
+        const persona = response.data;
       setFormData({
         name: persona.name || '',
         age: persona.age || '',
@@ -78,8 +78,8 @@ const PersonaEdit = ({ personaId, onClose, onUpdate }) => {
 
     setSaving(true);
     try {
-      const response = await axios.put(`/api/personas/${personaId}`, formData);
-      onUpdate(response.data);
+              const response = await personasAPI.update(personaId, formData);
+        onUpdate(response.data);
       onClose();
     } catch (error) {
       console.error('Error updating persona:', error);

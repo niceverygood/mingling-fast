@@ -4,7 +4,7 @@ import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
 import PersonaSelection from './PersonaCreation/PersonaSelection';
-import axios from 'axios';
+import { charactersAPI } from '../services/api';
 
 const ForYouPage = () => {
   const { isLoggedIn } = useAuth();
@@ -24,7 +24,7 @@ const ForYouPage = () => {
 
   const fetchRecommendedCharacters = async () => {
     try {
-      const response = await axios.get('/api/characters/recommended');
+      const response = await charactersAPI.getRecommended();
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setCharacters(response.data);
