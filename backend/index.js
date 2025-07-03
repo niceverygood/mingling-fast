@@ -53,51 +53,47 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS 설정 - 모든 도메인 허용 (개발/운영 통합)
+// CORS 설정 - 모든 origin 허용
 const corsOptions = {
-  origin: function (origin, callback) {
-    // 모든 origin 허용 (개발 및 운영 환경)
-    console.log('CORS origin check:', origin);
-    callback(null, true);
-  },
+  origin: true, // 모든 origin 허용
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-User-ID', 
-    'X-User-Email',
-    'X-Forwarded-For',
-    'X-Real-IP',
-    'CF-Ray',
-    'CF-IPCountry',
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
     'Access-Control-Allow-Origin',
     'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Methods'
+    'Access-Control-Allow-Methods',
+    'Access-Control-Allow-Credentials'
   ],
-  exposedHeaders: ['X-User-ID', 'X-User-Email'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH'],
-  optionsSuccessStatus: 200,
-  preflightContinue: false
+  exposedHeaders: [
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods',
+    'Access-Control-Allow-Credentials'
+  ]
 };
 
 app.use(cors(corsOptions));
 
-// 추가 CORS 헤더 설정 미들웨어
+// 추가 CORS 헤더 설정
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD,PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-User-Email, X-Forwarded-For, X-Real-IP, CF-Ray, CF-IPCountry');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods, Access-Control-Allow-Credentials');
+  res.header('Access-Control-Expose-Headers', 'Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods, Access-Control-Allow-Credentials');
   
+  // OPTIONS 요청에 대한 응답
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
+    res.status(200).end();
     return;
   }
+  
   next();
 });
 
