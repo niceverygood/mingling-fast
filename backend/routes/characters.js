@@ -114,34 +114,7 @@ router.get('/recommended', async (req, res) => {
       }
     });
 
-    // 캐릭터가 없으면 샘플 데이터 반환
-    if (characters.length === 0) {
-      const sampleCharacters = [
-        {
-          id: 'sample-1',
-          name: '셜록 홈즈',
-          age: '35',
-          description: '세계 최고의 탐정',
-          personality: '베이커 221B에서 거주하는 세계 최고의 자문 탐정입니다.',
-          firstImpression: '날카로운 관찰력과 차분한 분석력을 가진 신사적인 탐정. 첫 만남에서도 상대방의 과거를 정확히 추론해낸다.',
-          basicSetting: '런던 베이커가 221B에서 거주하며 복잡한 사건들을 해결하는 자문 탐정. 논리적 사고와 과학적 수사 방법을 즐겨 사용한다.',
-          avatarUrl: null,
-          user: { username: '운영자' }
-        },
-        {
-          id: 'sample-2',
-          name: '아인슈타인',
-          age: '76',
-          description: '천재 물리학자',
-          personality: '상대성이론을 발견한 20세기 최고의 과학자입니다.',
-          firstImpression: '부드러운 미소와 호기심 가득한 눈빛을 가진 따뜻한 과학자. 복잡한 개념도 쉽게 설명해주는 친근함이 있다.',
-          basicSetting: '물리학과 수학에 깊은 통찰력을 가진 이론물리학자. 우주의 원리를 탐구하며 창의적이고 자유로운 사고를 중시한다.',
-          avatarUrl: null,
-          user: { username: '운영자' }
-        }
-      ];
-      return res.json(sampleCharacters);
-    }
+    // 더미 데이터 제거 - 실제 데이터만 반환
 
     res.json(characters);
   } catch (error) {

@@ -6,37 +6,7 @@ import LoginModal from '../components/LoginModal';
 import axios, { AxiosResponse } from 'axios';
 import { Chat, ChatDisplayData } from '../types/chat';
 
-// 샘플 데이터 (컴포넌트 외부로 이동)
-const SAMPLE_CHATS: ChatDisplayData[] = [
-  {
-    id: 1,
-    character: {
-      name: '아이아',
-      avatarUrl: '', // 기본 아바타 사용
-      status: '민수'
-    },
-    lastMessage: '왜 개발자시군요. 어떤 언어를 주로 사용하세요?',
-    lastMessageAt: '14시간 전',
-    unreadCount: 1,
-    heartCount: 450,
-    emotion: '진한 친구',
-    emotionColor: 'text-blue-500'
-  },
-  {
-    id: 2,
-    character: {
-      name: '루나',
-      avatarUrl: '', // 기본 아바타 사용
-      status: '지훈'
-    },
-    lastMessage: '좋아들려요! 어떤 종류의 마법을 다루고 계신가요?',
-    lastMessageAt: '23시간 전',
-    unreadCount: 0,
-    heartCount: 280,
-    emotion: '가벼운 친구',
-    emotionColor: 'text-green-500'
-  }
-];
+// 더미 데이터 제거됨 - 실제 API 데이터만 사용
 
 const ChatListPage: React.FC = () => {
   const { isLoggedIn } = useAuth();
@@ -111,7 +81,7 @@ const ChatListPage: React.FC = () => {
   const displayChats: ChatDisplayData[] = useMemo(() => {
     return isLoggedIn && Array.isArray(chats) && chats.length > 0 
       ? chats.map(formatChatData) 
-      : SAMPLE_CHATS;
+      : []; // 더미 데이터 제거 - 실제 데이터만 표시
   }, [isLoggedIn, chats, formatChatData]);
 
   const handleLoginModalClose = (): void => {
