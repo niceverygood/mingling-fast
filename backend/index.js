@@ -54,8 +54,12 @@ app.use((req, res, next) => {
 });
 
 // CORS 설정 - 모든 도메인 허용 (개발/운영 통합)
-app.use(cors({
-  origin: true, // 모든 origin 허용
+const corsOptions = {
+  origin: function (origin, callback) {
+    // 모든 origin 허용 (개발 및 운영 환경)
+    console.log('CORS origin check:', origin);
+    callback(null, true);
+  },
   credentials: true,
   allowedHeaders: [
     'Content-Type', 
@@ -65,21 +69,36 @@ app.use(cors({
     'X-Forwarded-For',
     'X-Real-IP',
     'CF-Ray',
-    'CF-IPCountry'
+    'CF-IPCountry',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods'
   ],
   exposedHeaders: ['X-User-ID', 'X-User-Email'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH'],
   optionsSuccessStatus: 200,
   preflightContinue: false
-}));
+};
 
-// 프리플라이트 요청 명시적 처리
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-User-Email');
+app.use(cors(corsOptions));
+
+// 추가 CORS 헤더 설정 미들웨어
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-User-Email, X-Forwarded-For, X-Real-IP, CF-Ray, CF-IPCountry');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  next();
 });
 
 // 사용자 자동 생성 미들웨어
