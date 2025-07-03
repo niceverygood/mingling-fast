@@ -13,6 +13,20 @@ const PORT = process.env.PORT || 8001;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// 요청 로깅 미들웨어 추가 (디버깅용)
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Headers:', {
+    'user-agent': req.headers['user-agent'],
+    'x-forwarded-for': req.headers['x-forwarded-for'],
+    'cf-ray': req.headers['cf-ray'],
+    'cf-ipcountry': req.headers['cf-ipcountry'],
+    'origin': req.headers['origin'],
+    'host': req.headers['host']
+  });
+  next();
+});
+
 // CORS 설정 - 개발용으로 간소화
 
 // Security middlewares - 개발환경에서는 helmet 비활성화
