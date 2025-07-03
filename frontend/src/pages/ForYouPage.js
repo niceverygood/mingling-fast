@@ -70,12 +70,6 @@ const ForYouPage = () => {
 
   // 로그인하지 않은 경우 게스트 화면
   if (!isLoggedIn) {
-    const sampleCharacter = {
-      name: '아리',
-      age: '22',
-      description: '미술학과 3학년'
-    };
-
     return (
       <div className="relative w-full h-screen bg-black overflow-hidden">
         {/* Background Image */}
@@ -106,9 +100,9 @@ const ForYouPage = () => {
               <span className="text-white text-lg">🤖</span>
             </div>
             <div>
-              <h2 className="text-white text-lg font-bold">{sampleCharacter.name}</h2>
+              <h2 className="text-white text-lg font-bold">AI 캐릭터</h2>
               <p className="text-white text-sm opacity-80">
-                {sampleCharacter.age}세 | {sampleCharacter.description}
+                다양한 AI 캐릭터와 대화해보세요
               </p>
             </div>
           </div>
@@ -133,16 +127,16 @@ const ForYouPage = () => {
         <div className="absolute top-1/2 left-4 right-4 transform -translate-y-1/2 z-10">
           <div className="bg-black bg-opacity-70 rounded-2xl p-6 text-white">
             <div className="mb-4">
-              <h3 className="text-sm font-semibold mb-2 text-gray-300">첫인상</h3>
+              <h3 className="text-sm font-semibold mb-2 text-gray-300">밍글링이란?</h3>
               <p className="text-sm leading-relaxed">
-                부모님께서 예전부터 진하셨던 아이라 때문는 (유치)와 함께 있구요 지건다.
+                AI 캐릭터와 실시간으로 대화할 수 있는 플랫폼입니다.
               </p>
             </div>
             
             <div>
-              <h3 className="text-sm font-semibold mb-2 text-gray-300">기본 설정</h3>
+              <h3 className="text-sm font-semibold mb-2 text-gray-300">특징</h3>
               <p className="text-sm leading-relaxed">
-                (유치)와 축제하고는 정려된 친한 이상의 감정을 품게 된다.
+                다양한 성격과 배경을 가진 AI 캐릭터들과 자연스러운 대화를 나누세요.
               </p>
             </div>
           </div>

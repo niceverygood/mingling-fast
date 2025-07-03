@@ -116,10 +116,7 @@ const ChatPage = () => {
     navigate('/chats');
   };
 
-  // 더미 하트 수 제거 - 실제 데이터만 사용
-  const getHeartCount = () => {
-    return 100; // 기본값
-  };
+  // 실제 데이터만 사용 - 더미 하트 수 제거됨
 
   if (loading) {
     return (
@@ -186,7 +183,7 @@ const ChatPage = () => {
             <span className="text-sm text-green-600 font-medium">기본 신뢰</span>
             <div className="flex items-center space-x-1">
               <HeartIcon className="w-4 h-4 text-green-500" />
-              <span className="text-sm text-gray-600">{getHeartCount()}</span>
+              <span className="text-sm text-gray-600">100</span>
             </div>
           </div>
         </div>

@@ -79,90 +79,7 @@ router.get('/', async (req, res) => {
       }
     });
 
-    // 샘플 데이터가 없으면 임시 채팅 생성
-    if (chats.length === 0) {
-      // 먼저 샘플 캐릭터들 생성 (있다면 그대로 사용)
-      const existingChars = await prisma.character.findMany({
-        take: 2
-      });
-
-      if (existingChars.length < 2) {
-        if (user) {
-          await prisma.character.createMany({
-            data: [
-              {
-                name: '아이아',
-                age: '25',
-                description: '친근하고 밝은 AI 캐릭터',
-                userId: firebaseUserId
-              },
-              {
-                name: '루나',
-                age: '28', 
-                description: '신비로운 매력의 AI 캐릭터',
-                userId: firebaseUserId
-              }
-            ],
-            skipDuplicates: true
-          });
-        }
-      }
-
-      const characters = await prisma.character.findMany({ take: 2 });
-      
-      // 샘플 채팅 생성
-      for (const char of characters) {
-        const chat = await prisma.chat.create({
-          data: {
-            userId: firebaseUserId,
-            characterId: char.id,
-            lastMessage: char.name === '아이아' ? '왜 개발자시군요. 어떤 언어를 주로 사용하세요?' : '좋아해줘서 어떤 종류의 마음을 다루고 계시니요?',
-            lastMessageAt: new Date(Date.now() - (char.name === '아이아' ? 14 * 60 * 60 * 1000 : 23 * 60 * 60 * 1000))
-          }
-        });
-
-        // 샘플 메시지 생성
-        await prisma.message.create({
-          data: {
-            chatId: chat.id,
-            userId: firebaseUserId,
-            content: chat.lastMessage,
-            isFromUser: false
-          }
-        });
-      }
-
-      // 다시 채팅 목록 조회
-      return res.json(await prisma.chat.findMany({
-        where: {
-          userId: firebaseUserId,
-          isActive: true
-        },
-        include: {
-          character: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true
-            }
-          },
-          messages: {
-            take: 1,
-            orderBy: {
-              createdAt: 'desc'
-            },
-            select: {
-              content: true,
-              createdAt: true
-            }
-          }
-        },
-        orderBy: {
-          lastMessageAt: 'desc'
-        }
-      }));
-    }
-
+    // 실제 데이터만 반환 - 더미 데이터 생성 로직 제거
     res.json(chats);
   } catch (error) {
     console.error('Error fetching chats:', error);
@@ -464,41 +381,27 @@ ${conversationHistory}
 // 간단한 AI 응답 생성 함수 (백업용)
 function generateAIResponse(_userMessage) {
   const responses = [
-    '흥미롭네요! 더 자세히 말씀해 주시겠어요?',
-    '그런 생각을 하셨군요. 저도 비슷하게 느낀 적이 있어요.',
-    '정말 좋은 질문이에요. 함께 생각해볼까요?',
-    '와, 정말 멋진 이야기네요!',
-    '그럴 때 어떤 기분이셨나요?'
+    '정말 흥미로운 말씀이네요! 더 자세히 이야기해 주실 수 있나요?',
+    '그렇게 생각하시는군요. 저도 비슷한 경험이 있는 것 같아요.',
+    '좋은 질문이에요. 함께 생각해보면 어떨까요?',
+    '와, 정말 멋진 이야기네요! 어떤 기분이셨는지 궁금해요.',
+    '그런 상황이었군요. 더 자세히 들려주세요.'
   ];
   
   return responses[Math.floor(Math.random() * responses.length)];
 }
 
-// 캐릭터 기반 응답 생성 함수
-function generateCharacterBasedResponse(_userMessage, character) {
-  const characterResponses = {
-    '아이아': [
-      '그런데 말이에요, 정말 흥미로운 이야기네요!',
-      '아하! 그렇게 생각하시는군요. 저도 그런 느낌이 드는 것 같아요.',
-      '와, 정말 멋진 아이디어예요! 더 들려주세요.',
-      '그런 경험을 하셨군요. 어떤 기분이셨는지 궁금해요.'
-    ],
-    '루나': [
-      '음... 정말 신비로운 이야기네요.',
-      '그렇다면... 당신의 마음 속 깊은 곳에서는 어떤 느낌이 드나요?',
-      '흥미롭습니다. 운명이 당신을 이끌고 있는 것 같아요.',
-      '그런 순간들이 삶을 더욱 의미 있게 만드는 것 같아요.'
-    ]
-  };
-
-  const responses = characterResponses[character.name] || [
-    '정말 흥미로운 이야기네요!',
-    '그런 생각을 하시는군요.',
-    '더 자세히 이야기해 주세요.',
-    '정말 좋은 질문이에요!'
+// 캐릭터 기반 응답 생성 함수 (OpenAI 실패 시 사용)
+function generateCharacterBasedResponse(_userMessage, _character) {
+  const defaultResponses = [
+    '정말 흥미로운 이야기네요! 더 들려주세요.',
+    '그렇게 생각하시는군요. 어떤 기분이셨나요?',
+    '좋은 질문이에요! 함께 생각해볼까요?',
+    '와, 정말 멋진 아이디어예요.',
+    '그런 경험을 하셨군요. 더 자세히 이야기해 주세요.'
   ];
 
-  return responses[Math.floor(Math.random() * responses.length)];
+  return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
 }
 
 module.exports = router; 
