@@ -53,29 +53,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS 설정 - Cloudflare 및 Vercel 환경 최적화
+// CORS 설정 - 모든 도메인 허용 (개발/운영 통합)
 app.use(cors({
-  origin: function (origin, callback) {
-    // 허용된 도메인 목록
-    const allowedOrigins = [
-      'https://minglingchat.com',
-      'https://www.minglingchat.com', 
-      'https://mingling-new.vercel.app',
-      'http://localhost:3000', // 로컬 개발
-      'http://localhost:8001'  // 로컬 백엔드
-    ];
-    
-    // Origin이 없거나 (직접 접근) 허용된 도메인인 경우 허용
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else if (origin && origin.includes('vercel.app')) {
-      // Vercel 프리뷰 도메인들 허용
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(null, true); // 개발 중에는 모든 origin 허용
-    }
-  },
+  origin: true, // 모든 origin 허용
   credentials: true,
   allowedHeaders: [
     'Content-Type', 
@@ -100,6 +80,39 @@ app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-User-Email');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.sendStatus(200);
+});
+
+// 사용자 자동 생성 미들웨어
+app.use('/api', async (req, res, next) => {
+  const userEmail = req.headers['x-user-email'];
+  const userId = req.headers['x-user-id'];
+  
+  if (userEmail && userId) {
+    try {
+      // 사용자가 존재하는지 확인
+      let user = await prisma.user.findUnique({
+        where: { email: userEmail }
+      });
+      
+      // 사용자가 없으면 자동 생성
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            id: userId,
+            email: userEmail,
+            name: userEmail.split('@')[0], // 이메일의 @ 앞부분을 이름으로 사용
+            hearts: 100 // 기본 하트 100개 지급
+          }
+        });
+        console.log(`✅ New user created: ${userEmail} (ID: ${userId})`);
+      }
+    } catch (error) {
+      console.error('❌ User creation error:', error);
+      // 에러가 발생해도 요청을 계속 진행
+    }
+  }
+  
+  next();
 });
 
 // Rate limiting - Cloudflare 환경에 최적화
@@ -141,10 +154,25 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// 404 핸들러 - API 라우트를 찾을 수 없을 때
+app.use('/api/*', (req, res) => {
+  console.log(`❌ 404 - API route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    error: 'API endpoint not found',
+    method: req.method,
+    path: req.originalUrl,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Error handling
 app.use((err, req, res, _next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('❌ Server Error:', err.stack);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong!',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // 테스트 환경이 아닐 때만 서버 시작
