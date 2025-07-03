@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // API 베이스 URL 설정
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'http://13.35.49.211:8081'
+  ? 'https://mingling-new.vercel.app/api'
   : 'http://localhost:8001';
 
 // Axios 인스턴스 생성
