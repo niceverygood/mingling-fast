@@ -1,9 +1,7 @@
 import axios from 'axios';
 
-// API 베이스 URL 설정 - 환경에 따라 동적으로 설정
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.minglingchat.com'
-  : 'http://localhost:8001';
+// API 베이스 URL 설정 - 강제로 HTTPS API 사용
+const API_BASE_URL = 'https://api.minglingchat.com';
 
 // 디버깅용 로그
 console.log('🔧 API Configuration:', {

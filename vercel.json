@@ -3,11 +3,5 @@
     "backend/index.js": {
       "runtime": "nodejs18.x"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "http://3.35.49.121:8001/api/$1"
-    }
-  ]
+  }
 } 
