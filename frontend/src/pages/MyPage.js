@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CogIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { HeartIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { usersAPI, charactersAPI, personasAPI, heartsAPI } from '../services/api';
 import CharacterCreation from './CharacterCreation/CharacterCreation';
 import CharacterEdit from './CharacterCreation/CharacterEdit';
 import CharacterDetail from './CharacterCreation/CharacterDetail';
@@ -58,7 +58,7 @@ const MyPage = () => {
 
       // 백엔드에서 추가 정보 가져오기 (선택사항)
       try {
-        const response = await axios.get('/api/users/profile');
+        const response = await usersAPI.getProfile();
         if (response.data && authUser) {
           setUser(prev => ({
             ...prev,
@@ -84,7 +84,7 @@ const MyPage = () => {
 
   const fetchMyCharacters = async () => {
     try {
-      const response = await axios.get('/api/characters/my');
+      const response = await charactersAPI.getMy();
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setMyCharacters(response.data);
@@ -100,7 +100,7 @@ const MyPage = () => {
 
   const fetchMyPersonas = async () => {
     try {
-      const response = await axios.get('/api/personas/my');
+      const response = await personasAPI.getMy();
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setMyPersonas(response.data);
@@ -120,7 +120,7 @@ const MyPage = () => {
 
   const handleHeartPurchase = async (pack) => {
     try {
-      await axios.post('/api/hearts/charge', { amount: pack.hearts });
+      await heartsAPI.charge(pack.hearts);
       fetchUserData(); // 업데이트된 하트 수 반영
       setShowHeartShop(false);
       alert(`${pack.hearts}개의 하트를 성공적으로 구매했습니다!`);

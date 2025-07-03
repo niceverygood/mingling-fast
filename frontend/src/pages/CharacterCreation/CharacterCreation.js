@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeftIcon, CameraIcon, PlusIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { charactersAPI } from '../../services/api';
 import CategorySelection from './CategorySelection';
 import HashtagSelection from './HashtagSelection';
 
@@ -112,7 +112,7 @@ const CharacterCreation = ({ onClose, onComplete }) => {
         backupChats: formData.allowBackup
       };
 
-      const response = await axios.post('/api/characters', characterData);
+      const response = await charactersAPI.create(characterData);
       onComplete(response.data);
     } catch (error) {
       console.error('Error creating character:', error);

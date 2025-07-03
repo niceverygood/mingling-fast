@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeftIcon, CameraIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { personasAPI } from '../../services/api';
 
 const PersonaCreation = ({ onClose, onComplete }) => {
   const [formData, setFormData] = useState({
@@ -51,7 +51,7 @@ const PersonaCreation = ({ onClose, onComplete }) => {
 
     setLoading(true);
     try {
-      const response = await axios.post('/api/personas', formData);
+      const response = await personasAPI.create(formData);
       onComplete(response.data);
     } catch (error) {
       console.error('Error creating persona:', error);
