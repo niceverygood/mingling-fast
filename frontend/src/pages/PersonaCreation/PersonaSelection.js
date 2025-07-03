@@ -148,7 +148,7 @@ const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
                     <div className="flex items-center space-x-1">
                       <span className="text-lg">😊</span>
                       <span className="text-sm text-green-600 font-medium">기본 신뢰</span>
-                      <span className="text-sm text-gray-500">❤️ 280</span>
+                      <span className="text-sm text-gray-500">❤️ 100</span>
                     </div>
                     <div className={`w-6 h-6 rounded-full border-2 ${
                       selectedPersona === persona.id
