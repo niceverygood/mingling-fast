@@ -243,10 +243,10 @@ const PersonaCreation = ({ onClose, onComplete }) => {
               maxLength={500}
             />
           </div>
+                  </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 export default PersonaCreation; 
