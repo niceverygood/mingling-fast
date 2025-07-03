@@ -1,34 +1,8 @@
 {
-  "version": 2,
-  "name": "mingling-fast-frontend",
-  "buildCommand": "npm run build",
-  "outputDirectory": "build",
-  "framework": "create-react-app",
-  "installCommand": "npm ci",
-  "devCommand": "npm start",
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "http://13.35.49.211:8081/api/$1"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods", 
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, x-user-id"
-        }
-      ]
     }
   ]
 } 
