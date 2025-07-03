@@ -102,13 +102,22 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-// Rate limiting - Trust proxy 설정 후 적용
+// Rate limiting - Cloudflare 환경에 최적화
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 개발환경에서는 제한 완화
   message: 'Too many requests from this IP',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false // Disable the `X-RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  // Cloudflare 환경에서 실제 IP 가져오기
+  keyGenerator: (req) => {
+    return req.headers['cf-connecting-ip'] || 
+           req.headers['x-forwarded-for']?.split(',')[0] || 
+           req.connection.remoteAddress || 
+           req.ip;
+  },
+  // 검증 비활성화 (Cloudflare 환경에서는 안전)
+  validate: false
 });
 app.use(limiter);
 
