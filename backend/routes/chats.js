@@ -32,12 +32,22 @@ router.get('/', async (req, res) => {
       return res.status(401).json({ error: 'User ID required' });
     }
 
-    const user = await prisma.user.findUnique({
+    // 사용자가 없으면 자동 생성
+    let user = await prisma.user.findUnique({
       where: { id: firebaseUserId }
     });
     
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      console.log('User not found, creating new user:', firebaseUserId);
+      user = await prisma.user.create({
+        data: {
+          id: firebaseUserId,
+          username: req.headers['x-user-email']?.split('@')[0] || `사용자_${Date.now()}`,
+          email: req.headers['x-user-email'] || null,
+          hearts: 150 // 기본 하트
+        }
+      });
+      console.log('New user created:', user.username);
     }
 
     const chats = await prisma.chat.findMany({
@@ -199,6 +209,24 @@ router.post('/:chatId/messages', async (req, res) => {
       return res.status(401).json({ error: 'User ID required' });
     }
 
+    // 사용자가 없으면 자동 생성
+    let user = await prisma.user.findUnique({
+      where: { id: firebaseUserId }
+    });
+    
+    if (!user) {
+      console.log('User not found, creating new user:', firebaseUserId);
+      user = await prisma.user.create({
+        data: {
+          id: firebaseUserId,
+          username: req.headers['x-user-email']?.split('@')[0] || `사용자_${Date.now()}`,
+          email: req.headers['x-user-email'] || null,
+          hearts: 150 // 기본 하트
+        }
+      });
+      console.log('New user created:', user.username);
+    }
+
     // 채팅 정보와 캐릭터 정보 가져오기
     const chat = await prisma.chat.findUnique({
       where: { id: chatId },
@@ -272,6 +300,24 @@ router.post('/', async (req, res) => {
     
     if (!firebaseUserId) {
       return res.status(401).json({ error: 'User ID required' });
+    }
+    
+    // 사용자가 없으면 자동 생성
+    let user = await prisma.user.findUnique({
+      where: { id: firebaseUserId }
+    });
+    
+    if (!user) {
+      console.log('User not found, creating new user:', firebaseUserId);
+      user = await prisma.user.create({
+        data: {
+          id: firebaseUserId,
+          username: req.headers['x-user-email']?.split('@')[0] || `사용자_${Date.now()}`,
+          email: req.headers['x-user-email'] || null,
+          hearts: 150 // 기본 하트
+        }
+      });
+      console.log('New user created:', user.username);
     }
     
     // personaId 로깅 (나중에 활용 가능)
