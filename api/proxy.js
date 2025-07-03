@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   
   try {
     // EC2 백엔드로 프록시
-    const targetUrl = `http://13.35.49.211:8081${url.replace('/api/proxy', '')}`;
+    const targetUrl = `http://13.35.49.211:8081/api${url.replace('/api/proxy', '')}`;
     
     const response = await fetch(targetUrl, {
       method,
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
         'X-User-ID': headers['x-user-id'] || '',
         'X-User-Email': headers['x-user-email'] || '',
       },
-      body: method !== 'GET' && method !== 'HEAD' ? JSON.stringify(body) : undefined,
+      body: method !== 'GET' && method !== 'HEAD' ? req.body : undefined,
     });
     
     const data = await response.text();
