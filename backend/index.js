@@ -30,30 +30,8 @@ app.use(limiter);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // 개발 환경에서는 모든 origin 허용
-    if (process.env.NODE_ENV === 'development') {
-      callback(null, true);
-      return;
-    }
-    
-    // 프로덕션 환경에서는 특정 도메인만 허용
-    const allowedOrigins = [
-      'https://minglingchat.com',
-      'https://www.minglingchat.com',
-      'https://mingling-new.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001'
-    ];
-    
-    // origin이 없는 경우 (직접 API 호출) 허용
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
+    // 모든 origin 허용 (CORS 문제 해결을 위해)
+    callback(null, true);
   },
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID', 'X-User-Email'],
@@ -64,24 +42,11 @@ app.use(cors({
 
 // 프리플라이트 요청 명시적 처리
 app.options('*', (req, res) => {
-  const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://minglingchat.com',
-    'https://www.minglingchat.com',
-    'https://mingling-new.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001'
-  ];
-  
-  if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-User-Email');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.sendStatus(200);
-  } else {
-    res.sendStatus(403);
-  }
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-User-Email');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
 });
 
 // API Routes
