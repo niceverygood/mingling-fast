@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
+// const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
@@ -9,12 +9,16 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 8001;
 
+// Express 기본 설정 - 헤더 크기 제한 증가
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 // CORS 설정 - 개발용으로 간소화
 
-// Security middlewares
-app.use(helmet({
-  crossOriginEmbedderPolicy: false
-}));
+// Security middlewares - 개발환경에서는 helmet 비활성화
+// app.use(helmet({
+//   crossOriginEmbedderPolicy: false
+// }));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -25,14 +29,28 @@ const limiter = rateLimit({
 app.use(limiter);
 
 app.use(cors({
-  origin: true, // 개발용: 모든 origin 허용
+  origin: [
+    'https://minglingchat.com',
+    'https://www.minglingchat.com',
+    'https://mingling-new.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001'
+  ],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID', 'X-User-Email'],
   exposedHeaders: ['X-User-ID', 'X-User-Email'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  optionsSuccessStatus: 200 // 일부 레거시 브라우저 지원
 }));
 
-app.use(express.json({ limit: '10mb' }));
+// 프리플라이트 요청 명시적 처리
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-User-Email');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // API Routes
 app.use('/api/users', require('./routes/users'));
