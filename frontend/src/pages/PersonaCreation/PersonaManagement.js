@@ -73,7 +73,7 @@ const PersonaManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="max-w-sm mx-auto min-h-screen bg-white">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center space-x-3">

@@ -67,8 +67,8 @@ const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center">
-      <div className="w-full max-w-md bg-white rounded-t-3xl max-h-[80vh] overflow-hidden mx-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center px-4">
+      <div className="w-full max-w-sm bg-white rounded-t-3xl max-h-[80vh] overflow-hidden mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">프로필 선택</h2>

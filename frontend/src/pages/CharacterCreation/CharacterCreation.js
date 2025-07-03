@@ -128,7 +128,7 @@ const CharacterCreation = ({ onClose, onComplete }) => {
 
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-y-auto">
-      <div className="max-w-md mx-auto bg-white min-h-screen">
+      <div className="max-w-sm mx-auto bg-white min-h-screen">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <button 

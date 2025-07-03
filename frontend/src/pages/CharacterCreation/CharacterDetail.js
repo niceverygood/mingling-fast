@@ -44,8 +44,8 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
 
   return (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
-        <div className="min-h-screen py-4">
-          <div className="bg-white max-w-md mx-auto rounded-t-2xl min-h-screen">
+        <div className="min-h-screen py-4 px-4">
+          <div className="bg-white max-w-sm mx-auto rounded-t-2xl min-h-screen">
           {/* Header */}
           <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-4 rounded-t-2xl z-10">
             <div className="flex items-center justify-between">
