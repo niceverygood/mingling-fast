@@ -2,6 +2,7 @@
   "name": "mingling-fast-frontend",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://www.minglingchat.com",
   "proxy": "http://localhost:8001",
   "dependencies": {
     "@heroicons/react": "^2.0.16",
