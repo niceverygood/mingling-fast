@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // API 베이스 URL 설정 - 환경에 따라 동적으로 설정
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.minglingchat.com'
+  ? 'http://3.35.49.121'
   : 'http://localhost:8001';
 
 // Axios 인스턴스 생성
