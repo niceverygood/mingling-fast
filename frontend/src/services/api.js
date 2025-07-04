@@ -1,39 +1,29 @@
 import axios from 'axios';
 
-// 🚀 새로운 전략: 다중 엔드포인트 설정
-const API_ENDPOINTS = {
-  primary: 'https://api.minglingchat.com',
-  direct: 'http://43.201.40.223:8001', // EC2 직접 IP
-  fallback: 'https://api.minglingchat.com'
-};
-
-// 현재 사용할 엔드포인트 선택
-let currentEndpoint = API_ENDPOINTS.primary;
+// API 베이스 URL 설정 - Cloudflare를 통한 정상 경로
+const API_BASE_URL = 'https://api.minglingchat.com';
 
 // 디버깅용 로그
 console.log('🔧 API Configuration:', {
   NODE_ENV: process.env.NODE_ENV,
-  PRIMARY_URL: API_ENDPOINTS.primary,
-  DIRECT_URL: API_ENDPOINTS.direct,
-  CURRENT_URL: currentEndpoint,
+  API_BASE_URL: API_BASE_URL,
   window_location: typeof window !== 'undefined' ? window.location.href : 'N/A'
 });
 
-// Axios 인스턴스 생성 (동적 baseURL)
+// Axios 인스턴스 생성
 const api = axios.create({
+  baseURL: API_BASE_URL,
   timeout: 15000,
-  // withCredentials 완전 제거 - 헤더 기반 인증만 사용
+  withCredentials: false, // Cloudflare 환경에서는 false로 유지
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   }
 });
 
-// 동적 baseURL 설정
+// 요청 인터셉터 - User ID 헤더 자동 추가
 api.interceptors.request.use(
   (config) => {
-    config.baseURL = currentEndpoint;
-    
     // axios.defaults.headers.common에서 헤더 복사
     if (axios.defaults.headers.common['X-User-ID']) {
       config.headers['X-User-ID'] = axios.defaults.headers.common['X-User-ID'];
@@ -63,7 +53,7 @@ api.interceptors.request.use(
   }
 );
 
-// 🔄 자동 엔드포인트 전환 기능
+// 응답 인터셉터 - 에러 처리
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Response:', {
@@ -74,7 +64,7 @@ api.interceptors.response.use(
     });
     return response;
   },
-  async (error) => {
+  (error) => {
     console.error('🚨 API Response Error:', {
       status: error.response?.status,
       statusText: error.response?.statusText,
@@ -84,24 +74,6 @@ api.interceptors.response.use(
       data: error.response?.data
     });
     
-    // CORS 에러 또는 네트워크 에러 시 직접 IP로 전환
-    if (error.message?.includes('CORS') || 
-        error.message?.includes('Network Error') ||
-        error.code === 'ERR_NETWORK') {
-      
-      console.warn('🔄 CORS/Network Error detected - switching to direct IP');
-      
-      if (currentEndpoint === API_ENDPOINTS.primary) {
-        currentEndpoint = API_ENDPOINTS.direct;
-        console.log('🔄 Switched to direct IP:', currentEndpoint);
-        
-        // 요청 재시도
-        const config = error.config;
-        config.baseURL = currentEndpoint;
-        return api.request(config);
-      }
-    }
-    
     if (error.response?.status === 401) {
       console.warn('🔐 Authentication required - redirecting to login');
     }
@@ -109,48 +81,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// 🛠️ 엔드포인트 수동 전환 함수
-export const switchToDirectIP = () => {
-  currentEndpoint = API_ENDPOINTS.direct;
-  console.log('🔄 Manually switched to direct IP:', currentEndpoint);
-};
-
-export const switchToPrimary = () => {
-  currentEndpoint = API_ENDPOINTS.primary;
-  console.log('🔄 Manually switched to primary endpoint:', currentEndpoint);
-};
-
-// 🧪 연결 테스트 함수
-export const testConnection = async () => {
-  const results = {};
-  
-  for (const [name, url] of Object.entries(API_ENDPOINTS)) {
-    try {
-      const testApi = axios.create({
-        baseURL: url,
-        timeout: 5000,
-        withCredentials: false
-      });
-      
-      const response = await testApi.get('/api/health');
-      results[name] = {
-        status: 'success',
-        url: url,
-        responseTime: response.headers['x-response-time'] || 'N/A'
-      };
-    } catch (error) {
-      results[name] = {
-        status: 'failed',
-        url: url,
-        error: error.message
-      };
-    }
-  }
-  
-  console.log('🧪 Connection Test Results:', results);
-  return results;
-};
 
 // Characters API
 export const charactersAPI = {
