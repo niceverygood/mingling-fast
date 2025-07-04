@@ -1,0 +1,56 @@
+name: Manual Deploy Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment'
+        required: false
+        default: 'false'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.8
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        timeout: 60s
+        command_timeout: 10m
+        debug: true
+        script: |
+          echo "🚀 Manual deployment started..."
+          
+          # EC2 백엔드 디렉토리로 이동
+          cd /home/ec2-user/mingling_new
+          
+          echo "📥 Pulling latest code..."
+          git pull origin main
+          
+          echo "🔄 Stopping existing backend..."
+          pm2 stop mingling-backend 2>/dev/null || echo "Backend not running"
+          pm2 delete mingling-backend 2>/dev/null || echo "Backend process not found"
+          
+          echo "📦 Installing dependencies..."
+          cd backend
+          npm install --production || { echo "❌ npm install failed"; exit 1; }
+          
+          echo "🔄 Starting backend..."
+          pm2 start index.js --name "mingling-backend"
+          
+          echo "📊 Checking PM2 status..."
+          pm2 status
+          
+          echo "🧪 Testing API..."
+          sleep 3
+          curl -s localhost:8001/api/health || echo "⚠️ API test failed"
+          
+          echo "✅ Manual deployment completed!" 
