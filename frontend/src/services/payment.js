@@ -2,10 +2,11 @@
 
 class PaymentService {
   constructor() {
+    // 포트원 실제 환경 설정 (업데이트된 정보)
     this.IMP_CODE = 'imp_golfpe01'; // 포트원 가맹점 식별코드
-    this.PG_PROVIDER = 'MOIplay998'; // KG이니시스 MID
-    this.CHANNEL_KEY = 'channel-key-ea1faf0d-5e9a-4638-bdfe-596ef5794e83';
-    this.SIGN_KEY = 'TU5vYzk0L2Q2Z2ZaL28wN0JJczlVQT09'; // 웹결제 signkey
+    this.PG_PROVIDER = 'MOIplay998'; // KG이니시스 상점아이디
+    this.CHANNEL_KEY = 'channel-key-720d69be-767a-420c-91c8-2855ca00192d'; // 새 채널키
+    this.SIGN_KEY = 'TU5vYzk0L2Q2Z2ZaL28wN0JJczlVQT09'; // 웹결제 사인키
     
     // 포트원 SDK 로드 상태
     this.isSDKLoaded = false;
@@ -61,9 +62,11 @@ class PaymentService {
   // 결제 요청
   async requestPayment(paymentData) {
     try {
-      // 개발 환경에서 테스트 모드 확인
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🧪 개발 환경 - 테스트 결제 모드');
+      // 포트원 설정 문제시 임시 테스트 모드
+      const USE_TEST_MODE = false; // 실제 결제 테스트를 위해 false로 설정
+      
+      if (USE_TEST_MODE) {
+        console.log('🧪 테스트 결제 모드 - 실제 PG 연동 전');
         return this.mockPayment(paymentData);
       }
       
@@ -72,9 +75,9 @@ class PaymentService {
         await this.loadSDK();
       }
 
-      // 결제 데이터 구성
+      // 결제 데이터 구성 - KG이니시스 실제 환경
       const paymentParams = {
-        pg: `kcp.${this.PG_PROVIDER}`, // KG이니시스 설정
+        pg: `kcp.${this.PG_PROVIDER}`, // KG이니시스 실제 상점아이디
         pay_method: 'card', // 결제 방법
         merchant_uid: this.generateOrderId(), // 주문번호
         name: paymentData.productName, // 상품명
@@ -84,7 +87,7 @@ class PaymentService {
         buyer_tel: paymentData.userPhone || '010-0000-0000',
         buyer_addr: '서울특별시',
         buyer_postcode: '06018',
-        // 포트원 V2 설정
+        // 포트원 V2 채널키 설정
         channelKey: this.CHANNEL_KEY,
         // 모바일 환경 대응
         m_redirect_url: `${window.location.origin}/payment/result`,
