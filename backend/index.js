@@ -38,54 +38,34 @@ app.set('trust proxy', true);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🌐 Cloudflare 친화적 CORS 설정
+// 🚨 임시 완전 개방 CORS 설정 - 테스트용
 app.use((req, res, next) => {
-  // Cloudflare를 통한 요청 감지
-  const isCloudflareRequest = req.headers['cf-ray'] || req.headers['cf-ipcountry'];
-  const origin = req.headers.origin;
-  
   console.log('🌐 Request Info:', {
     method: req.method,
     url: req.url,
-    origin: origin,
-    isCloudflare: !!isCloudflareRequest,
+    origin: req.headers.origin,
     cfRay: req.headers['cf-ray'],
     cfCountry: req.headers['cf-ipcountry'],
-    userAgent: req.headers['user-agent']
+    userAgent: req.headers['user-agent']?.substring(0, 50) + '...'
   });
   
-  // 허용된 origins
-  const allowedOrigins = [
-    'https://www.minglingchat.com',
-    'https://minglingchat.com',
-    'http://localhost:3000',
-    'https://mingling-new.vercel.app'
-  ];
-  
-  // Origin 확인 및 설정
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-    console.log('✅ CORS Origin allowed:', origin || 'no-origin');
-  } else {
-    console.log('❌ CORS Origin rejected:', origin);
-  }
-  
-  // withCredentials: false에 맞는 설정
+  // 모든 origin 허용 (임시)
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Credentials', 'false');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id');
   res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON, X-Response-Time');
   res.header('Access-Control-Max-Age', '86400');
   
-  // Cloudflare 캐시 제어
+  // 캐시 제어
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.header('Pragma', 'no-cache');
   res.header('Expires', '0');
   
-  // 응답 시간 헤더 추가
+  // 응답 시간 헤더
   res.header('X-Response-Time', new Date().toISOString());
   
-  // OPTIONS 프리플라이트 요청 처리
+  // OPTIONS 요청 즉시 응답
   if (req.method === 'OPTIONS') {
     console.log('✅ OPTIONS preflight handled for:', req.url);
     res.status(200).end();
