@@ -378,9 +378,38 @@ app.use((err, req, res, _next) => {
 
 // 테스트 환경이 아닐 때만 서버 시작
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+    console.log(`🌐 Server accessible from: http://0.0.0.0:${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+    console.log(`🕒 Started at: ${new Date().toISOString()}`);
   });
+
+  // 서버 오류 처리
+  server.on('error', (error) => {
+    console.error('❌ Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+      console.error(`🔥 Port ${PORT} is already in use`);
+      process.exit(1);
+    }
+  });
+
+  // 서버 연결 처리
+  server.on('connection', (socket) => {
+    socket.on('error', (error) => {
+      console.error('❌ Socket error:', error.message);
+    });
+  });
+
+  // 헬스 체크 자동 실행
+  global.setTimeout(() => {
+    console.log('🏥 Self health check...');
+    require('http').get(`http://localhost:${PORT}/api/health`, (res) => {
+      console.log(`✅ Self health check passed: ${res.statusCode}`);
+    }).on('error', (err) => {
+      console.error('❌ Self health check failed:', err.message);
+    });
+  }, 5000);
 }
 
 // Graceful shutdown
