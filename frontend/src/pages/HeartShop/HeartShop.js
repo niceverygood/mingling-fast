@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
+import paymentService from '../../services/payment';
 
 const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
-  // eslint-disable-next-line no-unused-vars
   const [selectedPack, setSelectedPack] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('');
 
   const heartPacks = [
     {
@@ -49,10 +51,79 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
     }
   ];
 
-  const handlePurchase = (pack) => {
+  const handlePurchase = async (pack) => {
+    if (isProcessing) return;
+    
     setSelectedPack(pack);
-    if (onPurchase) {
-      onPurchase(pack);
+    setIsProcessing(true);
+    setProcessingMessage('결제 준비 중...');
+
+    try {
+      // 사용자 정보 가져오기
+      const userEmail = localStorage.getItem('userEmail') || 'user@example.com';
+      const userId = localStorage.getItem('userId') || 'guest';
+      
+      // 결제 데이터 구성
+      const paymentData = {
+        productName: `하트 ${pack.name} (${pack.hearts}개)`,
+        amount: pack.price,
+        userEmail: userEmail,
+        userName: userEmail.split('@')[0],
+        userId: userId,
+        productType: 'hearts',
+        heartAmount: pack.hearts
+      };
+
+      setProcessingMessage('결제 진행 중...');
+      
+      // 결제 요청
+      const paymentResult = await paymentService.requestPayment(paymentData);
+      
+      if (paymentResult.success) {
+        setProcessingMessage('결제 검증 중...');
+        
+        // 결제 검증
+        await paymentService.verifyPayment(
+          paymentResult.impUid, 
+          paymentResult.merchantUid
+        );
+        
+        setProcessingMessage('하트 지급 중...');
+        
+        // 하트 지급
+        const purchaseResult = await paymentService.completeHeartPurchase(
+          paymentResult, 
+          pack
+        );
+        
+        // 성공 처리
+        if (onPurchase) {
+          onPurchase({
+            ...pack,
+            success: true,
+            newHeartBalance: purchaseResult.newBalance
+          });
+        }
+        
+        alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n새 잔액: ${purchaseResult.newBalance}개`);
+        
+      }
+    } catch (error) {
+      console.error('❌ 결제 실패:', error);
+      
+      let errorMessage = '결제 중 오류가 발생했습니다.';
+      
+      if (error.error) {
+        errorMessage = error.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(`❌ 결제 실패\n${errorMessage}`);
+    } finally {
+      setIsProcessing(false);
+      setProcessingMessage('');
+      setSelectedPack(null);
     }
   };
 
@@ -156,13 +227,19 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
                     </div>
                     <button 
                       onClick={() => handlePurchase(pack)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                        pack.popular 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-black text-white'
+                      disabled={isProcessing}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        isProcessing 
+                          ? 'bg-gray-400 text-white cursor-not-allowed' 
+                          : pack.popular 
+                            ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                            : 'bg-black text-white hover:bg-gray-800'
                       }`}
                     >
-                      구매하기
+                      {isProcessing && selectedPack?.id === pack.id 
+                        ? '처리중...' 
+                        : '구매하기'
+                      }
                     </button>
                   </div>
                 </div>
@@ -193,6 +270,18 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
             </div>
           </div>
         </div>
+
+        {/* Processing Overlay */}
+        {isProcessing && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+              <h3 className="text-lg font-medium text-black mb-2">결제 진행 중</h3>
+              <p className="text-sm text-gray-600">{processingMessage}</p>
+              <p className="text-xs text-gray-500 mt-2">잠시만 기다려주세요...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

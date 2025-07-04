@@ -340,6 +340,7 @@ app.use('/api/chats', require('./routes/chats'));
 app.use('/api/conversations', require('./routes/conversations'));
 app.use('/api/hearts', require('./routes/hearts'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/payment', require('./routes/payment'));
 
 // 📈 디버깅 엔드포인트 생성
 createStatsEndpoint(app);

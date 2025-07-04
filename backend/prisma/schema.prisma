@@ -130,9 +130,21 @@ model Persona {
 model HeartTransaction {
   id          String   @id @default(cuid())
   amount      Int      // positive for charge, negative for spend
-  type        String   // 'charge', 'spend', 'gift'
+  type        String   // 'charge', 'spend', 'gift', 'purchase'
   description String?
+  
+  // 결제 관련 필드들
+  impUid      String?  @unique // 포트원 결제 고유 ID
+  merchantUid String?  // 주문번호
+  status      String   @default("pending") // 'pending', 'verified', 'completed', 'failed', 'refunded'
+  paymentMethod String? // 결제 수단
+  heartAmount Int?     // 구매한 하트 수량
+  paidAt      DateTime? // 결제 완료 시간
+  completedAt DateTime? // 하트 지급 완료 시간
+  refundedAt  DateTime? // 환불 처리 시간
+  
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt @default(now())
 
   // Relations
   userId      String
