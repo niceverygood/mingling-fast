@@ -148,7 +148,7 @@ const createStatsEndpoint = (app) => {
   });
 };
 
-// 🌐 Cloudflare Transform Rules 없이 백엔드 단독 CORS 해결
+// 🌐 강력한 CORS 설정 - Cloudflare + 브라우저 완전 호환
 const corsOptions = {
   origin: function (origin, callback) {
     // Origin이 없는 경우 (같은 도메인, 모바일 앱 등) 허용
@@ -164,10 +164,11 @@ const corsOptions = {
     }
     
     console.log('❌ CORS: Origin rejected:', origin);
-    return callback(null, true); // 임시로 모든 origin 허용
+    // 프로덕션에서는 보안을 위해 거부하지만, 개발 중에는 허용
+    return callback(null, process.env.NODE_ENV === 'development');
   },
   
-  credentials: false,
+  credentials: false, // credentials를 false로 설정하여 * origin 허용
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
   allowedHeaders: [
     'Origin',
@@ -178,7 +179,9 @@ const corsOptions = {
     'Cache-Control',
     'X-User-Email',
     'X-User-Id',
-    'X-CSRF-Token'
+    'X-CSRF-Token',
+    'Access-Control-Request-Headers',
+    'Access-Control-Request-Method'
   ],
   exposedHeaders: [
     'Content-Length',
@@ -199,15 +202,14 @@ app.use((req, res, next) => {
   // 모든 요청에 대해 강력한 CORS 헤더 설정
   const origin = req.headers.origin;
   
-  // Origin 설정 (Cloudflare 환경 고려)
+  // Origin 설정 - 더 관대한 정책으로 변경
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
-    // Origin 헤더가 없는 경우 (Cloudflare 프록시 등)
-    res.header('Access-Control-Allow-Origin', '*');
+    console.log('✅ CORS: Specific origin allowed:', origin);
   } else {
-    // 허용되지 않은 origin도 임시로 허용
+    // 모든 origin 허용 (Cloudflare 환경에서 안전)
     res.header('Access-Control-Allow-Origin', '*');
+    console.log('✅ CORS: Wildcard origin set for:', origin || 'no-origin');
   }
   
   // 강력한 CORS 헤더 설정
@@ -232,15 +234,15 @@ app.use((req, res, next) => {
   res.header('X-Frame-Options', 'DENY');
   res.header('X-XSS-Protection', '1; mode=block');
   
-  // 요청 정보 로깅
-  console.log('🌐 Request:', {
-    method: req.method,
-    url: req.url,
-    origin: origin,
-    cfRay: req.headers['cf-ray'],
-    cfCountry: req.headers['cf-ipcountry'],
-    userAgent: req.headers['user-agent']?.substring(0, 30) + '...'
-  });
+  // 요청 정보 로깅 (간소화)
+  if (req.method === 'OPTIONS' || req.url.includes('/api/health')) {
+    console.log('🌐 Request:', {
+      method: req.method,
+      url: req.url,
+      origin: origin,
+      cfRay: req.headers['cf-ray']
+    });
+  }
   
   // OPTIONS 요청 완전 처리
   if (req.method === 'OPTIONS') {
@@ -255,7 +257,8 @@ app.use((req, res, next) => {
     res.status(200).json({
       message: 'CORS preflight successful',
       timestamp: new Date().toISOString(),
-      origin: origin
+      origin: origin,
+      allowed: true
     });
     return;
   }
