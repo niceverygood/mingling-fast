@@ -6,10 +6,40 @@ const OpenAI = require('openai');
 const cors = require('cors');
 require('dotenv').config();
 
-// OpenAI 초기화
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
-console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length);
+// 🔧 환경 변수 검증 및 로깅
+console.log('🔧 Environment Configuration:', {
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+  DATABASE_URL: process.env.DATABASE_URL ? '✅ Set' : '❌ Missing',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✅ Set' : '❌ Missing',
+  OPENAI_API_KEY_LENGTH: process.env.OPENAI_API_KEY?.length,
+  JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing',
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'Using default',
+  timestamp: new Date().toISOString()
+});
+
+// 🌐 환경별 허용 Origins 설정
+const getAllowedOrigins = () => {
+  if (process.env.ALLOWED_ORIGINS) {
+    return process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim());
+  }
+  
+  // 환경별 기본값
+  const defaultOrigins = [
+    'https://www.minglingchat.com',
+    'https://minglingchat.com',
+    'https://mingling-new.vercel.app'
+  ];
+  
+  if (process.env.NODE_ENV === 'development') {
+    defaultOrigins.push('http://localhost:3000', 'http://localhost:3001');
+  }
+  
+  return defaultOrigins;
+};
+
+const ALLOWED_ORIGINS = getAllowedOrigins();
+console.log('🌐 Allowed Origins:', ALLOWED_ORIGINS);
 
 let openai = null;
 if (process.env.OPENAI_API_KEY) {
@@ -42,15 +72,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // 🌐 Cloudflare Transform Rules 없이 백엔드 단독 CORS 해결
 const corsOptions = {
   origin: function (origin, callback) {
-    // 허용된 origins 목록
-    const allowedOrigins = [
-      'https://www.minglingchat.com',
-      'https://minglingchat.com',
-      'https://mingling-new.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001'
-    ];
-    
     // Origin이 없는 경우 (같은 도메인, 모바일 앱 등) 허용
     if (!origin) {
       console.log('✅ CORS: No origin header - allowing request');
@@ -58,7 +79,7 @@ const corsOptions = {
     }
     
     // 허용된 origin인지 확인
-    if (allowedOrigins.includes(origin)) {
+    if (ALLOWED_ORIGINS.includes(origin)) {
       console.log('✅ CORS: Origin allowed:', origin);
       return callback(null, true);
     }
@@ -98,16 +119,9 @@ app.use(cors(corsOptions));
 app.use((req, res, next) => {
   // 모든 요청에 대해 강력한 CORS 헤더 설정
   const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://www.minglingchat.com',
-    'https://minglingchat.com',
-    'https://mingling-new.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001'
-  ];
   
   // Origin 설정 (Cloudflare 환경 고려)
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
   } else if (!origin) {
     // Origin 헤더가 없는 경우 (Cloudflare 프록시 등)

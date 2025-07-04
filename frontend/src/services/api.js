@@ -1,13 +1,32 @@
 import axios from 'axios';
 
-// API 베이스 URL 설정 - Cloudflare를 통한 정상 경로
-const API_BASE_URL = 'https://api.minglingchat.com';
+// 🌐 환경별 API 베이스 URL 설정
+const getApiBaseUrl = () => {
+  // Vercel 환경 변수 우선 사용
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // 환경별 기본값
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://api.minglingchat.com';
+  } else if (process.env.NODE_ENV === 'development') {
+    return process.env.REACT_APP_API_URL || 'http://localhost:8001';
+  }
+  
+  // 기본값
+  return 'https://api.minglingchat.com';
+};
 
-// 디버깅용 로그
-console.log('🔧 API Configuration:', {
+const API_BASE_URL = getApiBaseUrl();
+
+// 🔧 환경 정보 로깅
+console.log('🔧 Environment Configuration:', {
   NODE_ENV: process.env.NODE_ENV,
+  REACT_APP_API_URL: process.env.REACT_APP_API_URL,
   API_BASE_URL: API_BASE_URL,
-  window_location: typeof window !== 'undefined' ? window.location.href : 'N/A'
+  window_location: typeof window !== 'undefined' ? window.location.href : 'N/A',
+  timestamp: new Date().toISOString()
 });
 
 // Axios 인스턴스 생성
