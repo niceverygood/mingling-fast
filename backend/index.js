@@ -39,7 +39,7 @@ app.set('trust proxy', true);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🌐 배포 환경용 완전한 CORS 설정
+// 🌐 Cloudflare Transform Rules 없이 백엔드 단독 CORS 해결
 const corsOptions = {
   origin: function (origin, callback) {
     // 허용된 origins 목록
@@ -47,8 +47,8 @@ const corsOptions = {
       'https://www.minglingchat.com',
       'https://minglingchat.com',
       'https://mingling-new.vercel.app',
-      'http://localhost:3000', // 개발용
-      'http://localhost:3001'  // 개발용
+      'http://localhost:3000',
+      'http://localhost:3001'
     ];
     
     // Origin이 없는 경우 (같은 도메인, 모바일 앱 등) 허용
@@ -64,16 +64,11 @@ const corsOptions = {
     }
     
     console.log('❌ CORS: Origin rejected:', origin);
-    return callback(new Error('Not allowed by CORS'), false);
+    return callback(null, true); // 임시로 모든 origin 허용
   },
   
-  // 쿠키/세션 사용시 credentials 설정
-  credentials: false, // 현재는 false, 필요시 true로 변경
-  
-  // 허용할 HTTP 메서드
+  credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  
-  // 허용할 헤더
   allowedHeaders: [
     'Origin',
     'X-Requested-With',
@@ -85,19 +80,13 @@ const corsOptions = {
     'X-User-Id',
     'X-CSRF-Token'
   ],
-  
-  // 클라이언트에 노출할 헤더
   exposedHeaders: [
     'Content-Length',
     'X-JSON',
     'X-Response-Time',
     'X-Request-Id'
   ],
-  
-  // 프리플라이트 요청 캐시 시간 (24시간)
   maxAge: 86400,
-  
-  // 프리플라이트 요청 처리
   preflightContinue: false,
   optionsSuccessStatus: 200
 };
@@ -105,65 +94,77 @@ const corsOptions = {
 // Express CORS 미들웨어 적용
 app.use(cors(corsOptions));
 
-// 🔧 Cloudflare 호환성을 위한 추가 CORS 헤더 설정
+// 🚀 Cloudflare 프록시 환경 완전 대응 미들웨어
 app.use((req, res, next) => {
-  // Cloudflare 요청 정보 로깅
-  const cfInfo = {
-    ray: req.headers['cf-ray'],
-    country: req.headers['cf-ipcountry'],
-    ip: req.headers['cf-connecting-ip'] || req.ip,
-    visitor: req.headers['cf-visitor']
-  };
+  // 모든 요청에 대해 강력한 CORS 헤더 설정
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://www.minglingchat.com',
+    'https://minglingchat.com',
+    'https://mingling-new.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001'
+  ];
   
-  console.log('🌐 Request Details:', {
-    method: req.method,
-    url: req.url,
-    origin: req.headers.origin,
-    userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
-    cloudflare: cfInfo
-  });
+  // Origin 설정 (Cloudflare 환경 고려)
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    // Origin 헤더가 없는 경우 (Cloudflare 프록시 등)
+    res.header('Access-Control-Allow-Origin', '*');
+  } else {
+    // 허용되지 않은 origin도 임시로 허용
+    res.header('Access-Control-Allow-Origin', '*');
+  }
   
-  // Cloudflare 캐시 제어
-  res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  // 강력한 CORS 헤더 설정
+  res.header('Access-Control-Allow-Credentials', 'false');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id, X-CSRF-Token, Access-Control-Request-Headers, Access-Control-Request-Method');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON, X-Response-Time, X-Request-Id');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Cloudflare 캐시 완전 무력화
+  res.header('Cache-Control', 'no-cache, no-store, must-revalidate, private');
   res.header('Pragma', 'no-cache');
   res.header('Expires', '0');
+  res.header('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
   
-  // 응답 시간 및 요청 ID 헤더
+  // 응답 헤더
   res.header('X-Response-Time', new Date().toISOString());
   res.header('X-Request-Id', req.headers['cf-ray'] || `req-${Date.now()}`);
   
-  // 보안 헤더 추가
+  // 보안 헤더
   res.header('X-Content-Type-Options', 'nosniff');
   res.header('X-Frame-Options', 'DENY');
   res.header('X-XSS-Protection', '1; mode=block');
   
-  // OPTIONS 프리플라이트 요청 특별 처리
+  // 요청 정보 로깅
+  console.log('🌐 Request:', {
+    method: req.method,
+    url: req.url,
+    origin: origin,
+    cfRay: req.headers['cf-ray'],
+    cfCountry: req.headers['cf-ipcountry'],
+    userAgent: req.headers['user-agent']?.substring(0, 30) + '...'
+  });
+  
+  // OPTIONS 요청 완전 처리
   if (req.method === 'OPTIONS') {
-    console.log('✅ OPTIONS preflight request for:', req.url);
-    console.log('   Origin:', req.headers.origin);
-    console.log('   Requested Headers:', req.headers['access-control-request-headers']);
-    console.log('   Requested Method:', req.headers['access-control-request-method']);
+    console.log('✅ OPTIONS preflight:', {
+      url: req.url,
+      origin: origin,
+      requestHeaders: req.headers['access-control-request-headers'],
+      requestMethod: req.headers['access-control-request-method']
+    });
     
-    // 명시적으로 CORS 헤더 재설정 (Cloudflare 호환성)
-    const origin = req.headers.origin;
-    const allowedOrigins = [
-      'https://www.minglingchat.com',
-      'https://minglingchat.com',
-      'https://mingling-new.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001'
-    ];
-    
-    if (!origin || allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin || '*');
-      res.header('Access-Control-Allow-Credentials', 'false');
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id, X-CSRF-Token');
-      res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON, X-Response-Time, X-Request-Id');
-      res.header('Access-Control-Max-Age', '86400');
-    }
-    
-    return res.status(200).end();
+    // 성공 응답
+    res.status(200).json({
+      message: 'CORS preflight successful',
+      timestamp: new Date().toISOString(),
+      origin: origin
+    });
+    return;
   }
   
   next();
