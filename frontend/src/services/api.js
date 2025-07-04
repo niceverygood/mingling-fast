@@ -1,25 +1,39 @@
 import axios from 'axios';
 
-// API 베이스 URL 설정 - 프로덕션 서버
-const API_BASE_URL = 'https://api.minglingchat.com';
+// 🚀 새로운 전략: 다중 엔드포인트 설정
+const API_ENDPOINTS = {
+  primary: 'https://api.minglingchat.com',
+  direct: 'http://43.201.40.223:8001', // EC2 직접 IP
+  fallback: 'https://api.minglingchat.com'
+};
+
+// 현재 사용할 엔드포인트 선택
+let currentEndpoint = API_ENDPOINTS.primary;
 
 // 디버깅용 로그
 console.log('🔧 API Configuration:', {
   NODE_ENV: process.env.NODE_ENV,
-  API_BASE_URL: API_BASE_URL,
+  PRIMARY_URL: API_ENDPOINTS.primary,
+  DIRECT_URL: API_ENDPOINTS.direct,
+  CURRENT_URL: currentEndpoint,
   window_location: typeof window !== 'undefined' ? window.location.href : 'N/A'
 });
 
-// Axios 인스턴스 생성
+// Axios 인스턴스 생성 (동적 baseURL)
 const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 15000, // 타임아웃 증가
-  withCredentials: true, // 쿠키 포함
+  timeout: 15000,
+  // withCredentials 완전 제거 - 헤더 기반 인증만 사용
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  }
 });
 
-// 요청 인터셉터 - User ID 헤더 자동 추가 및 개선
+// 동적 baseURL 설정
 api.interceptors.request.use(
   (config) => {
+    config.baseURL = currentEndpoint;
+    
     // axios.defaults.headers.common에서 헤더 복사
     if (axios.defaults.headers.common['X-User-ID']) {
       config.headers['X-User-ID'] = axios.defaults.headers.common['X-User-ID'];
@@ -33,6 +47,7 @@ api.interceptors.request.use(
       method: config.method?.toUpperCase(),
       url: config.url,
       baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`,
       headers: {
         'X-User-ID': config.headers['X-User-ID'],
         'X-User-Email': config.headers['X-User-Email'],
@@ -48,33 +63,94 @@ api.interceptors.request.use(
   }
 );
 
-// 응답 인터셉터 - 에러 처리 개선
+// 🔄 자동 엔드포인트 전환 기능
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Response:', {
       status: response.status,
       url: response.config.url,
+      baseURL: response.config.baseURL,
       data: response.data ? 'Data received' : 'No data'
     });
     return response;
   },
-  (error) => {
+  async (error) => {
     console.error('🚨 API Response Error:', {
       status: error.response?.status,
       statusText: error.response?.statusText,
       url: error.config?.url,
+      baseURL: error.config?.baseURL,
       message: error.message,
       data: error.response?.data
     });
     
+    // CORS 에러 또는 네트워크 에러 시 직접 IP로 전환
+    if (error.message?.includes('CORS') || 
+        error.message?.includes('Network Error') ||
+        error.code === 'ERR_NETWORK') {
+      
+      console.warn('🔄 CORS/Network Error detected - switching to direct IP');
+      
+      if (currentEndpoint === API_ENDPOINTS.primary) {
+        currentEndpoint = API_ENDPOINTS.direct;
+        console.log('🔄 Switched to direct IP:', currentEndpoint);
+        
+        // 요청 재시도
+        const config = error.config;
+        config.baseURL = currentEndpoint;
+        return api.request(config);
+      }
+    }
+    
     if (error.response?.status === 401) {
       console.warn('🔐 Authentication required - redirecting to login');
-      // 인증 오류 시 로그인 페이지로 리다이렉트하지 않고 에러만 로그
     }
     
     return Promise.reject(error);
   }
 );
+
+// 🛠️ 엔드포인트 수동 전환 함수
+export const switchToDirectIP = () => {
+  currentEndpoint = API_ENDPOINTS.direct;
+  console.log('🔄 Manually switched to direct IP:', currentEndpoint);
+};
+
+export const switchToPrimary = () => {
+  currentEndpoint = API_ENDPOINTS.primary;
+  console.log('🔄 Manually switched to primary endpoint:', currentEndpoint);
+};
+
+// 🧪 연결 테스트 함수
+export const testConnection = async () => {
+  const results = {};
+  
+  for (const [name, url] of Object.entries(API_ENDPOINTS)) {
+    try {
+      const testApi = axios.create({
+        baseURL: url,
+        timeout: 5000,
+        withCredentials: false
+      });
+      
+      const response = await testApi.get('/api/health');
+      results[name] = {
+        status: 'success',
+        url: url,
+        responseTime: response.headers['x-response-time'] || 'N/A'
+      };
+    } catch (error) {
+      results[name] = {
+        status: 'failed',
+        url: url,
+        error: error.message
+      };
+    }
+  }
+  
+  console.log('🧪 Connection Test Results:', results);
+  return results;
+};
 
 // Characters API
 export const charactersAPI = {

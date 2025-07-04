@@ -38,40 +38,27 @@ app.set('trust proxy', true);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 강력한 CORS 설정 - 모든 문제 해결
+// 🚀 완전 개방형 CORS 설정 - 모든 제한 제거
 app.use((req, res, next) => {
-  // 특정 origin 허용 (credentials: true일 때 필수)
-  const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://www.minglingchat.com',
-    'https://minglingchat.com',
-    'http://localhost:3000', // 개발용
-    'https://mingling-new.vercel.app' // Vercel 배포용
-  ];
-  
-  console.log(`🔍 CORS Check - Origin: ${origin}, Allowed: ${allowedOrigins.includes(origin)}`);
-  
-  if (allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    console.log(`✅ CORS Origin Set: ${origin}`);
-  } else {
-    console.log(`❌ CORS Origin Rejected: ${origin}`);
-  }
-  
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id');
-  res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON');
-  res.header('Access-Control-Max-Age', '86400'); // 24시간 프리플라이트 캐싱
+  // 모든 origin 허용
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Credentials', 'false'); // credentials false로 설정
+  res.header('Access-Control-Allow-Methods', '*'); // 모든 HTTP 메서드 허용
+  res.header('Access-Control-Allow-Headers', '*'); // 모든 헤더 허용
+  res.header('Access-Control-Expose-Headers', '*'); // 모든 헤더 노출
+  res.header('Access-Control-Max-Age', '86400');
   
   // Cloudflare 캐시 무력화
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.header('Pragma', 'no-cache');
   res.header('Expires', '0');
   
-  // OPTIONS 프리플라이트 요청 처리
+  // 모든 요청 로그
+  console.log(`🌐 ${req.method} ${req.url} from ${req.headers.origin || 'unknown'}`);
+  
+  // OPTIONS 프리플라이트 요청 즉시 응답
   if (req.method === 'OPTIONS') {
-    console.log(`OPTIONS 요청 처리: ${req.url} from origin: ${origin}`);
+    console.log(`✅ OPTIONS 요청 허용: ${req.url}`);
     res.status(200).end();
     return;
   }
