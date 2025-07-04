@@ -20,12 +20,21 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  client_id: '58613670474-0o4kfs9u048dl4dlsf70o4ososh89v9n.apps.googleusercontent.com'
+});
 
 // Google Sign In
 export const signInWithGoogle = async () => {
   try {
+    console.log('Starting Google sign in...');
+    console.log('Auth domain:', firebaseConfig.authDomain);
+    console.log('Project ID:', firebaseConfig.projectId);
+    
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
+    console.log('Google sign in successful:', user.email);
+    
     return {
       success: true,
       user: {
@@ -38,6 +47,8 @@ export const signInWithGoogle = async () => {
     };
   } catch (error) {
     console.error('Google sign in error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
     return {
       success: false,
       error: error.message
