@@ -65,6 +65,9 @@ const PORT = process.env.PORT || 8001;
 // Trust proxy 설정 - Cloudflare 프록시 환경에서 필요
 app.set('trust proxy', true);
 
+// 🔍 CORS 디버깅 미들웨어 적용
+app.use(corsDebugMiddleware);
+
 // Express 기본 설정 - 헤더 크기 제한 증가
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -259,6 +262,9 @@ app.use('/api/conversations', require('./routes/conversations'));
 app.use('/api/hearts', require('./routes/hearts'));
 app.use('/api/auth', require('./routes/auth'));
 
+// 📈 디버깅 엔드포인트 생성
+createStatsEndpoint(app);
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -290,6 +296,82 @@ app.use((err, req, res, _next) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// 🔍 디버깅 모드 설정
+const DEBUG_MODE = process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
+
+// 📊 서버 통계
+const serverStats = {
+  totalRequests: 0,
+  corsRequests: 0,
+  optionsRequests: 0,
+  successfulRequests: 0,
+  errorRequests: 0,
+  startTime: new Date().toISOString(),
+  lastRequest: null
+};
+
+// 🔍 안전한 서버 로깅 함수
+const serverLog = (level, message, data = {}) => {
+  if (DEBUG_MODE || level === 'error') {
+    console[level](`[SERVER ${level.toUpperCase()}]`, message, data);
+  }
+  
+  // 에러는 항상 로깅
+  if (level === 'error') {
+    console.error(`[ERROR] ${message}`, data);
+  }
+};
+
+// 🌐 CORS 디버깅 미들웨어
+const corsDebugMiddleware = (req, res, next) => {
+  const origin = req.headers.origin;
+  const method = req.method;
+  
+  // 통계 업데이트
+  serverStats.totalRequests++;
+  if (origin) serverStats.corsRequests++;
+  if (method === 'OPTIONS') serverStats.optionsRequests++;
+  
+  // 마지막 요청 정보 저장
+  serverStats.lastRequest = {
+    method: method,
+    url: req.url,
+    origin: origin,
+    timestamp: new Date().toISOString(),
+    userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
+    cfRay: req.headers['cf-ray'],
+    cfCountry: req.headers['cf-ipcountry']
+  };
+  
+  serverLog('info', `📊 Request: ${method} ${req.url}`, {
+    origin: origin,
+    corsRequest: !!origin,
+    isOptions: method === 'OPTIONS',
+    cfRay: req.headers['cf-ray'],
+    cfCountry: req.headers['cf-ipcountry'],
+    userAgent: req.headers['user-agent']?.substring(0, 50) + '...'
+  });
+  
+  next();
+};
+
+// 📈 서버 통계 엔드포인트
+const createStatsEndpoint = (app) => {
+  app.get('/api/debug/stats', (req, res) => {
+    const uptime = Date.now() - new Date(serverStats.startTime).getTime();
+    const stats = {
+      ...serverStats,
+      uptime: `${Math.floor(uptime / 1000)}s`,
+      successRate: serverStats.totalRequests > 0 ? 
+        (serverStats.successfulRequests / serverStats.totalRequests * 100).toFixed(2) + '%' : '0%',
+      corsRate: serverStats.totalRequests > 0 ? 
+        (serverStats.corsRequests / serverStats.totalRequests * 100).toFixed(2) + '%' : '0%'
+    };
+    
+    res.json(stats);
+  });
+};
 
 // 테스트 환경이 아닐 때만 서버 시작
 if (process.env.NODE_ENV !== 'test') {

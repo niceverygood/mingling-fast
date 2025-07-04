@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+// 🔍 디버깅 모드 설정 (프로덕션에서도 안전)
+const DEBUG_MODE = process.env.NODE_ENV === 'development' || 
+                   process.env.REACT_APP_DEBUG === 'true' ||
+                   window.location.search.includes('debug=true');
+
 // 🌐 환경별 API 베이스 URL 설정
 const getApiBaseUrl = () => {
   // Vercel 환경 변수 우선 사용
@@ -25,9 +30,108 @@ console.log('🔧 Environment Configuration:', {
   NODE_ENV: process.env.NODE_ENV,
   REACT_APP_API_URL: process.env.REACT_APP_API_URL,
   API_BASE_URL: API_BASE_URL,
+  DEBUG_MODE: DEBUG_MODE,
   window_location: typeof window !== 'undefined' ? window.location.href : 'N/A',
   timestamp: new Date().toISOString()
 });
+
+// 📊 API 요청 통계
+const apiStats = {
+  totalRequests: 0,
+  successfulRequests: 0,
+  failedRequests: 0,
+  corsErrors: 0,
+  networkErrors: 0,
+  lastError: null,
+  lastSuccess: null
+};
+
+// 🔍 안전한 로깅 함수
+const safeLog = (level, message, data = {}) => {
+  const logData = {
+    timestamp: new Date().toISOString(),
+    level: level,
+    message: message,
+    url: window.location.href,
+    userAgent: navigator.userAgent.substring(0, 50) + '...',
+    ...data
+  };
+  
+  if (DEBUG_MODE) {
+    console[level](`[API ${level.toUpperCase()}]`, message, data);
+  }
+  
+  // 프로덕션에서는 에러만 로컬 스토리지에 저장 (최대 10개)
+  if (level === 'error') {
+    try {
+      const logs = JSON.parse(localStorage.getItem('api_error_logs') || '[]');
+      logs.unshift(logData);
+      localStorage.setItem('api_error_logs', JSON.stringify(logs.slice(0, 10)));
+    } catch (e) {
+      // 로컬 스토리지 에러 무시
+    }
+  }
+};
+
+// 🌐 CORS 헤더 분석 함수
+const analyzeCorsHeaders = (response) => {
+  const corsHeaders = {
+    'access-control-allow-origin': response.headers['access-control-allow-origin'],
+    'access-control-allow-credentials': response.headers['access-control-allow-credentials'],
+    'access-control-allow-methods': response.headers['access-control-allow-methods'],
+    'access-control-allow-headers': response.headers['access-control-allow-headers'],
+    'access-control-expose-headers': response.headers['access-control-expose-headers'],
+    'vary': response.headers['vary']
+  };
+  
+  safeLog('info', 'CORS Headers Analysis', {
+    url: response.config?.url,
+    corsHeaders: corsHeaders,
+    hasWildcardOrigin: corsHeaders['access-control-allow-origin'] === '*',
+    hasCredentials: corsHeaders['access-control-allow-credentials'] === 'true'
+  });
+  
+  return corsHeaders;
+};
+
+// 🚨 에러 분류 함수
+const classifyError = (error) => {
+  if (error.message?.includes('CORS')) {
+    apiStats.corsErrors++;
+    return 'CORS_ERROR';
+  } else if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+    apiStats.networkErrors++;
+    return 'NETWORK_ERROR';
+  } else if (error.response?.status >= 400 && error.response?.status < 500) {
+    return 'CLIENT_ERROR';
+  } else if (error.response?.status >= 500) {
+    return 'SERVER_ERROR';
+  } else {
+    return 'UNKNOWN_ERROR';
+  }
+};
+
+// 📈 API 통계 리포트 생성
+const generateApiReport = () => {
+  const report = {
+    ...apiStats,
+    successRate: apiStats.totalRequests > 0 ? 
+      (apiStats.successfulRequests / apiStats.totalRequests * 100).toFixed(2) + '%' : '0%',
+    timestamp: new Date().toISOString()
+  };
+  
+  safeLog('info', 'API Statistics Report', report);
+  return report;
+};
+
+// 🔍 전역 API 디버깅 함수 (브라우저 콘솔에서 사용 가능)
+window.apiDebug = {
+  getStats: generateApiReport,
+  getErrorLogs: () => JSON.parse(localStorage.getItem('api_error_logs') || '[]'),
+  clearErrorLogs: () => localStorage.removeItem('api_error_logs'),
+  enableDebug: () => { window.sessionStorage.setItem('debug_mode', 'true'); window.location.reload(); },
+  disableDebug: () => { window.sessionStorage.removeItem('debug_mode'); window.location.reload(); }
+};
 
 // Axios 인스턴스 생성
 const api = axios.create({
@@ -40,9 +144,15 @@ const api = axios.create({
   }
 });
 
-// 요청 인터셉터 - User ID 헤더 자동 추가
+// 요청 인터셉터 - 고급 디버깅 및 모니터링
 api.interceptors.request.use(
   (config) => {
+    // 요청 통계 업데이트
+    apiStats.totalRequests++;
+    
+    // 요청 시작 시간 기록
+    config.metadata = { startTime: Date.now() };
+    
     // axios.defaults.headers.common에서 헤더 복사
     if (axios.defaults.headers.common['X-User-ID']) {
       config.headers['X-User-ID'] = axios.defaults.headers.common['X-User-ID'];
@@ -51,8 +161,8 @@ api.interceptors.request.use(
       config.headers['X-User-Email'] = axios.defaults.headers.common['X-User-Email'];
     }
     
-    // 디버깅용 로그
-    console.log('🚀 API Request:', {
+    // 요청 정보 로깅
+    const requestInfo = {
       method: config.method?.toUpperCase(),
       url: config.url,
       baseURL: config.baseURL,
@@ -60,41 +170,121 @@ api.interceptors.request.use(
       headers: {
         'X-User-ID': config.headers['X-User-ID'],
         'X-User-Email': config.headers['X-User-Email'],
-        'Content-Type': config.headers['Content-Type']
-      }
-    });
+        'Content-Type': config.headers['Content-Type'],
+        'Origin': window.location.origin
+      },
+      withCredentials: config.withCredentials,
+      timeout: config.timeout
+    };
+    
+    safeLog('info', '🚀 API Request Started', requestInfo);
     
     return config;
   },
   (error) => {
-    console.error('🚨 API Request Error:', error);
+    apiStats.failedRequests++;
+    const errorType = classifyError(error);
+    
+    safeLog('error', '🚨 API Request Setup Error', {
+      errorType: errorType,
+      message: error.message,
+      stack: DEBUG_MODE ? error.stack : undefined
+    });
+    
     return Promise.reject(error);
   }
 );
 
-// 응답 인터셉터 - 에러 처리
+// 응답 인터셉터 - 고급 에러 처리 및 분석
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', {
+    // 응답 시간 계산
+    const responseTime = response.config.metadata ? 
+      Date.now() - response.config.metadata.startTime : 0;
+    
+    // 성공 통계 업데이트
+    apiStats.successfulRequests++;
+    apiStats.lastSuccess = {
+      url: response.config.url,
       status: response.status,
+      timestamp: new Date().toISOString(),
+      responseTime: responseTime
+    };
+    
+    // CORS 헤더 분석
+    const corsHeaders = analyzeCorsHeaders(response);
+    
+    // 응답 정보 로깅
+    const responseInfo = {
+      status: response.status,
+      statusText: response.statusText,
       url: response.config.url,
       baseURL: response.config.baseURL,
-      data: response.data ? 'Data received' : 'No data'
-    });
+      responseTime: `${responseTime}ms`,
+      dataSize: response.data ? JSON.stringify(response.data).length : 0,
+      corsOrigin: corsHeaders['access-control-allow-origin'],
+      hasData: !!response.data
+    };
+    
+    safeLog('info', '✅ API Response Success', responseInfo);
+    
     return response;
   },
   (error) => {
-    console.error('🚨 API Response Error:', {
+    // 응답 시간 계산
+    const responseTime = error.config?.metadata ? 
+      Date.now() - error.config.metadata.startTime : 0;
+    
+    // 실패 통계 업데이트
+    apiStats.failedRequests++;
+    const errorType = classifyError(error);
+    
+    // 상세한 에러 정보 수집
+    const errorInfo = {
+      errorType: errorType,
       status: error.response?.status,
       statusText: error.response?.statusText,
       url: error.config?.url,
       baseURL: error.config?.baseURL,
+      method: error.config?.method?.toUpperCase(),
+      responseTime: `${responseTime}ms`,
       message: error.message,
-      data: error.response?.data
-    });
+      code: error.code,
+      corsHeaders: error.response ? {
+        'access-control-allow-origin': error.response.headers?.['access-control-allow-origin'],
+        'access-control-allow-credentials': error.response.headers?.['access-control-allow-credentials']
+      } : null,
+      requestHeaders: DEBUG_MODE ? {
+        'Origin': window.location.origin,
+        'User-Agent': navigator.userAgent.substring(0, 50) + '...'
+      } : undefined,
+      responseData: error.response?.data,
+      stack: DEBUG_MODE ? error.stack : undefined
+    };
     
-    if (error.response?.status === 401) {
-      console.warn('🔐 Authentication required - redirecting to login');
+    // 마지막 에러 정보 저장
+    apiStats.lastError = {
+      ...errorInfo,
+      timestamp: new Date().toISOString()
+    };
+    
+    safeLog('error', '🚨 API Response Error', errorInfo);
+    
+    // CORS 에러 특별 처리
+    if (errorType === 'CORS_ERROR') {
+      safeLog('warn', '🔒 CORS Error Detected', {
+        suggestion: 'Check if the API server is running and CORS is properly configured',
+        currentOrigin: window.location.origin,
+        targetURL: error.config?.url
+      });
+    }
+    
+    // 네트워크 에러 특별 처리
+    if (errorType === 'NETWORK_ERROR') {
+      safeLog('warn', '🌐 Network Error Detected', {
+        suggestion: 'Check internet connection and API server availability',
+        targetURL: error.config?.url
+      });
     }
     
     return Promise.reject(error);
