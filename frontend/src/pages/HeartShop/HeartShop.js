@@ -8,6 +8,8 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
 
+  console.log('💖 HeartShop 컴포넌트 렌더링:', { currentHearts, onPurchase: !!onPurchase });
+
   const heartPacks = [
     {
       id: 'basic',
@@ -52,7 +54,12 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   ];
 
   const handlePurchase = async (pack) => {
-    if (isProcessing) return;
+    console.log('🛒 하트 구매 시작:', pack);
+    
+    if (isProcessing) {
+      console.log('⏳ 이미 처리 중인 결제 있음');
+      return;
+    }
     
     setSelectedPack(pack);
     setIsProcessing(true);
@@ -62,6 +69,8 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       // 사용자 정보 가져오기
       const userEmail = localStorage.getItem('userEmail') || 'user@example.com';
       const userId = localStorage.getItem('userId') || 'guest';
+      
+      console.log('👤 사용자 정보:', { userEmail, userId });
       
       // 결제 데이터 구성
       const paymentData = {
@@ -74,30 +83,40 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
         heartAmount: pack.hearts
       };
 
+      console.log('📋 결제 데이터 구성:', paymentData);
       setProcessingMessage('결제 진행 중...');
       
       // 결제 요청
+      console.log('💳 결제 요청 시작');
       const paymentResult = await paymentService.requestPayment(paymentData);
+      console.log('💳 결제 요청 결과:', paymentResult);
       
       if (paymentResult.success) {
+        console.log('✅ 결제 성공 - 검증 단계로 진행');
         setProcessingMessage('결제 검증 중...');
         
         // 결제 검증
-        await paymentService.verifyPayment(
+        console.log('🔍 결제 검증 시작');
+        const verifyResult = await paymentService.verifyPayment(
           paymentResult.impUid, 
           paymentResult.merchantUid
         );
+        console.log('🔍 결제 검증 결과:', verifyResult);
         
         setProcessingMessage('하트 지급 중...');
         
         // 하트 지급
+        console.log('💖 하트 지급 시작');
         const purchaseResult = await paymentService.completeHeartPurchase(
           paymentResult, 
           pack
         );
+        console.log('💖 하트 지급 결과:', purchaseResult);
         
         // 성공 처리
+        console.log('🎉 전체 구매 과정 완료');
         if (onPurchase) {
+          console.log('📢 부모 컴포넌트에 구매 완료 알림');
           onPurchase({
             ...pack,
             success: true,
@@ -107,27 +126,45 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
         
         alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n새 잔액: ${purchaseResult.newBalance}개`);
         
+      } else {
+        console.error('❌ 결제 실패:', paymentResult);
+        throw new Error(paymentResult.error || '결제 실패');
       }
     } catch (error) {
-      console.error('❌ 결제 실패:', error);
+      console.error('❌ 결제 과정 중 오류 발생:', {
+        error: error,
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code
+      });
       
       let errorMessage = '결제 중 오류가 발생했습니다.';
       
       if (error.error) {
         errorMessage = error.error;
+        console.log('🔍 에러 객체의 error 속성:', error.error);
       } else if (error.message) {
         errorMessage = error.message;
+        console.log('🔍 에러 메시지:', error.message);
       }
       
       // 사용자에게 더 친숙한 메시지 제공
       if (errorMessage.includes('등록된 PG')) {
+        console.log('🚨 PG 설정 오류 감지');
         errorMessage = '결제 시스템 설정에 문제가 있습니다.\n잠시 후 다시 시도해주세요.';
       } else if (errorMessage.includes('취소')) {
+        console.log('🚨 결제 취소 감지');
         errorMessage = '결제가 취소되었습니다.';
+      } else if (errorMessage.includes('SDK')) {
+        console.log('🚨 SDK 오류 감지');
+        errorMessage = '결제 시스템 로딩에 실패했습니다.\n페이지를 새로고침 후 다시 시도해주세요.';
       }
       
+      console.log('📢 사용자에게 표시할 에러 메시지:', errorMessage);
       alert(`❌ 결제 실패\n${errorMessage}`);
     } finally {
+      console.log('🔄 결제 과정 정리');
       setIsProcessing(false);
       setProcessingMessage('');
       setSelectedPack(null);

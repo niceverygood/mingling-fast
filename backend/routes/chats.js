@@ -242,13 +242,12 @@ router.post('/', async (req, res) => {
       console.log('Chat started with persona:', personaId);
     }
     
-    const chat = await prisma.chat.create({
-      data: {
+    // 기존 채팅이 있는지 확인
+    let chat = await prisma.chat.findFirst({
+      where: {
         userId: firebaseUserId,
         characterId,
-        personaId: personaId === 'user' ? null : personaId, // 'user'는 기본 프로필이므로 null로 저장
-        lastMessage: '안녕하세요! 새로운 대화를 시작해볼까요?',
-        lastMessageAt: new Date()
+        isActive: true
       },
       include: {
         character: {
@@ -266,6 +265,60 @@ router.post('/', async (req, res) => {
         }
       }
     });
+    
+    // 기존 채팅이 없으면 새로 생성
+    if (!chat) {
+      console.log('Creating new chat for user:', firebaseUserId, 'character:', characterId);
+      chat = await prisma.chat.create({
+        data: {
+          userId: firebaseUserId,
+          characterId,
+          personaId: personaId === 'user' ? null : personaId, // 'user'는 기본 프로필이므로 null로 저장
+          lastMessage: '안녕하세요! 새로운 대화를 시작해볼까요?',
+          lastMessageAt: new Date()
+        },
+        include: {
+          character: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true
+            }
+          },
+          persona: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      });
+      console.log('New chat created:', chat.id);
+    } else {
+      console.log('Existing chat found:', chat.id);
+      // 기존 채팅의 페르소나 업데이트 (필요한 경우)
+      if (personaId && personaId !== 'user' && chat.personaId !== personaId) {
+        chat = await prisma.chat.update({
+          where: { id: chat.id },
+          data: { personaId },
+          include: {
+            character: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true
+              }
+            },
+            persona: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        });
+      }
+    }
 
     res.status(201).json(chat);
   } catch (error) {
