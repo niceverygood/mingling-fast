@@ -1,0 +1,29 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        script: |
+          cd /home/ec2-user/mingling_new
+          git pull origin main
+          cd backend
+          pm2 delete all || true
+          sleep 2
+          PORT=8001 pm2 start index.js --name "mingling-backend"
+          pm2 status
+          echo "✅ Deployment completed successfully!" 
