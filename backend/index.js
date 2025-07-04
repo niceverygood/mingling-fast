@@ -49,8 +49,13 @@ app.use((req, res, next) => {
     'https://mingling-new.vercel.app' // Vercel 배포용
   ];
   
+  console.log(`🔍 CORS Check - Origin: ${origin}, Allowed: ${allowedOrigins.includes(origin)}`);
+  
   if (allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
+    console.log(`✅ CORS Origin Set: ${origin}`);
+  } else {
+    console.log(`❌ CORS Origin Rejected: ${origin}`);
   }
   
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -58,6 +63,11 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id');
   res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON');
   res.header('Access-Control-Max-Age', '86400'); // 24시간 프리플라이트 캐싱
+  
+  // Cloudflare 캐시 무력화
+  res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.header('Pragma', 'no-cache');
+  res.header('Expires', '0');
   
   // OPTIONS 프리플라이트 요청 처리
   if (req.method === 'OPTIONS') {
