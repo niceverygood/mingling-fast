@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, signInWithGoogle, signOutUser } from '../firebase/config';
+import { auth, signInWithGoogle, signOutUser, handleRedirectResult } from '../firebase/config';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -19,6 +19,32 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // WebView 환경에서 redirect 결과 처리
+    const checkRedirectResult = async () => {
+      try {
+        const isWebView = window.ReactNativeWebView !== undefined || 
+                         navigator.userAgent.includes('WebView') ||
+                         navigator.userAgent.includes('wv');
+        
+        if (isWebView) {
+          console.log('WebView 환경에서 redirect 결과 확인 중...');
+          const result = await handleRedirectResult();
+          if (result.success && result.user) {
+            console.log('Redirect 로그인 성공:', result.user);
+            setIsLoggedIn(true);
+            setUser(result.user);
+            // Firebase 사용자 ID를 axios 헤더에 설정
+            axios.defaults.headers.common['X-User-ID'] = result.user.uid;
+            axios.defaults.headers.common['X-User-Email'] = result.user.email;
+          }
+        }
+      } catch (error) {
+        console.error('Redirect 결과 처리 오류:', error);
+      }
+    };
+
+    checkRedirectResult();
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setIsLoggedIn(true);
@@ -49,9 +75,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const result = await signInWithGoogle();
       if (result.success) {
-        setIsLoggedIn(true);
-        setUser(result.user);
-        return { success: true };
+        if (result.redirected) {
+          // WebView에서 redirect가 시작됨
+          console.log('Google 로그인 redirect 시작됨');
+          return { success: true, redirected: true };
+        } else {
+          // 일반 브라우저에서 popup 로그인 성공
+          setIsLoggedIn(true);
+          setUser(result.user);
+          return { success: true };
+        }
       } else {
         return { success: false, error: result.error };
       }

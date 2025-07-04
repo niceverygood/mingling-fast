@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -20,35 +20,69 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
+
+// WebView 호환성을 위한 설정
 googleProvider.setCustomParameters({
-  client_id: '58613670474-0o4kfs9u048dl4dlsf70o4ososh89v9n.apps.googleusercontent.com'
+  prompt: 'select_account'
 });
 
-// Google Sign In
+// Google Sign In - WebView 호환성을 위해 redirect 사용
 export const signInWithGoogle = async () => {
   try {
-    console.log('Starting Google sign in...');
-    console.log('Auth domain:', firebaseConfig.authDomain);
-    console.log('Project ID:', firebaseConfig.projectId);
+    // WebView 환경 감지
+    const isWebView = window.ReactNativeWebView !== undefined || 
+                     navigator.userAgent.includes('WebView') ||
+                     navigator.userAgent.includes('wv');
     
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    console.log('Google sign in successful:', user.email);
-    
-    return {
-      success: true,
-      user: {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        provider: 'google'
-      }
-    };
+    if (isWebView) {
+      // WebView에서는 redirect 사용
+      await signInWithRedirect(auth, googleProvider);
+      return { success: true, redirected: true };
+    } else {
+      // 일반 브라우저에서는 popup 사용 (기존 방식)
+      const { signInWithPopup } = await import("firebase/auth");
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      return {
+        success: true,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          provider: 'google'
+        }
+      };
+    }
   } catch (error) {
     console.error('Google sign in error:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+// Redirect 결과 처리 (WebView용)
+export const handleRedirectResult = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      const user = result.user;
+      return {
+        success: true,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          provider: 'google'
+        }
+      };
+    }
+    return { success: false, noResult: true };
+  } catch (error) {
+    console.error('Redirect result error:', error);
     return {
       success: false,
       error: error.message
