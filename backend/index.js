@@ -91,6 +91,10 @@ const serverLog = (level, message, data = {}) => {
   }
 };
 
+// Express 기본 설정 - 헤더 크기 제한 증가
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 // 🌐 CORS 디버깅 미들웨어
 const corsDebugMiddleware = (req, res, next) => {
   const origin = req.headers.origin;
@@ -124,6 +128,9 @@ const corsDebugMiddleware = (req, res, next) => {
   next();
 };
 
+// 🔍 CORS 디버깅 미들웨어 적용
+app.use(corsDebugMiddleware);
+
 // 📈 서버 통계 엔드포인트
 const createStatsEndpoint = (app) => {
   app.get('/api/debug/stats', (req, res) => {
@@ -140,13 +147,6 @@ const createStatsEndpoint = (app) => {
     res.json(stats);
   });
 };
-
-// Express 기본 설정 - 헤더 크기 제한 증가
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// 🔍 CORS 디버깅 미들웨어 적용
-app.use(corsDebugMiddleware);
 
 // 🌐 Cloudflare Transform Rules 없이 백엔드 단독 CORS 해결
 const corsOptions = {
