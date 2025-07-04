@@ -40,8 +40,19 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 강력한 CORS 설정 - 모든 문제 해결
 app.use((req, res, next) => {
-  // 모든 origin 허용
-  res.header('Access-Control-Allow-Origin', '*');
+  // 특정 origin 허용 (credentials: true일 때 필수)
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://www.minglingchat.com',
+    'https://minglingchat.com',
+    'http://localhost:3000', // 개발용
+    'https://mingling-new.vercel.app' // Vercel 배포용
+  ];
+  
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id');
@@ -50,7 +61,7 @@ app.use((req, res, next) => {
   
   // OPTIONS 프리플라이트 요청 처리
   if (req.method === 'OPTIONS') {
-    console.log(`OPTIONS 요청 처리: ${req.url}`);
+    console.log(`OPTIONS 요청 처리: ${req.url} from origin: ${origin}`);
     res.status(200).end();
     return;
   }
