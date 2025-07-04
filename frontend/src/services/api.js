@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// API 베이스 URL 설정 - 강제로 HTTPS API 사용
+// API 베이스 URL 설정 - 프로덕션 서버
 const API_BASE_URL = 'https://api.minglingchat.com';
 
 // 디버깅용 로그
