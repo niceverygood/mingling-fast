@@ -5,6 +5,7 @@ class PaymentService {
     this.IMP_CODE = 'imp_golfpe01'; // 포트원 가맹점 식별코드
     this.PG_PROVIDER = 'MOIplay998'; // KG이니시스 MID
     this.CHANNEL_KEY = 'channel-key-ea1faf0d-5e9a-4638-bdfe-596ef5794e83';
+    this.SIGN_KEY = 'TU5vYzk0L2Q2Z2ZaL28wN0JJczlVQT09'; // 웹결제 signkey
     
     // 포트원 SDK 로드 상태
     this.isSDKLoaded = false;
@@ -19,19 +20,40 @@ class PaymentService {
     }
 
     return new Promise((resolve, reject) => {
+      // 기존 스크립트 제거
+      const existingScript = document.querySelector('script[src*="iamport"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+      
       const script = document.createElement('script');
       script.src = 'https://cdn.iamport.kr/v1/iamport.js';
+      script.async = true;
       script.onload = () => {
-        if (window.IMP) {
-          window.IMP.init(this.IMP_CODE);
-          this.isSDKLoaded = true;
-          console.log('✅ 포트원 SDK 로드 완료');
-          resolve();
-        } else {
-          reject(new Error('포트원 SDK 로드 실패'));
-        }
+        console.log('📦 포트원 SDK 스크립트 로드됨');
+        
+        // 잠시 대기 후 초기화
+        setTimeout(() => {
+          if (window.IMP) {
+            try {
+              window.IMP.init(this.IMP_CODE);
+              this.isSDKLoaded = true;
+              console.log('✅ 포트원 SDK 초기화 완료:', this.IMP_CODE);
+              resolve();
+            } catch (error) {
+              console.error('❌ 포트원 SDK 초기화 실패:', error);
+              reject(error);
+            }
+          } else {
+            console.error('❌ window.IMP 객체를 찾을 수 없음');
+            reject(new Error('포트원 SDK 로드 실패'));
+          }
+        }, 100);
       };
-      script.onerror = () => reject(new Error('포트원 SDK 스크립트 로드 실패'));
+      script.onerror = (error) => {
+        console.error('❌ 포트원 SDK 스크립트 로드 실패:', error);
+        reject(new Error('포트원 SDK 스크립트 로드 실패'));
+      };
       document.head.appendChild(script);
     });
   }
@@ -39,6 +61,12 @@ class PaymentService {
   // 결제 요청
   async requestPayment(paymentData) {
     try {
+      // 개발 환경에서 테스트 모드 확인
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🧪 개발 환경 - 테스트 결제 모드');
+        return this.mockPayment(paymentData);
+      }
+      
       // SDK 로드 확인
       if (!this.isSDKLoaded) {
         await this.loadSDK();
@@ -56,6 +84,8 @@ class PaymentService {
         buyer_tel: paymentData.userPhone || '010-0000-0000',
         buyer_addr: '서울특별시',
         buyer_postcode: '06018',
+        // 포트원 V2 설정
+        channelKey: this.CHANNEL_KEY,
         // 모바일 환경 대응
         m_redirect_url: `${window.location.origin}/payment/result`,
         // 커스텀 데이터
@@ -70,6 +100,13 @@ class PaymentService {
 
       // 결제 실행
       return new Promise((resolve, reject) => {
+        if (!window.IMP) {
+          reject(new Error('포트원 SDK가 로드되지 않았습니다'));
+          return;
+        }
+        
+        console.log('💳 결제 요청 시작:', paymentParams);
+        
         window.IMP.request_pay(paymentParams, (response) => {
           console.log('💳 결제 응답:', response);
           
@@ -84,9 +121,11 @@ class PaymentService {
             });
           } else {
             // 결제 실패
+            const errorMsg = response.error_msg || '결제가 취소되었습니다';
+            console.error('💳 결제 실패:', errorMsg, response.error_code);
             reject({
               success: false,
-              error: response.error_msg,
+              error: errorMsg,
               code: response.error_code
             });
           }
@@ -137,6 +176,32 @@ class PaymentService {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000);
     return `HEART_${timestamp}_${random}`;
+  }
+
+  // 테스트용 결제 (개발 환경)
+  async mockPayment(paymentData) {
+    return new Promise((resolve, reject) => {
+      // 2초 후 결제 성공으로 시뮬레이션
+      setTimeout(() => {
+        const shouldSucceed = Math.random() > 0.2; // 80% 성공률
+        
+        if (shouldSucceed) {
+          resolve({
+            success: true,
+            impUid: `test_imp_${Date.now()}`,
+            merchantUid: this.generateOrderId(),
+            amount: paymentData.amount,
+            status: 'paid'
+          });
+        } else {
+          reject({
+            success: false,
+            error: '테스트 결제 실패 (랜덤)',
+            code: 'TEST_FAIL'
+          });
+        }
+      }, 2000);
+    });
   }
 
   // 하트 상품 정보

@@ -119,6 +119,13 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
         errorMessage = error.message;
       }
       
+      // 사용자에게 더 친숙한 메시지 제공
+      if (errorMessage.includes('등록된 PG')) {
+        errorMessage = '결제 시스템 설정에 문제가 있습니다.\n잠시 후 다시 시도해주세요.';
+      } else if (errorMessage.includes('취소')) {
+        errorMessage = '결제가 취소되었습니다.';
+      }
+      
       alert(`❌ 결제 실패\n${errorMessage}`);
     } finally {
       setIsProcessing(false);

@@ -40,6 +40,45 @@ router.post('/verify', async (req, res) => {
 
     console.log('💳 결제 검증 요청:', { imp_uid, merchant_uid, userId: firebaseUserId });
 
+    // 테스트 결제 처리
+    if (imp_uid.startsWith('test_imp_')) {
+      console.log('🧪 테스트 결제 검증 중...');
+      
+      // 이미 처리된 결제인지 확인
+      const existingTransaction = await prisma.heartTransaction.findFirst({
+        where: {
+          impUid: imp_uid
+        }
+      });
+
+      if (existingTransaction) {
+        return res.status(400).json({ error: '이미 처리된 결제입니다' });
+      }
+
+      // 테스트 결제 정보 저장
+      const transaction = await prisma.heartTransaction.create({
+        data: {
+          userId: firebaseUserId,
+          impUid: imp_uid,
+          merchantUid: merchant_uid,
+          amount: 1000, // 테스트 금액
+          status: 'verified',
+          paymentMethod: 'test',
+          paidAt: new Date()
+        }
+      });
+
+      return res.json({
+        success: true,
+        transaction: transaction,
+        paymentData: {
+          amount: 1000,
+          status: 'paid',
+          paidAt: Math.floor(Date.now() / 1000)
+        }
+      });
+    }
+
     // 포트원에서 결제 정보 조회
     const accessToken = await getPortoneAccessToken();
     
