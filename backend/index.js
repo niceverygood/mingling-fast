@@ -3,6 +3,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const OpenAI = require('openai');
+const cors = require('cors');
 require('dotenv').config();
 
 // OpenAI 초기화
@@ -38,38 +39,131 @@ app.set('trust proxy', true);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🚨 임시 완전 개방 CORS 설정 - 테스트용
+// 🌐 배포 환경용 완전한 CORS 설정
+const corsOptions = {
+  origin: function (origin, callback) {
+    // 허용된 origins 목록
+    const allowedOrigins = [
+      'https://www.minglingchat.com',
+      'https://minglingchat.com',
+      'https://mingling-new.vercel.app',
+      'http://localhost:3000', // 개발용
+      'http://localhost:3001'  // 개발용
+    ];
+    
+    // Origin이 없는 경우 (같은 도메인, 모바일 앱 등) 허용
+    if (!origin) {
+      console.log('✅ CORS: No origin header - allowing request');
+      return callback(null, true);
+    }
+    
+    // 허용된 origin인지 확인
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ CORS: Origin allowed:', origin);
+      return callback(null, true);
+    }
+    
+    console.log('❌ CORS: Origin rejected:', origin);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
+  
+  // 쿠키/세션 사용시 credentials 설정
+  credentials: false, // 현재는 false, 필요시 true로 변경
+  
+  // 허용할 HTTP 메서드
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  
+  // 허용할 헤더
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'X-User-Email',
+    'X-User-Id',
+    'X-CSRF-Token'
+  ],
+  
+  // 클라이언트에 노출할 헤더
+  exposedHeaders: [
+    'Content-Length',
+    'X-JSON',
+    'X-Response-Time',
+    'X-Request-Id'
+  ],
+  
+  // 프리플라이트 요청 캐시 시간 (24시간)
+  maxAge: 86400,
+  
+  // 프리플라이트 요청 처리
+  preflightContinue: false,
+  optionsSuccessStatus: 200
+};
+
+// Express CORS 미들웨어 적용
+app.use(cors(corsOptions));
+
+// 🔧 Cloudflare 호환성을 위한 추가 CORS 헤더 설정
 app.use((req, res, next) => {
-  console.log('🌐 Request Info:', {
+  // Cloudflare 요청 정보 로깅
+  const cfInfo = {
+    ray: req.headers['cf-ray'],
+    country: req.headers['cf-ipcountry'],
+    ip: req.headers['cf-connecting-ip'] || req.ip,
+    visitor: req.headers['cf-visitor']
+  };
+  
+  console.log('🌐 Request Details:', {
     method: req.method,
     url: req.url,
     origin: req.headers.origin,
-    cfRay: req.headers['cf-ray'],
-    cfCountry: req.headers['cf-ipcountry'],
-    userAgent: req.headers['user-agent']?.substring(0, 50) + '...'
+    userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
+    cloudflare: cfInfo
   });
   
-  // 모든 origin 허용 (임시)
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Credentials', 'false');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id');
-  res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON, X-Response-Time');
-  res.header('Access-Control-Max-Age', '86400');
-  
-  // 캐시 제어
+  // Cloudflare 캐시 제어
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.header('Pragma', 'no-cache');
   res.header('Expires', '0');
   
-  // 응답 시간 헤더
+  // 응답 시간 및 요청 ID 헤더
   res.header('X-Response-Time', new Date().toISOString());
+  res.header('X-Request-Id', req.headers['cf-ray'] || `req-${Date.now()}`);
   
-  // OPTIONS 요청 즉시 응답
+  // 보안 헤더 추가
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('X-XSS-Protection', '1; mode=block');
+  
+  // OPTIONS 프리플라이트 요청 특별 처리
   if (req.method === 'OPTIONS') {
-    console.log('✅ OPTIONS preflight handled for:', req.url);
-    res.status(200).end();
-    return;
+    console.log('✅ OPTIONS preflight request for:', req.url);
+    console.log('   Origin:', req.headers.origin);
+    console.log('   Requested Headers:', req.headers['access-control-request-headers']);
+    console.log('   Requested Method:', req.headers['access-control-request-method']);
+    
+    // 명시적으로 CORS 헤더 재설정 (Cloudflare 호환성)
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'https://www.minglingchat.com',
+      'https://minglingchat.com',
+      'https://mingling-new.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin || '*');
+      res.header('Access-Control-Allow-Credentials', 'false');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id, X-CSRF-Token');
+      res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON, X-Response-Time, X-Request-Id');
+      res.header('Access-Control-Max-Age', '86400');
+    }
+    
+    return res.status(200).end();
   }
   
   next();
