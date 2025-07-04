@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 // const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
@@ -39,6 +38,26 @@ app.set('trust proxy', true);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// 강력한 CORS 설정 - 모든 문제 해결
+app.use((req, res, next) => {
+  // 모든 origin 허용
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-User-Email, X-User-Id');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, X-JSON');
+  res.header('Access-Control-Max-Age', '86400'); // 24시간 프리플라이트 캐싱
+  
+  // OPTIONS 프리플라이트 요청 처리
+  if (req.method === 'OPTIONS') {
+    console.log(`OPTIONS 요청 처리: ${req.url}`);
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
+
 // 요청 로깅 미들웨어 추가 (디버깅용)
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
@@ -50,50 +69,6 @@ app.use((req, res, next) => {
     'origin': req.headers['origin'],
     'host': req.headers['host']
   });
-  next();
-});
-
-// CORS 설정 - 모든 origin 허용
-const corsOptions = {
-  origin: true, // 모든 origin 허용
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'Cache-Control',
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Methods',
-    'Access-Control-Allow-Credentials'
-  ],
-  exposedHeaders: [
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Methods',
-    'Access-Control-Allow-Credentials'
-  ]
-};
-
-app.use(cors(corsOptions));
-
-// 추가 CORS 헤더 설정
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods, Access-Control-Allow-Credentials');
-  res.header('Access-Control-Expose-Headers', 'Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods, Access-Control-Allow-Credentials');
-  
-  // OPTIONS 요청에 대한 응답
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
   next();
 });
 
