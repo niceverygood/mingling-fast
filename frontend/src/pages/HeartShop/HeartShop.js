@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
-import paymentService from '../../services/payment';
+import PaymentService from '../../services/payment';
 
 const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   const [selectedPack, setSelectedPack] = useState(null);
@@ -9,6 +9,14 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   const [processingMessage, setProcessingMessage] = useState('');
 
   console.log('💖 HeartShop 컴포넌트 렌더링:', { currentHearts, onPurchase: !!onPurchase });
+
+  // PaymentService 인스턴스 생성 (lazy)
+  const getPaymentService = () => {
+    if (!window.paymentServiceInstance) {
+      window.paymentServiceInstance = new PaymentService();
+    }
+    return window.paymentServiceInstance;
+  };
 
   const heartPacks = [
     {
@@ -88,6 +96,7 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       
       // 결제 요청
       console.log('💳 결제 요청 시작');
+      const paymentService = getPaymentService();
       const paymentResult = await paymentService.requestPayment(paymentData);
       console.log('💳 결제 요청 결과:', paymentResult);
       

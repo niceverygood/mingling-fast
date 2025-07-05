@@ -1,0 +1,37 @@
+android {
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.minglingappdirect"
+    defaultConfig {
+        applicationId "com.minglingappdirect"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            abiFilters "arm64-v8a"  // Only build for 64-bit ARM
+        }
+    }
+    splits {
+        abi {
+            reset()
+            enable true
+            universalApk false  // Don't build universal APK
+            include "arm64-v8a"
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            minifyEnabled true  // Enable code shrinking
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+        release {
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+} 

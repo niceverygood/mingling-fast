@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mingling 모바일 앱</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: #f8f9fa;
+        }
+        
+        .header {
+            background: #007AFF;
+            color: white;
+            padding: 20px 15px 15px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .webview-container {
+            flex: 1;
+            position: relative;
+            background: white;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007AFF;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #007AFF;
+            font-size: 16px;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 10px;
+            display: flex;
+            justify-content: space-around;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .status {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 15px;
+            text-align: center;
+            font-size: 14px;
+            border-bottom: 1px solid #bbdefb;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            📱 Mingling 모바일 앱
+        </div>
+        
+        <div class="status" id="status">
+            연결 중...
+        </div>
+        
+        <div class="webview-container">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div class="loading-text">Mingling 로딩 중...</div>
+            </div>
+            
+            <iframe 
+                id="webview"
+                src="https://minglingchat.com" 
+                onload="hideLoading()"
+                onerror="showError()">
+            </iframe>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" onclick="reloadApp()">🔄 새로고침</button>
+            <button class="btn" onclick="goHome()">🏠 홈</button>
+            <button class="btn" onclick="toggleFullscreen()">⛶ 전체화면</button>
+        </div>
+    </div>
+
+    <script>
+        let isLoaded = false;
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            updateStatus('✅ 연결됨 - minglingchat.com');
+            isLoaded = true;
+        }
+        
+        function showError() {
+            document.getElementById('loading').innerHTML = '<p style="color: #d32f2f;">❌ 로딩 중 오류가 발생했습니다.</p>';
+            updateStatus('❌ 연결 실패');
+        }
+        
+        function reloadApp() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('webview').src = 'https://minglingchat.com?' + Date.now();
+            updateStatus('🔄 새로고침 중...');
+        }
+        
+        function goHome() {
+            if (isLoaded) {
+                document.getElementById('webview').src = 'https://minglingchat.com';
+                updateStatus('🏠 홈으로 이동 중...');
+            }
+        }
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // 10초 후에도 로딩이 계속되면 에러 처리
+        setTimeout(() => {
+            if (!isLoaded) {
+                showError();
+            }
+        }, 10000);
+        
+        // 모바일 제스처 지원
+        let touchStartY = 0;
+        document.addEventListener('touchstart', function(e) {
+            touchStartY = e.touches[0].clientY;
+        });
+        
+        document.addEventListener('touchmove', function(e) {
+            // 당겨서 새로고침 방지
+            if (e.touches[0].clientY > touchStartY + 50 && window.scrollY === 0) {
+                e.preventDefault();
+            }
+        });
+        
+        // 앱처럼 보이게 하기 위한 메타 태그 추가
+        const meta = document.createElement('meta');
+        meta.name = 'apple-mobile-web-app-capable';
+        meta.content = 'yes';
+        document.head.appendChild(meta);
+        
+        const meta2 = document.createElement('meta');
+        meta2.name = 'apple-mobile-web-app-status-bar-style';
+        meta2.content = 'default';
+        document.head.appendChild(meta2);
+    </script>
+</body>
+</html> 

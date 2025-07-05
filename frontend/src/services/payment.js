@@ -19,10 +19,11 @@ class PaymentService {
     
     // 포트원 SDK 로드 상태
     this.isSDKLoaded = false;
-    this.loadSDK();
+    // 생성자에서 바로 로드하지 않고 필요할 때만 로드하도록 변경
+    // this.loadSDK();
   }
 
-  // 포트원 SDK 로드 (V1 SDK 사용)
+  // 포트원 SDK 로드 (V1 SDK 사용) - lazy loading
   async loadSDK() {
     console.log('📦 포트원 SDK 로드 시작');
     
@@ -407,7 +408,5 @@ class PaymentService {
   }
 }
 
-// 전역 인스턴스 생성
-const paymentService = new PaymentService();
-
-export default paymentService; 
+// 클래스만 export하고 필요할 때 인스턴스 생성
+export default PaymentService; 
