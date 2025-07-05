@@ -14,7 +14,7 @@ console.log('🔧 Environment Configuration:', {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✅ Set' : '❌ Missing',
   OPENAI_API_KEY_LENGTH: process.env.OPENAI_API_KEY?.length,
   JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing',
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'Using default',
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,https://minglingchat.com,https://www.minglingchat.com',
   timestamp: new Date().toISOString()
 });
 
@@ -32,7 +32,7 @@ const getAllowedOrigins = () => {
   ];
   
   if (process.env.NODE_ENV === 'development') {
-    defaultOrigins.push('http://localhost:3000', 'http://localhost:3001');
+    defaultOrigins.push('http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002');
   }
   
   return defaultOrigins;
@@ -294,11 +294,12 @@ app.use('/api', async (req, res, next) => {
       
       // 사용자가 없으면 자동 생성
       if (!user) {
+        const username = userEmail.split('@')[0]; // 이메일의 @ 앞부분을 username으로 사용
         user = await prisma.user.create({
           data: {
             id: userId,
             email: userEmail,
-            name: userEmail.split('@')[0], // 이메일의 @ 앞부분을 이름으로 사용
+            username: username,
             hearts: 100 // 기본 하트 100개 지급
           }
         });
