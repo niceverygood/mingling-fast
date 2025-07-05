@@ -14,7 +14,7 @@ console.log('🔧 Environment Configuration:', {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✅ Set' : '❌ Missing',
   OPENAI_API_KEY_LENGTH: process.env.OPENAI_API_KEY?.length,
   JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing',
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,https://minglingchat.com,https://www.minglingchat.com',
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3005,https://minglingchat.com,https://www.minglingchat.com',
   timestamp: new Date().toISOString()
 });
 
@@ -32,7 +32,7 @@ const getAllowedOrigins = () => {
   ];
   
   if (process.env.NODE_ENV === 'development') {
-    defaultOrigins.push('http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002');
+    defaultOrigins.push('http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:3004', 'http://localhost:3005');
   }
   
   return defaultOrigins;
@@ -287,26 +287,43 @@ app.use('/api', async (req, res, next) => {
   
   if (userEmail && userId) {
     try {
-      // 사용자가 존재하는지 확인
-      let user = await prisma.user.findUnique({
-        where: { email: userEmail }
+      // 사용자가 존재하는지 확인 (ID 또는 이메일로)
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { id: userId },
+            { email: userEmail }
+          ]
+        }
       });
       
       // 사용자가 없으면 자동 생성
       if (!user) {
-        const username = userEmail.split('@')[0]; // 이메일의 @ 앞부분을 username으로 사용
+        const username = userEmail.split('@')[0] + '_' + Date.now(); // 고유한 username 생성
+        
+        const userData = {
+          id: userId,
+          email: userEmail,
+          username: username,
+          hearts: 100 // 기본 하트 100개 지급
+        };
+        
+        console.log('🔧 Creating user with data:', userData);
+        
         user = await prisma.user.create({
-          data: {
-            id: userId,
-            email: userEmail,
-            username: username,
-            hearts: 100 // 기본 하트 100개 지급
-          }
+          data: userData
         });
-        console.log(`✅ New user created: ${userEmail} (ID: ${userId})`);
+        console.log(`✅ New user created: ${userEmail} (ID: ${userId}, Username: ${username})`);
+      } else {
+        console.log(`✅ Existing user found: ${userEmail} (ID: ${user.id})`);
       }
     } catch (error) {
       console.error('❌ User creation error:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        meta: error.meta
+      });
       // 에러가 발생해도 요청을 계속 진행
     }
   }

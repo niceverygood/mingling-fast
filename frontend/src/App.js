@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ForYouPage from './pages/ForYouPage';
 import CharacterCreation from './pages/CharacterCreation/CharacterCreation';
 import CharacterDetail from './pages/CharacterCreation/CharacterDetail';
@@ -35,28 +35,55 @@ function AppContent() {
 
   return (
     <Router>
-      <div className="App">
-        <div className="app-content">
-          <Routes>
-            <Route path="/" element={<ForYouPage />} />
-            <Route path="/character-creation" element={<CharacterCreation />} />
-            <Route path="/character/:id" element={<CharacterDetail />} />
-            <Route path="/character/:id/edit" element={<CharacterEdit />} />
-            <Route path="/chat/:chatId" element={<ChatPage />} />
-            <Route path="/my-page" element={<MyPage />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/persona-creation" element={<PersonaCreation />} />
-            <Route path="/persona/:id" element={<PersonaDetail />} />
-            <Route path="/persona/:id/edit" element={<PersonaEdit />} />
-            <Route path="/persona-management" element={<PersonaManagement />} />
-            <Route path="/persona-selection" element={<PersonaSelection />} />
-            <Route path="/heart-shop" element={<HeartShop />} />
-            <Route path="/chat-list" element={<ChatListPage />} />
-          </Routes>
-        </div>
-        <BottomNavigation />
-      </div>
+      <AppWithNavigation />
     </Router>
+  );
+}
+
+function AppWithNavigation() {
+  const location = useLocation();
+  
+  // 하단 네비게이션을 숨길 페이지들
+  const hideBottomNav = [
+    '/chat/', // 채팅 페이지 (동적 경로 포함)
+    '/character-creation',
+    '/character/',
+    '/persona-creation',
+    '/persona/',
+    '/settings',
+    '/heart-shop',
+    '/persona-management',
+    '/persona-selection'
+  ];
+
+  // 현재 경로가 하단 네비게이션을 숨겨야 하는 페이지인지 확인
+  const shouldHideBottomNav = hideBottomNav.some(path => 
+    location.pathname.startsWith(path) || location.pathname.includes(path)
+  );
+
+  return (
+    <div className="App">
+      <div className="app-content">
+        <Routes>
+          <Route path="/" element={<ChatListPage />} />
+          <Route path="/chats" element={<ChatListPage />} />
+          <Route path="/for-you" element={<ForYouPage />} />
+          <Route path="/my" element={<MyPage />} />
+          <Route path="/character-creation" element={<CharacterCreation />} />
+          <Route path="/character/:id" element={<CharacterDetail />} />
+          <Route path="/character/:id/edit" element={<CharacterEdit />} />
+          <Route path="/chat/:chatId" element={<ChatPage />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/persona-creation" element={<PersonaCreation />} />
+          <Route path="/persona/:id" element={<PersonaDetail />} />
+          <Route path="/persona/:id/edit" element={<PersonaEdit />} />
+          <Route path="/persona-management" element={<PersonaManagement />} />
+          <Route path="/persona-selection" element={<PersonaSelection />} />
+          <Route path="/heart-shop" element={<HeartShop />} />
+        </Routes>
+      </div>
+      {!shouldHideBottomNav && <BottomNavigation />}
+    </div>
   );
 }
 
