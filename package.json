@@ -8,12 +8,41 @@
     "start:backend": "cd backend && npm start",
     "start:frontend": "cd frontend && npm start",
     "install:all": "cd frontend && npm install && cd ../backend && npm install",
-    "db:setup": "cd backend && npx prisma generate && npx prisma db push"
+    "db:setup": "cd backend && npx prisma generate && npx prisma db push",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "lint": "eslint .",
+    "start": "react-native start",
+    "test": "jest"
   },
   "keywords": ["ai", "chat", "react", "nodejs", "mysql"],
   "author": "Mingling Team",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^7.6.0"
+    "concurrently": "^7.6.0",
+    "@babel/core": "^7.20.0",
+    "@babel/preset-env": "^7.20.0",
+    "@babel/runtime": "^7.20.0",
+    "@react-native/babel-preset": "0.80.1",
+    "@react-native/eslint-config": "0.80.1",
+    "@react-native/metro-config": "0.80.1",
+    "@react-native/typescript-config": "0.80.1",
+    "@react-native-community/cli": "latest",
+    "@types/react": "^18.2.6",
+    "@types/react-test-renderer": "^18.0.0",
+    "babel-jest": "^29.6.3",
+    "eslint": "^8.19.0",
+    "jest": "^29.6.3",
+    "prettier": "2.8.8",
+    "react-test-renderer": "19.0.0",
+    "typescript": "5.0.4"
+  },
+  "dependencies": {
+    "react": "19.0.0",
+    "react-native": "0.80.1",
+    "react-native-webview": "^13.13.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 } 

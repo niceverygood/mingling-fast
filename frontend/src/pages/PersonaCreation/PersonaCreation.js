@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ChevronLeftIcon, CameraIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { personasAPI } from '../../services/api';
+import ImageUpload from '../../components/ImageUpload';
 
 const PersonaCreation = ({ onClose, onComplete }) => {
   const [formData, setFormData] = useState({
@@ -22,24 +23,16 @@ const PersonaCreation = ({ onClose, onComplete }) => {
     }));
   };
 
-  const handleImageUpload = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        // 파일 크기 체크 (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          alert('파일 크기는 5MB 이하여야 합니다.');
-          return;
-        }
-        
-        const url = URL.createObjectURL(file);
-        handleInputChange('avatarUrl', url);
-      }
-    };
-    input.click();
+  const handleImageUploadSuccess = (uploadData) => {
+    if (uploadData && uploadData.url) {
+      handleInputChange('avatarUrl', uploadData.url);
+    } else {
+      handleInputChange('avatarUrl', '');
+    }
+  };
+
+  const handleImageUploadError = (error) => {
+    console.error('Image upload error:', error);
   };
 
   const handleComplete = async () => {
@@ -95,24 +88,15 @@ const PersonaCreation = ({ onClose, onComplete }) => {
           {/* 프로필 이미지 */}
           <div>
             <h3 className="text-base font-medium text-black mb-3">프로필 이미지</h3>
-            <div className="flex flex-col items-center">
-              <button 
-                onClick={handleImageUpload}
-                className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mb-3"
-              >
-                {formData.avatarUrl ? (
-                  <img 
-                    src={formData.avatarUrl} 
-                    alt="프로필" 
-                    className="w-20 h-20 rounded-full object-cover"
-                  />
-                ) : (
-                  <CameraIcon className="w-8 h-8 text-pink-500" />
-                )}
-              </button>
-              <span className="text-sm text-gray-600">이미지</span>
-              <span className="text-xs text-gray-400">JPG, PNG 파일 (최대 5MB)</span>
-            </div>
+            <ImageUpload
+              type="persona"
+              currentImage={formData.avatarUrl}
+              onUploadSuccess={handleImageUploadSuccess}
+              onUploadError={handleImageUploadError}
+              maxSize={2}
+              placeholder="페르소나 프로필 이미지를 업로드하세요"
+              className="w-full"
+            />
           </div>
 
           {/* 성별 */}

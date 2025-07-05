@@ -8,6 +8,7 @@ import BottomNavigation from './components/BottomNavigation';
 import PersonaManagement from './pages/PersonaCreation/PersonaManagement';
 import PersonaCreation from './pages/PersonaCreation/PersonaCreation';
 import PersonaEdit from './pages/PersonaCreation/PersonaEdit';
+import TestUpload from './pages/TestUpload';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './App.css';
 
@@ -20,6 +21,7 @@ function AppContent() {
     '/persona-management',
     '/persona-creation',
     '/chat/',
+    '/test-upload',
   ];
   
   const shouldHideBottomNav = hideBottomNavPaths.some(path => 
@@ -52,6 +54,7 @@ function AppContent() {
           <Route path="/persona-management" element={<PersonaManagement />} />
           <Route path="/persona-creation" element={<PersonaCreation />} />
           <Route path="/persona-edit/:id" element={<PersonaEdit />} />
+          <Route path="/test-upload" element={<TestUpload />} />
         </Routes>
         
         {/* Bottom Navigation */}

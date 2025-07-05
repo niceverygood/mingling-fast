@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { CogIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CogIcon, PlusIcon, TrashIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import { HeartIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
-import { usersAPI, charactersAPI, personasAPI, heartsAPI } from '../services/api';
+import { usersAPI, charactersAPI, personasAPI, heartsAPI, chatsAPI } from '../services/api';
 import CharacterCreation from './CharacterCreation/CharacterCreation';
 import CharacterEdit from './CharacterCreation/CharacterEdit';
 import CharacterDetail from './CharacterCreation/CharacterDetail';
 import PersonaCreation from './PersonaCreation/PersonaCreation';
 import PersonaEdit from './PersonaCreation/PersonaEdit';
 import PersonaDetail from './PersonaCreation/PersonaDetail';
+import PersonaSelection from './PersonaCreation/PersonaSelection';
 import HeartShop from './HeartShop/HeartShop';
 import Settings from './Settings/Settings';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +32,8 @@ const MyPage = () => {
   const [showHeartShop, setShowHeartShop] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showPersonaSelection, setShowPersonaSelection] = useState(false);
+  const [selectedCharacterForChat, setSelectedCharacterForChat] = useState(null);
   // eslint-disable-next-line no-unused-vars  
   const navigate = useNavigate();
 
@@ -206,6 +209,45 @@ const MyPage = () => {
 
   const handleSettings = () => {
     setShowSettings(true);
+  };
+
+  const handleCharacterDelete = async (character) => {
+    const confirmDelete = window.confirm(
+      `정말로 "${character.name}" 캐릭터를 삭제하시겠습니까?\n\n` +
+      `⚠️ 주의: 이 캐릭터와의 대화 기록이 있는 경우 캐릭터는 비활성화되며, ` +
+      `대화 기록이 없는 경우 완전히 삭제됩니다.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const response = await charactersAPI.delete(character.id);
+      
+      if (response.data.type === 'deactivated') {
+        alert('캐릭터가 비활성화되었습니다. (기존 대화 기록이 있어 완전 삭제되지 않았습니다)');
+      } else {
+        alert('캐릭터가 완전히 삭제되었습니다.');
+      }
+      
+      fetchMyCharacters(); // 캐릭터 목록 새로고침
+    } catch (error) {
+      console.error('Error deleting character:', error);
+      if (error.response?.status === 403) {
+        alert('자신이 만든 캐릭터만 삭제할 수 있습니다.');
+      } else {
+        alert('캐릭터 삭제에 실패했습니다. 다시 시도해주세요.');
+      }
+    }
+  };
+
+  const handleCharacterChat = (character) => {
+    setSelectedCharacterForChat(character);
+    setShowPersonaSelection(true);
+  };
+
+  const handleClosePersonaSelection = () => {
+    setShowPersonaSelection(false);
+    setSelectedCharacterForChat(null);
   };
 
 
@@ -422,10 +464,10 @@ const MyPage = () => {
                 {myCharacters.map((character) => (
                   <div 
                     key={character.id}
-                    className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors"
                   >
                     <div 
-                      className="flex items-center space-x-3 flex-1"
+                      className="flex items-center space-x-3 cursor-pointer"
                       onClick={() => handleCharacterClick(character)}
                     >
                       <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
@@ -453,16 +495,44 @@ const MyPage = () => {
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCharacterEdit(character);
-                      }}
-                      className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 rounded-md shadow-sm transition-all duration-200"
-                      title="편집"
-                    >
-                      편집
-                    </button>
+                    
+                    {/* 버튼 영역 */}
+                    <div className="flex items-center justify-end space-x-2 mt-3 pt-3 border-t border-gray-200">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCharacterChat(character);
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 rounded-md transition-all duration-200"
+                        title="대화하기"
+                      >
+                        <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                        <span>대화하기</span>
+                      </button>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCharacterEdit(character);
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 rounded-md transition-all duration-200"
+                        title="편집"
+                      >
+                        <span>편집</span>
+                      </button>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCharacterDelete(character);
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 text-sm text-red-600 hover:text-red-800 border border-red-300 hover:border-red-400 bg-red-50 hover:bg-red-100 rounded-md transition-all duration-200"
+                        title="삭제"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                        <span>삭제</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -638,6 +708,16 @@ const MyPage = () => {
         {showSettings && (
           <Settings 
             onClose={() => setShowSettings(false)}
+          />
+        )}
+
+        {/* Persona Selection Modal for Chat */}
+        {showPersonaSelection && selectedCharacterForChat && (
+          <PersonaSelection
+            isOpen={showPersonaSelection}
+            onClose={handleClosePersonaSelection}
+            characterId={selectedCharacterForChat.id}
+            characterName={selectedCharacterForChat.name}
           />
         )}
     </div>

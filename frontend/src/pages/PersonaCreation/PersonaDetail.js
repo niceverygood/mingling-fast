@@ -8,7 +8,7 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
 
   const fetchPersonaData = async () => {
     try {
-              const response = await personasAPI.getById(personaId);
+      const response = await personasAPI.getById(personaId);
       setPersona(response.data);
       setLoading(false);
     } catch (error) {
@@ -41,29 +41,30 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
   }
 
   return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
-        <div className="min-h-screen py-4 px-4">
-          <div className="bg-white max-w-sm mx-auto rounded-t-2xl min-h-screen">
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-4 rounded-t-2xl z-10">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-black">페르소나 상세</h2>
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={handleEdit}
-                  className="p-2 text-gray-600 hover:text-gray-800"
-                >
-                  <PencilIcon className="w-5 h-5" />
-                </button>
-                <button onClick={onClose} className="p-2">
-                  <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
-                </button>
-              </div>
-            </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white max-w-sm w-full rounded-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
+          <h2 className="text-xl font-bold text-black">페르소나 상세</h2>
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={handleEdit}
+              className="p-2 text-gray-600 hover:text-gray-800 rounded-full hover:bg-gray-100"
+            >
+              <PencilIcon className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={onClose} 
+              className="p-2 text-gray-600 hover:text-gray-800 rounded-full hover:bg-gray-100"
+            >
+              <ChevronLeftIcon className="w-6 h-6" />
+            </button>
           </div>
+        </div>
 
-          {/* Content */}
-          <div className="px-4 py-6 space-y-6">
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6 space-y-6">
             {/* Profile Section */}
             <div className="text-center">
               <div className="w-24 h-24 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -152,6 +153,9 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
                 생성일: {new Date(persona.createdAt).toLocaleDateString('ko-KR')}
               </p>
             </div>
+
+            {/* 하단 여백 */}
+            <div className="h-4"></div>
           </div>
         </div>
       </div>

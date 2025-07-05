@@ -338,6 +338,7 @@ app.use('/api/characters', require('./routes/characters'));
 app.use('/api/personas', require('./routes/personas'));
 app.use('/api/chats', require('./routes/chats'));
 app.use('/api/conversations', require('./routes/conversations'));
+app.use('/api/upload', require('./routes/upload'));
 app.use('/api/hearts', require('./routes/hearts'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/payment', require('./routes/payment'));

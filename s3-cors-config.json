@@ -1,0 +1,13 @@
+[
+    {
+        "AllowedHeaders": ["*"],
+        "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+        "AllowedOrigins": [
+            "http://localhost:3000",
+            "http://localhost:3001", 
+            "https://minglingchat.com",
+            "https://www.minglingchat.com"
+        ],
+        "ExposeHeaders": ["ETag"]
+    }
+] 

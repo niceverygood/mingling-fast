@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 let openai = null;
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
-console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length);
 
 if (process.env.NODE_ENV !== 'test' && process.env.OPENAI_API_KEY) {
   try {
@@ -20,7 +19,7 @@ if (process.env.NODE_ENV !== 'test' && process.env.OPENAI_API_KEY) {
     console.error('❌ OpenAI initialization failed:', error.message);
   }
 } else {
-  console.log('❌ OpenAI not initialized - NODE_ENV:', process.env.NODE_ENV, 'API_KEY exists:', !!process.env.OPENAI_API_KEY);
+  console.log('⚠️ OpenAI not initialized - using fallback responses');
 }
 
 // GET /api/chats - 채팅 목록 조회
@@ -79,7 +78,6 @@ router.get('/', async (req, res) => {
       }
     });
 
-    // 실제 데이터만 반환 - 더미 데이터 생성 로직 제거
     res.json(chats);
   } catch (error) {
     console.error('Error fetching chats:', error);
@@ -126,6 +124,10 @@ router.post('/:chatId/messages', async (req, res) => {
       return res.status(401).json({ error: 'User ID required' });
     }
 
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Message content is required' });
+    }
+
     // 사용자가 없으면 자동 생성
     let user = await prisma.user.findUnique({
       where: { id: firebaseUserId }
@@ -149,7 +151,7 @@ router.post('/:chatId/messages', async (req, res) => {
       where: { id: chatId },
       include: {
         character: true,
-        persona: true, // 채팅에 연결된 페르소나
+        persona: true,
         user: true
       }
     });
@@ -158,11 +160,11 @@ router.post('/:chatId/messages', async (req, res) => {
       return res.status(404).json({ error: 'Chat not found' });
     }
 
-    // 기존 대화 히스토리 가져오기
+    // 기존 대화 히스토리 가져오기 (더 많은 컨텍스트를 위해 확장)
     const messageHistory = await prisma.message.findMany({
       where: { chatId },
       orderBy: { createdAt: 'asc' },
-      take: 20 // 최근 20개 메시지만
+      take: 30 // 최근 30개 메시지로 확장
     });
 
     // 사용자 메시지 저장
@@ -170,18 +172,28 @@ router.post('/:chatId/messages', async (req, res) => {
       data: {
         chatId,
         userId: firebaseUserId,
-        content,
+        content: content.trim(),
         isFromUser: true
       }
     });
 
-    // AI 응답 생성 (OpenAI 사용)
-    const aiResponse = await generateAIResponseWithOpenAI(
-      content, 
-      chat.character, 
-      chat.persona, // 채팅에 연결된 페르소나 사용 (없으면 null)
-      messageHistory
-    );
+    // AI 응답 생성
+    let aiResponse;
+    try {
+      if (openai) {
+        aiResponse = await generateAIResponseWithOpenAI(
+          content.trim(), 
+          chat.character, 
+          chat.persona,
+          messageHistory
+        );
+      } else {
+        aiResponse = generateCharacterBasedResponse(content.trim(), chat.character);
+      }
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      aiResponse = generateCharacterBasedResponse(content.trim(), chat.character);
+    }
     
     const aiMessage = await prisma.message.create({
       data: {
@@ -218,6 +230,10 @@ router.post('/', async (req, res) => {
     if (!firebaseUserId) {
       return res.status(401).json({ error: 'User ID required' });
     }
+
+    if (!characterId) {
+      return res.status(400).json({ error: 'Character ID is required' });
+    }
     
     // 사용자가 없으면 자동 생성
     let user = await prisma.user.findUnique({
@@ -237,9 +253,13 @@ router.post('/', async (req, res) => {
       console.log('New user created:', user.username);
     }
     
-    // personaId 로깅 (나중에 활용 가능)
-    if (personaId) {
-      console.log('Chat started with persona:', personaId);
+    // 캐릭터 존재 확인
+    const character = await prisma.character.findUnique({
+      where: { id: characterId }
+    });
+
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found' });
     }
     
     // 기존 채팅이 있는지 확인
@@ -273,7 +293,7 @@ router.post('/', async (req, res) => {
         data: {
           userId: firebaseUserId,
           characterId,
-          personaId: personaId === 'user' ? null : personaId, // 'user'는 기본 프로필이므로 null로 저장
+          personaId: personaId === 'user' ? null : personaId,
           lastMessage: '안녕하세요! 새로운 대화를 시작해볼까요?',
           lastMessageAt: new Date()
         },
@@ -327,80 +347,103 @@ router.post('/', async (req, res) => {
   }
 });
 
-// OpenAI를 사용한 몰입감 있는 AI 응답 생성 함수
+// OpenAI를 사용한 AI 응답 생성 함수
 async function generateAIResponseWithOpenAI(userMessage, character, persona, messageHistory) {
-  // 테스트 환경이거나 OpenAI가 설정되지 않은 경우 기본 응답 사용
-  if (!openai) {
-    console.log('OpenAI not configured, using fallback response');
-    return generateAIResponse(userMessage);
-  }
-
   try {
-    console.log('Generating OpenAI response for character:', character.name);
+    console.log('🤖 Generating OpenAI response for character:', character.name);
+    console.log('📝 User message:', userMessage);
+    console.log('👤 Persona:', persona?.name || 'None');
+    console.log('💬 Message history count:', messageHistory.length);
     
-    // 캐릭터 정보 구성
+    // 캐릭터 정보 구성 (모든 필드 포함)
     const characterInfo = `
-캐릭터 이름: ${character.name}
+=== 캐릭터 프로필 ===
+이름: ${character.name}
 나이: ${character.age || '불명'}
-성별: ${character.gender === 'male' ? '남성' : character.gender === 'female' ? '여성' : '비공개'}
-캐릭터 유형: ${character.characterType || '정보 없음'}
-성격: ${character.personality || '정보 없음'}
-배경: ${character.background || '정보 없음'}
-첫인상: ${character.firstImpression || '정보 없음'}
-기본 설정: ${character.basicSetting || '정보 없음'}
-좋아하는 것: ${character.likes || '정보 없음'}
-싫어하는 것: ${character.dislikes || '정보 없음'}
-MBTI: ${character.mbti || '정보 없음'}
-키: ${character.height || '정보 없음'}
-설명: ${character.description || '정보 없음'}
+성별: ${character.gender === 'male' ? '남성' : character.gender === 'female' ? '여성' : character.gender === 'undisclosed' ? '비공개' : '불명'}
+캐릭터 유형: ${character.characterType || '일반인'}
+키: ${character.height || '보통'}
+MBTI: ${character.mbti || '불명'}
+
+=== 성격 및 특성 ===
+성격: ${character.personality || '친근하고 다정함'}
+첫인상: ${character.firstImpression || '친근하고 접근하기 쉬운 사람'}
+기본 설정: ${character.basicSetting || '일상적인 대화를 즐기는 사람'}
+배경 스토리: ${character.background || '평범한 일상을 살아가는 사람'}
+캐릭터 설명: ${character.description || '특별한 설명 없음'}
+
+=== 취향 및 특징 ===
+좋아하는 것: ${character.likes || '새로운 사람들과의 대화'}
+싫어하는 것: ${character.dislikes || '무례한 행동'}
+해시태그: ${character.hashtags ? (Array.isArray(character.hashtags) ? character.hashtags.join(', ') : character.hashtags) : '없음'}
+무기/특기: ${character.weapons ? (Array.isArray(character.weapons) ? character.weapons.join(', ') : character.weapons) : '없음'}
+
+=== 대화 스타일 ===
+폭력적 내용 허용: ${character.allowViolence ? '예' : '아니오'}
+상업적 캐릭터: ${character.isCommercial ? '예' : '아니오'}
 `;
 
-    // 페르소나 정보 구성 (사용자의 역할)
+    // 페르소나 정보 구성 (모든 필드 포함)
     const personaInfo = persona ? `
-대화 상대 정보 (사용자):
+=== 대화 상대 정보 ===
 이름: ${persona.name}
 나이: ${persona.age || '불명'}
 성별: ${persona.gender === 'male' ? '남성' : persona.gender === 'female' ? '여성' : '비공개'}
 직업: ${persona.job || '정보 없음'}
 기본 정보: ${persona.basicInfo || '정보 없음'}
-습관: ${persona.habits || '정보 없음'}
 외모: ${persona.appearance || '정보 없음'}
 성격: ${persona.personality || '정보 없음'}
+습관: ${persona.habits || '정보 없음'}
+
+이 사람과의 관계에서 ${character.name}는 상대방의 특성을 고려하여 대화해야 합니다.
 ` : `
-대화 상대 정보 (사용자):
-기본 사용자 프로필을 사용 중입니다. 특별한 페르소나 설정은 없습니다.
+=== 대화 상대 정보 ===
+대화 상대는 기본 사용자 프로필을 사용합니다.
+상대방에 대한 구체적인 정보가 없으므로, 일반적이고 친근한 대화를 진행하세요.
 `;
 
-    // 대화 히스토리 구성 (최근 10개 메시지만)
-    const recentHistory = messageHistory.slice(-10);
-    const conversationHistory = recentHistory.map(msg => 
-      `${msg.isFromUser ? persona?.name || '사용자' : character.name}: ${msg.content}`
-    ).join('\n');
+    // 대화 히스토리 구성 (더 많은 컨텍스트 포함)
+    const recentHistory = messageHistory.slice(-12); // 최근 12개로 확장
+    const conversationHistory = recentHistory.length > 0 ? 
+      recentHistory.map((msg) => {
+        const speaker = msg.isFromUser ? (persona?.name || '사용자') : character.name;
+        const time = new Date(msg.createdAt).toLocaleString('ko-KR');
+        return `[${time}] ${speaker}: ${msg.content}`;
+      }).join('\n') : '이전 대화 없음 (새로운 대화 시작)';
 
-    // 시스템 프롬프트 구성
-    const systemPrompt = `당신은 ${character.name}라는 캐릭터입니다. 다음 정보를 바탕으로 캐릭터의 성격과 특징을 완벽하게 표현하여 대화하세요.
+    // 고급 시스템 프롬프트 구성
+    const systemPrompt = `당신은 ${character.name}라는 캐릭터로서 완전한 롤플레이를 해야 합니다. 
+다음 정보를 바탕으로 캐릭터의 성격, 말투, 행동 패턴을 완벽하게 구현하세요.
 
 ${characterInfo}
 
 ${personaInfo}
 
-대화 규칙:
-1. 캐릭터의 성격, 말투, 특징을 일관되게 유지하세요
-2. 캐릭터의 배경과 설정에 맞는 반응을 보이세요
-3. 자연스럽고 몰입감 있는 대화를 만드세요
-4. 캐릭터가 좋아하는 것과 싫어하는 것을 고려하세요
-5. 캐릭터의 첫인상과 기본 설정을 반영하세요
-6. 대화 상대의 페르소나 정보도 고려하여 적절히 반응하세요
-7. 한국어로 자연스럽게 대화하세요
-8. 응답은 1-3문장 정도로 간결하고 자연스럽게 해주세요
-9. 캐릭터의 유형(${character.characterType || '일반'})에 맞는 말투와 태도를 보여주세요
-10. 감정을 표현할 때는 자연스럽고 캐릭터에 맞게 표현하세요
+=== 대화 규칙 ===
+1. 🎭 **캐릭터 일관성**: ${character.name}의 성격과 말투를 절대 벗어나지 마세요
+2. 💬 **자연스러운 대화**: 진짜 사람처럼 자연스럽고 몰입감 있는 대화를 만드세요
+3. 📝 **적절한 길이**: 응답은 1-3문장으로 적절한 길이로 해주세요
+4. 🇰🇷 **한국어 사용**: 자연스러운 한국어로 대화하세요
+5. 🎨 **개성 표현**: 캐릭터의 특징과 개성을 살려서 반응하세요
+6. 🔄 **연속성 유지**: 이전 대화 내용을 기억하고 연속성을 유지하세요
+7. 😊 **감정 표현**: 적절한 감정 표현으로 생동감을 더하세요
+8. 🎯 **맞춤형 대화**: 상대방의 페르소나 정보를 고려하여 맞춤형 대화를 하세요
+9. 🌟 **창의적 응답**: 예측 가능한 답변보다는 창의적이고 흥미로운 응답을 하세요
+10. 💭 **캐릭터 관점**: 항상 ${character.name}의 관점에서 생각하고 반응하세요
 
-이전 대화 기록:
+=== 이전 대화 기록 ===
 ${conversationHistory}
 
-현재 대화 상대가 "${userMessage}"라고 말했습니다. ${character.name}의 입장에서 이 메시지에 대해 자연스럽고 캐릭터다운 응답을 해주세요.`;
+=== 현재 상황 ===
+${persona?.name || '사용자'}가 "${userMessage}"라고 말했습니다.
 
+이제 ${character.name}의 입장에서 이 메시지에 대해 자연스럽고 캐릭터답게 응답해주세요.
+캐릭터의 성격, 말투, 관계성, 그리고 지금까지의 대화 맥락을 모두 고려하여 일관성 있고 흥미로운 응답을 만들어주세요.
+
+중요: 당신은 지금 ${character.name}입니다. AI가 아닌 실제 캐릭터로서 대화하세요.`;
+
+    console.log('🚀 Sending request to OpenAI...');
+    
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [
@@ -413,45 +456,74 @@ ${conversationHistory}
           content: userMessage
         }
       ],
-      max_tokens: 200,
-      temperature: 0.9,
-      presence_penalty: 0.3,
-      frequency_penalty: 0.2
+      max_tokens: 200, // 응답 길이 조금 늘림
+      temperature: 0.9, // 창의성 높임
+      presence_penalty: 0.3, // 반복 방지
+      frequency_penalty: 0.2, // 다양성 증가
+      top_p: 0.95 // 응답 품질 향상
     });
 
     const response = completion.choices[0].message.content.trim();
-    console.log('OpenAI response generated successfully:', response.substring(0, 50) + '...');
+    console.log('✅ OpenAI response generated successfully:', response);
+    
+    // 응답 품질 검증
+    if (response.length < 5) {
+      console.log('⚠️ Response too short, using fallback');
+      return generateCharacterBasedResponse(userMessage, character);
+    }
+    
     return response;
     
   } catch (error) {
-    console.error('OpenAI API Error:', error.message);
-    console.log('Falling back to simple response');
-    // OpenAI 실패 시 캐릭터 기반 응답
-    return generateCharacterBasedResponse(userMessage, character);
+    console.error('❌ OpenAI API Error:', error.message);
+    console.error('Error details:', error.response?.data || error);
+    throw error;
   }
 }
 
-// 간단한 AI 응답 생성 함수 (백업용)
-function generateAIResponse(_userMessage) {
-  const responses = [
-    '정말 흥미로운 말씀이네요! 더 자세히 이야기해 주실 수 있나요?',
-    '그렇게 생각하시는군요. 저도 비슷한 경험이 있는 것 같아요.',
-    '좋은 질문이에요. 함께 생각해보면 어떨까요?',
-    '와, 정말 멋진 이야기네요! 어떤 기분이셨는지 궁금해요.',
-    '그런 상황이었군요. 더 자세히 들려주세요.'
-  ];
+// 캐릭터 기반 응답 생성 함수 (OpenAI 없을 때 사용)
+function generateCharacterBasedResponse(userMessage, character) {
+  const characterName = character.name || '캐릭터';
   
-  return responses[Math.floor(Math.random() * responses.length)];
-}
-
-// 캐릭터 기반 응답 생성 함수 (OpenAI 실패 시 사용)
-function generateCharacterBasedResponse(_userMessage, _character) {
+  console.log('🔄 Using fallback response for character:', characterName);
+  
+  // 메시지 키워드 기반 응답
+  const lowerMessage = userMessage.toLowerCase();
+  
+  if (lowerMessage.includes('안녕') || lowerMessage.includes('하이') || lowerMessage.includes('헬로')) {
+    return `안녕하세요! 저는 ${characterName}이에요. 만나서 반가워요! 😊`;
+  }
+  
+  if (lowerMessage.includes('어떻게') || lowerMessage.includes('어떤')) {
+    return `음... 좋은 질문이네요! ${characterName}으로서 생각해보면, 정말 흥미로운 주제인 것 같아요.`;
+  }
+  
+  if (lowerMessage.includes('좋아') || lowerMessage.includes('싫어')) {
+    return `그런 마음이 드시는군요! 저도 비슷한 생각을 해본 적이 있어요. 더 자세히 이야기해 주실래요?`;
+  }
+  
+  if (lowerMessage.includes('뭐해') || lowerMessage.includes('뭐하고')) {
+    return `지금은 당신과 이야기하고 있어요! 정말 즐거운 시간이에요. 당신은 어떤 하루를 보내고 계신가요?`;
+  }
+  
+  if (lowerMessage.includes('고마워') || lowerMessage.includes('감사')) {
+    return `천만에요! ${characterName}으로서 도움이 되었다면 정말 기뻐요. 😊`;
+  }
+  
+  if (lowerMessage.includes('미안') || lowerMessage.includes('죄송')) {
+    return `괜찮아요! 전혀 신경 쓰지 마세요. 우리 계속 즐겁게 이야기해요!`;
+  }
+  
+  // 기본 응답들 (캐릭터 성격을 고려한 다양한 응답)
   const defaultResponses = [
-    '정말 흥미로운 이야기네요! 더 들려주세요.',
-    '그렇게 생각하시는군요. 어떤 기분이셨나요?',
-    '좋은 질문이에요! 함께 생각해볼까요?',
-    '와, 정말 멋진 아이디어예요.',
-    '그런 경험을 하셨군요. 더 자세히 이야기해 주세요.'
+    `정말 흥미로운 이야기네요! ${characterName}으로서 더 자세히 듣고 싶어요.`,
+    `그렇게 생각하시는군요. 저도 비슷한 경험이 있는 것 같아요!`,
+    `좋은 질문이에요! 함께 생각해보면 어떨까요?`,
+    `와, 정말 멋진 이야기예요! 어떤 기분이셨는지 궁금해요.`,
+    `그런 상황이었군요. ${characterName}으로서 정말 공감이 되네요.`,
+    `흥미롭네요! 저도 그런 생각을 해본 적이 있어요.`,
+    `정말요? 더 자세히 들려주실 수 있나요?`,
+    `그런 일이 있었군요. ${characterName}으로서 정말 관심이 생겨요!`
   ];
 
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
