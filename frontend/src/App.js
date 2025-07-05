@@ -1,79 +1,50 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import MyPage from './pages/MyPage';
-import ChatListPage from './pages/ChatListPage';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ForYouPage from './pages/ForYouPage';
+import CharacterCreation from './pages/CharacterCreation/CharacterCreation';
+import CharacterDetail from './pages/CharacterCreation/CharacterDetail';
+import CharacterEdit from './pages/CharacterCreation/CharacterEdit';
 import ChatPage from './pages/ChatPage';
-import BottomNavigation from './components/BottomNavigation';
-import PersonaManagement from './pages/PersonaCreation/PersonaManagement';
+import MyPage from './pages/MyPage';
+import Settings from './pages/Settings/Settings';
 import PersonaCreation from './pages/PersonaCreation/PersonaCreation';
+import PersonaDetail from './pages/PersonaCreation/PersonaDetail';
 import PersonaEdit from './pages/PersonaCreation/PersonaEdit';
-import TestUpload from './pages/TestUpload';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import PersonaManagement from './pages/PersonaCreation/PersonaManagement';
+import PersonaSelection from './pages/PersonaCreation/PersonaSelection';
+import HeartShop from './pages/HeartShop/HeartShop';
+import ChatListPage from './pages/ChatListPage';
+import { AuthProvider } from './context/AuthContext';
+import BottomNavigation from './components/BottomNavigation';
 import './App.css';
-
-function AppContent() {
-  const location = useLocation();
-  const { loading } = useAuth();
-  
-  // 하단 네비게이션을 숨길 경로들
-  const hideBottomNavPaths = [
-    '/persona-management',
-    '/persona-creation',
-    '/chat/',
-    '/test-upload',
-  ];
-  
-  const shouldHideBottomNav = hideBottomNavPaths.some(path => 
-    location.pathname.startsWith(path)
-  ) || location.pathname.includes('/persona-edit/');
-
-  // Firebase 인증 상태 확인 중일 때 로딩 화면
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">앱을 준비하고 있어요...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Main Content */}
-      <div className="max-w-md mx-auto bg-white min-h-screen relative">
-        <Routes>
-          <Route path="/" element={<ChatListPage />} />
-          <Route path="/app" element={<ChatListPage />} />
-          <Route path="/chats" element={<ChatListPage />} />
-          <Route path="/for-you" element={<ForYouPage />} />
-          <Route path="/my" element={<MyPage />} />
-          <Route path="/chat/:chatId" element={<ChatPage />} />
-          <Route path="/persona-management" element={<PersonaManagement />} />
-          <Route path="/persona-creation" element={<PersonaCreation />} />
-          <Route path="/persona-edit/:id" element={<PersonaEdit />} />
-          <Route path="/test-upload" element={<TestUpload />} />
-        </Routes>
-        
-        {/* Bottom Navigation */}
-        {!shouldHideBottomNav && <BottomNavigation />}
-      </div>
-    </div>
-  );
-}
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<AppContent />} />
-          <Route path="/*" element={<AppContent />} />
-        </Routes>
-      </AuthProvider>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <div className="app-content">
+            <Routes>
+              <Route path="/" element={<ForYouPage />} />
+              <Route path="/character-creation" element={<CharacterCreation />} />
+              <Route path="/character/:id" element={<CharacterDetail />} />
+              <Route path="/character/:id/edit" element={<CharacterEdit />} />
+              <Route path="/chat/:chatId" element={<ChatPage />} />
+              <Route path="/my-page" element={<MyPage />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/persona-creation" element={<PersonaCreation />} />
+              <Route path="/persona/:id" element={<PersonaDetail />} />
+              <Route path="/persona/:id/edit" element={<PersonaEdit />} />
+              <Route path="/persona-management" element={<PersonaManagement />} />
+              <Route path="/persona-selection" element={<PersonaSelection />} />
+              <Route path="/heart-shop" element={<HeartShop />} />
+              <Route path="/chat-list" element={<ChatListPage />} />
+            </Routes>
+          </div>
+          <BottomNavigation />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
