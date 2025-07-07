@@ -10,6 +10,11 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
 
   console.log('💖 HeartShop 컴포넌트 렌더링:', { currentHearts, onPurchase: !!onPurchase });
 
+  // API URL 설정 (EC2 서버)
+  const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? 'https://api.minglingchat.com' 
+    : 'http://43.203.211.115:8001';
+
   // PaymentService 인스턴스 생성 (lazy)
   const getPaymentService = () => {
     if (!window.paymentServiceInstance) {
@@ -62,7 +67,7 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   ];
 
   const handlePurchase = async (pack) => {
-    console.log('🛒 하트 구매 시작:', pack);
+    console.log('🛒 하트 구매 시작 (즉시 검증 방식):', pack);
     
     if (isProcessing) {
       console.log('⏳ 이미 처리 중인 결제 있음');
@@ -90,14 +95,14 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       console.log('📋 결제 데이터 구성:', { pack, userInfo });
       setProcessingMessage('결제 진행 중...');
       
-      // PaymentService를 통한 결제 요청
-      console.log('💳 결제 요청 시작');
+      // PaymentService를 통한 결제 요청 (즉시 검증 방식)
+      console.log('💳 결제 요청 시작 (즉시 검증 방식)');
       const paymentService = getPaymentService();
       const paymentResult = await paymentService.purchaseHearts(pack.id, userInfo);
-      console.log('💳 결제 결과:', paymentResult);
+      console.log('💳 결제 및 검증 완료:', paymentResult);
       
       if (paymentResult.success) {
-        console.log('✅ 결제 및 검증 완료');
+        console.log('✅ 결제 및 하트 지급 완료');
         
         // 서버에서 실제 하트 잔액 가져오기
         setProcessingMessage('하트 잔액 업데이트 중...');
@@ -115,7 +120,10 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
         }
         
         const finalHeartBalance = updatedHearts || paymentResult.verification?.newBalance || (currentHearts + pack.hearts);
-        alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n새 잔액: ${finalHeartBalance}개`);
+        alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n하트가 즉시 지급되었습니다.\n새 잔액: ${finalHeartBalance}개`);
+        
+        // 성공 후 창 닫기
+        onClose();
         
       } else {
         console.error('❌ 결제 실패:', paymentResult);
@@ -147,6 +155,9 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       } else if (errorMessage.includes('SDK')) {
         console.log('🚨 SDK 오류 감지');
         errorMessage = '결제 시스템 로딩에 실패했습니다.\n페이지를 새로고침 후 다시 시도해주세요.';
+      } else if (errorMessage.includes('검증')) {
+        console.log('🚨 검증 오류 감지');
+        errorMessage = '결제 검증에 실패했습니다.\n고객센터로 문의해주세요.';
       }
       
       console.log('📢 사용자에게 표시할 에러 메시지:', errorMessage);
@@ -159,15 +170,15 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
     }
   };
 
-  // 사용자 하트 잔액 새로고침 함수
+  // 사용자 하트 잔액 새로고침 함수 (EC2 서버)
   const refreshHeartBalance = async () => {
     try {
       const userId = localStorage.getItem('userId') || 'guest';
       const userEmail = localStorage.getItem('userEmail') || 'user@minglingchat.com';
       
-      console.log('🔄 하트 잔액 새로고침 중...', { userId, userEmail });
+      console.log('🔄 하트 잔액 새로고침 중...', { userId, userEmail, apiUrl: API_BASE_URL });
       
-      const response = await fetch(`http://localhost:8001/api/users/profile`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -230,6 +241,17 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
             </p>
             <p className="text-sm text-gray-600">
               더 많은 하트로 무제한 대화를 즐겨보세요!
+            </p>
+          </div>
+
+          {/* Payment System Status */}
+          <div className="bg-green-50 rounded-2xl p-4 border border-green-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-green-500 text-lg">✅</span>
+              <h3 className="text-sm font-medium text-green-800">즉시 하트 지급</h3>
+            </div>
+            <p className="text-xs text-green-700">
+              결제 완료 즉시 하트가 지급됩니다. 웹훅 대기 없이 바로 사용 가능합니다.
             </p>
           </div>
 
@@ -316,7 +338,7 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
             <div className="space-y-2 text-sm text-gray-600">
               <div className="flex items-start space-x-2">
                 <span className="text-gray-400">•</span>
-                <span>하트는 구매 즉시 계정에 추가됩니다</span>
+                <span>하트는 결제 완료 즉시 계정에 추가됩니다</span>
               </div>
               <div className="flex items-start space-x-2">
                 <span className="text-gray-400">•</span>
@@ -341,7 +363,10 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
               <h3 className="text-lg font-medium text-black mb-2">결제 진행 중</h3>
               <p className="text-sm text-gray-600">{processingMessage}</p>
-              <p className="text-xs text-gray-500 mt-2">잠시만 기다려주세요...</p>
+              <div className="mt-3 text-xs text-gray-500">
+                <div>✅ 결제 완료 즉시 하트 지급</div>
+                <div>⏳ 잠시만 기다려주세요...</div>
+              </div>
             </div>
           </div>
         )}
