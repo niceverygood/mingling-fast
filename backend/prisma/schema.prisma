@@ -23,6 +23,7 @@ model User {
   chats       Chat[]
   messages    Message[]
   heartTransactions HeartTransaction[]
+  relations   Relation[]  // 호감도 관계
 
   @@map("users")
 }
@@ -64,6 +65,7 @@ model Character {
   userId          String   // creatorId에서 userId로 변경
   user            User     @relation(fields: [userId], references: [id])
   chats           Chat[]
+  relations       Relation[] // 호감도 관계
 
   @@map("characters")
 }
@@ -151,4 +153,39 @@ model HeartTransaction {
   user        User     @relation(fields: [userId], references: [id])
 
   @@map("heart_transactions")
+}
+
+// 호감도 시스템
+model Relation {
+  id          String   @id @default(cuid())
+  score       Int      @default(0) // 0-1000 호감도 점수
+  stage       Int      @default(0) // 0-6 단계 (S0-S6)
+  lastDecayAt DateTime @default(now()) // 마지막 감쇠 적용 시간
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id])
+  eventLogs   RelationEventLog[]
+
+  @@unique([userId, characterId])
+  @@map("relations")
+}
+
+model RelationEventLog {
+  id          String   @id @default(cuid())
+  eventType   String   // 'chat_positive', 'chat_negative', 'gift', 'date', 'conflict' 등
+  deltaScore  Int      // 점수 변화량 (+/-)
+  description String?  @db.Text // 이벤트 설명
+  messageId   String?  // 관련 메시지 ID (채팅 이벤트의 경우)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  relationId  String
+  relation    Relation @relation(fields: [relationId], references: [id])
+
+  @@map("relation_event_logs")
 } 

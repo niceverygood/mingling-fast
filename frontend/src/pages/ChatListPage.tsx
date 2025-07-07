@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
 import axios, { AxiosResponse } from 'axios';
 import { Chat, ChatDisplayData } from '../types/chat';
+import Avatar from '../components/Avatar';
 
 // 더미 데이터 제거됨 - 실제 API 데이터만 사용
 
@@ -154,19 +155,13 @@ const ChatListPage: React.FC = () => {
             <div className="flex items-start space-x-3">
               {/* Left Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-purple-100 rounded-full flex items-center justify-center">
-                  {chat.character.avatarUrl ? (
-                    <img 
-                      src={chat.character.avatarUrl} 
-                      alt={chat.character.name} 
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-purple-600 text-lg font-bold">
-                      {chat.character.name.charAt(0)}
-                    </span>
-                  )}
-                </div>
+                <Avatar 
+                  src={chat.character.avatarUrl}
+                  alt={chat.character.name}
+                  name={chat.character.name}
+                  size="md"
+                  fallbackType="initial"
+                />
                 {/* Unread Badge */}
                 {chat.unreadCount > 0 && (
                   <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
@@ -187,9 +182,13 @@ const ChatListPage: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <span className="text-gray-400 text-sm">{chat.lastMessageAt}</span>
                     {/* Right Avatar */}
-                    <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
-                      <span className="text-gray-600 text-xs">👤</span>
-                    </div>
+                    <Avatar 
+                      src=""
+                      alt="사용자"
+                      name="사용자"
+                      size="sm"
+                      fallbackType="icon"
+                    />
                   </div>
                 </div>
 

@@ -4,18 +4,18 @@ class PaymentService {
   constructor() {
     console.log('🔧 PaymentService 초기화 시작');
     
-    // 포트원 V1 SDK 설정 (안정적인 버전)
-    this.IMP_CODE = 'imp_golfpe01'; // 포트원 가맹점 식별코드
-    this.PG_PROVIDER = 'html5_inicis.MOIplay998'; // KG이니시스 상점아이디
-    this.CHANNEL_KEY = 'channel-key-720d69be-767a-420c-91c8-2855ca00192d'; // 새 채널키
-    this.SIGN_KEY = 'TU5vYzk0L2Q2Z2ZaL28wN0JJczlVQT09'; // 웹결제 사인키
+    // 실제 포트원 채널 정보
+    this.channelKey = 'channel-key-720d69be-767a-420c-91c8-2855ca00192d';
+    this.pgProvider = 'html5_inicis.MOIplay998'; // PG사.상점아이디 형식
+    this.merchantId = 'MOIplay998';
+    this.impCode = 'imp20122888'; // 고객사 식별코드
     
-    console.log('📋 결제 설정 정보:', {
-      IMP_CODE: this.IMP_CODE,
-      PG_PROVIDER: this.PG_PROVIDER,
-      CHANNEL_KEY: this.CHANNEL_KEY,
-      SIGN_KEY: this.SIGN_KEY ? '설정됨' : '없음'
-    });
+    this.heartPackages = [
+      { id: 'basic', hearts: 50, price: 1000, name: '기본 팩' },
+      { id: 'popular', hearts: 120, price: 2000, name: '인기 팩' },
+      { id: 'value', hearts: 300, price: 4500, name: '대용량 팩' },
+      { id: 'premium', hearts: 500, price: 7000, name: '프리미엄 팩' }
+    ];
     
     // 포트원 SDK 로드 상태
     this.isSDKLoaded = false;
@@ -59,10 +59,10 @@ class PaymentService {
         setTimeout(() => {
           if (window.IMP) {
             try {
-              console.log('🔧 IMP.init 호출:', this.IMP_CODE);
-              window.IMP.init(this.IMP_CODE);
+              console.log('🔧 IMP.init 호출:', this.impCode);
+              window.IMP.init(this.impCode); // 고객사 식별코드로 초기화
               this.isSDKLoaded = true;
-              console.log('✅ 포트원 V1 SDK 초기화 완료:', this.IMP_CODE);
+              console.log('✅ 포트원 V1 SDK 초기화 완료:', this.impCode);
               resolve();
             } catch (error) {
               console.error('❌ 포트원 V1 SDK 초기화 실패:', error);
@@ -112,7 +112,7 @@ class PaymentService {
 
       // 결제 데이터 구성 - 포트원 V1 방식
       const paymentParams = {
-        pg: this.PG_PROVIDER, // KG이니시스 PG 설정
+        pg: this.pgProvider, // KG이니시스 PG 설정
         pay_method: 'card', // 결제 방법
         merchant_uid: this.generateOrderId(), // 주문번호
         name: paymentData.productName, // 상품명
@@ -207,59 +207,106 @@ class PaymentService {
   }
 
   // 결제 검증 (백엔드 API 호출)
-  async verifyPayment(impUid, merchantUid) {
-    console.log('🔍 결제 검증 시작');
-    console.log('📋 검증 정보:', { impUid, merchantUid });
-    
-    try {
-      const API_BASE_URL = process.env.NODE_ENV === 'production' 
-        ? 'https://api.minglingchat.com' 
-        : 'http://localhost:8001';
-      
-      console.log('🌐 API 요청 URL:', `${API_BASE_URL}/api/payment/verify`);
-      
-      const headers = {
-        'Content-Type': 'application/json',
-        'X-User-Email': localStorage.getItem('userEmail'),
-        'X-User-Id': localStorage.getItem('userId')
-      };
-      
-      console.log('📋 요청 헤더:', headers);
-      
-      const body = {
-        imp_uid: impUid,
-        merchant_uid: merchantUid
-      };
-      
-      console.log('📋 요청 본문:', body);
-      
-      const response = await fetch(`${API_BASE_URL}/api/payment/verify`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(body)
-      });
+  async verifyPayment(imp_uid, merchant_uid, userId, userEmail) {
+    console.log('🔍 결제 검증 요청 시작', {
+      imp_uid,
+      merchant_uid,
+      userId,
+      userEmail
+    });
 
-      console.log('📨 검증 응답 상태:', response.status);
-      console.log('📨 검증 응답 헤더:', [...response.headers.entries()]);
+    return await this.verifyPaymentWithRetry(imp_uid, merchant_uid, userId, userEmail, 3);
+  }
+
+  // 재시도 로직이 포함된 결제 검증
+  async verifyPaymentWithRetry(imp_uid, merchant_uid, userId, userEmail, maxRetries = 3) {
+    console.log('🔄 결제 검증 재시도 로직 시작', {
+      imp_uid,
+      merchant_uid,
+      userId,
+      userEmail,
+      maxRetries
+    });
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      console.log(`🔍 결제 검증 시도 ${attempt}/${maxRetries}`);
       
-      const result = await response.json();
-      console.log('📨 검증 응답 내용:', result);
-      
-      if (!response.ok) {
-        console.error('❌ 검증 실패:', result);
-        throw new Error(result.error || '결제 검증 실패');
+      try {
+        const requestData = {
+          imp_uid,
+          merchant_uid
+        };
+
+        const requestHeaders = {
+          'Content-Type': 'application/json',
+          'X-User-ID': userId,
+          'X-User-Email': userEmail || ''
+        };
+
+        console.log('🌐 API 요청 전송 중...');
+        const response = await fetch(`${this.apiUrl}/payment/verify`, {
+          method: 'POST',
+          headers: requestHeaders,
+          body: JSON.stringify(requestData)
+        });
+
+        console.log('📨 응답 수신:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          attempt: attempt
+        });
+
+        const responseData = await response.json();
+        console.log('📋 응답 데이터:', responseData);
+
+        if (!response.ok) {
+          console.error('❌ HTTP 오류 응답:', {
+            status: response.status,
+            error: responseData.error,
+            attempt: attempt
+          });
+          
+          // 웹훅 처리 대기 중인 경우
+          if (responseData.error === '결제 검증 진행 중' && attempt < maxRetries) {
+            console.log(`⏳ 웹훅 처리 대기 중... ${responseData.retry_after || 3000}ms 후 재시도`);
+            await new Promise(resolve => setTimeout(resolve, responseData.retry_after || 3000));
+            continue;
+          }
+          
+          throw new Error(responseData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        if (!responseData.success) {
+          console.error('❌ 검증 실패:', responseData.error);
+          
+          // 웹훅 처리 대기 중인 경우
+          if (responseData.error === '결제 검증 진행 중' && attempt < maxRetries) {
+            console.log(`⏳ 웹훅 처리 대기 중... ${responseData.retry_after || 3000}ms 후 재시도`);
+            await new Promise(resolve => setTimeout(resolve, responseData.retry_after || 3000));
+            continue;
+          }
+          
+          throw new Error(responseData.error || '결제 검증에 실패했습니다');
+        }
+
+        console.log(`✅ 결제 검증 성공 (시도 ${attempt}/${maxRetries})`);
+        return responseData.verification || responseData;
+
+      } catch (error) {
+        console.error(`❌ 검증 시도 ${attempt}/${maxRetries} 실패:`, error);
+        
+        // 마지막 시도가 아닌 경우 재시도
+        if (attempt < maxRetries) {
+          const retryDelay = attempt * 2000; // 2초, 4초, 6초...
+          console.log(`⏳ ${retryDelay}ms 후 재시도...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+        
+        // 모든 시도 실패
+        throw error;
       }
-
-      console.log('✅ 결제 검증 성공:', result);
-      return result;
-    } catch (error) {
-      console.error('❌ 결제 검증 실패:', error);
-      console.error('🔍 에러 상세:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-      throw error;
     }
   }
 
@@ -306,44 +353,7 @@ class PaymentService {
 
   // 하트 상품 정보
   getHeartProducts() {
-    return [
-      {
-        id: 'heart_50',
-        name: '기본 팩',
-        hearts: 50,
-        price: 1000,
-        originalPrice: 1000,
-        discount: 0,
-        popular: false
-      },
-      {
-        id: 'heart_120',
-        name: '인기 팩',
-        hearts: 120,
-        price: 2000,
-        originalPrice: 2400,
-        discount: 17,
-        popular: true
-      },
-      {
-        id: 'heart_300',
-        name: '대용량 팩',
-        hearts: 300,
-        price: 4500,
-        originalPrice: 6000,
-        discount: 25,
-        popular: false
-      },
-      {
-        id: 'heart_500',
-        name: '프리미엄 팩',
-        hearts: 500,
-        price: 7000,
-        originalPrice: 10000,
-        discount: 30,
-        popular: false
-      }
-    ];
+    return this.heartPackages;
   }
 
   // 결제 완료 후 하트 지급
@@ -405,6 +415,260 @@ class PaymentService {
       });
       throw error;
     }
+  }
+
+  // 하트 구매 요청
+  async purchaseHearts(packageId, userInfo = {}) {
+    console.log('🛒 1단계: 하트 구매 시작', { packageId, userInfo });
+    
+    try {
+      // 1단계: 하트 패키지 검증
+      const heartPackage = this.heartPackages.find(pkg => pkg.id === packageId);
+      if (!heartPackage) {
+        throw new Error('유효하지 않은 하트 패키지입니다.');
+      }
+      console.log('✅ 1단계 완료: 하트 패키지 검증', heartPackage);
+
+      // 2단계: 사용자 정보 확인 - 다양한 소스에서 가져오기
+      console.log('👤 2단계: 사용자 정보 확인 중...');
+      
+      // 여러 소스에서 사용자 정보 수집
+      const userEmail = userInfo.email || 
+                       localStorage.getItem('userEmail') || 
+                       sessionStorage.getItem('userEmail') ||
+                       this.getUserEmailFromAuth() ||
+                       'user@minglingchat.com';
+      
+      const userId = userInfo.userId || 
+                    localStorage.getItem('userId') || 
+                    sessionStorage.getItem('userId') ||
+                    this.getUserIdFromAuth() ||
+                    'guest';
+      
+      console.log('📋 수집된 사용자 정보:', {
+        email: userEmail,
+        userId: userId,
+        originalUserInfo: userInfo,
+        localStorage: {
+          email: localStorage.getItem('userEmail'),
+          userId: localStorage.getItem('userId')
+        },
+        sessionStorage: {
+          email: sessionStorage.getItem('userEmail'),
+          userId: sessionStorage.getItem('userId')
+        }
+      });
+      
+      if (!userEmail || userEmail === 'user@minglingchat.com') {
+        console.warn('⚠️ 기본 이메일 사용 중 - 실제 사용자 정보를 찾을 수 없음');
+      }
+      
+      console.log('✅ 2단계 완료: 사용자 정보 확인', { userEmail, userId });
+
+      // 3단계: 포트원 SDK 로드
+      console.log('📦 3단계: 포트원 SDK 로드 중...');
+      try {
+        await this.loadSDK();
+        console.log('✅ 3단계 성공: 포트원 SDK 로드 완료');
+      } catch (sdkError) {
+        console.error('❌ 3단계 실패: 포트원 SDK 로드 실패', {
+          error: sdkError.message,
+          stack: sdkError.stack
+        });
+        throw new Error('결제 시스템 로드에 실패했습니다. 페이지를 새로고침해주세요.');
+      }
+
+      // 4단계: merchant_uid 생성
+      console.log('🔑 4단계: merchant_uid 생성 중...');
+      const merchantUid = `hearts_${userId}_${Date.now()}`;
+      console.log('✅ 4단계 성공: merchant_uid 생성 완료', {
+        merchantUid,
+        format: 'hearts_{userId}_{timestamp}'
+      });
+
+      // 5단계: 결제 데이터 준비
+      console.log('💳 5단계: 결제 데이터 준비 중...');
+      
+      // 구매자 정보 더 상세하게 설정 - 실제 로그인 사용자 정보 사용
+      const actualUserEmail = userEmail || localStorage.getItem('userEmail') || userInfo.email;
+      const buyerName = userInfo.name || actualUserEmail?.split('@')[0] || '밍글링 사용자';
+      const buyerEmail = actualUserEmail || 'user@minglingchat.com';
+      const buyerTel = userInfo.phone || '010-1234-5678';
+      
+      console.log('👤 구매자 정보 설정:', {
+        buyerName,
+        buyerEmail,
+        buyerTel,
+        originalUserInfo: userInfo,
+        actualUserEmail,
+        localStorageEmail: localStorage.getItem('userEmail')
+      });
+      
+      const paymentData = {
+        pg: this.pgProvider,
+        pay_method: 'card',
+        merchant_uid: merchantUid,
+        name: `하트 ${heartPackage.hearts}개`,
+        amount: heartPackage.price,
+        buyer_email: buyerEmail,
+        buyer_name: buyerName,
+        buyer_tel: buyerTel,
+        buyer_addr: userInfo.address || '서울특별시 강남구',
+        buyer_postcode: userInfo.postcode || '06292',
+        m_redirect_url: `${window.location.origin}/payment/result`,
+        custom_data: {
+          userId: userId,
+          packageId: packageId,
+          hearts: heartPackage.hearts
+        }
+      };
+
+      console.log('✅ 5단계 성공: 결제 데이터 준비 완료', {
+        pg: paymentData.pg,
+        amount: paymentData.amount,
+        name: paymentData.name,
+        merchant_uid: paymentData.merchant_uid,
+        customData: paymentData.custom_data
+      });
+
+      // 6단계: 포트원 결제 요청
+      console.log('🚀 6단계: 포트원 결제 요청 시작...');
+      console.log('📡 IMP.request_pay 호출 중...', {
+        impCode: this.impCode,
+        channelKey: this.channelKey,
+        paymentData: paymentData
+      });
+
+      return new Promise((resolve, reject) => {
+        window.IMP.request_pay(paymentData, async (rsp) => {
+          console.log('📨 포트원 결제 응답 수신:', {
+            timestamp: new Date().toISOString(),
+            success: rsp.success,
+            error_code: rsp.error_code,
+            error_msg: rsp.error_msg,
+            imp_uid: rsp.imp_uid,
+            merchant_uid: rsp.merchant_uid,
+            pay_method: rsp.pay_method,
+            paid_amount: rsp.paid_amount,
+            status: rsp.status,
+            name: rsp.name,
+            pg_provider: rsp.pg_provider,
+            pg_tid: rsp.pg_tid,
+            buyer_name: rsp.buyer_name,
+            buyer_email: rsp.buyer_email,
+            buyer_tel: rsp.buyer_tel,
+            buyer_addr: rsp.buyer_addr,
+            buyer_postcode: rsp.buyer_postcode,
+            custom_data: rsp.custom_data,
+            paid_at: rsp.paid_at,
+            receipt_url: rsp.receipt_url
+          });
+
+          if (rsp.success) {
+            console.log('✅ 6단계 성공: 포트원 결제 완료');
+            
+            // 7단계: 결제 검증 요청
+            console.log('🔍 7단계: 결제 검증 요청 시작...');
+            try {
+              const verificationResult = await this.verifyPayment(rsp.imp_uid, rsp.merchant_uid, userId, userEmail);
+              console.log('✅ 7단계 성공: 결제 검증 완료', verificationResult);
+              
+              // 8단계: 성공 응답
+              console.log('🎉 8단계: 하트 구매 성공 완료');
+              resolve({
+                success: true,
+                imp_uid: rsp.imp_uid,
+                merchant_uid: rsp.merchant_uid,
+                verification: verificationResult,
+                paymentInfo: {
+                  amount: rsp.paid_amount,
+                  method: rsp.pay_method,
+                  pg_provider: rsp.pg_provider,
+                  paid_at: rsp.paid_at,
+                  receipt_url: rsp.receipt_url
+                }
+              });
+              
+              console.log('🔥 ===== 하트 구매 프로세스 성공 완료 =====');
+              
+            } catch (verificationError) {
+              console.error('❌ 7단계 실패: 결제 검증 실패', {
+                error: verificationError.message,
+                imp_uid: rsp.imp_uid,
+                merchant_uid: rsp.merchant_uid,
+                stack: verificationError.stack
+              });
+              
+              reject(new Error(`결제는 완료되었지만 검증에 실패했습니다: ${verificationError.message}`));
+            }
+          } else {
+            console.error('❌ 6단계 실패: 포트원 결제 실패', {
+              error_code: rsp.error_code,
+              error_msg: rsp.error_msg,
+              imp_uid: rsp.imp_uid,
+              merchant_uid: rsp.merchant_uid
+            });
+            
+            reject(new Error(rsp.error_msg || '결제에 실패했습니다'));
+          }
+        });
+      });
+
+    } catch (error) {
+      console.error('❌ 전체 프로세스 실패: 예상치 못한 오류', {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString(),
+        packageId,
+        userInfo
+      });
+      
+      console.log('🔥 ===== 하트 구매 프로세스 실패 완료 =====');
+      throw error;
+    }
+  }
+
+  // 헬퍼 메서드들
+  getUserEmailFromAuth() {
+    // AuthContext나 다른 인증 시스템에서 이메일 가져오기
+    try {
+      // window.auth나 다른 전역 인증 객체에서 가져오기
+      if (window.auth && window.auth.currentUser) {
+        return window.auth.currentUser.email;
+      }
+      
+      // React Context에서 가져오기 (가능한 경우)
+      if (window.authContext && window.authContext.user) {
+        return window.authContext.user.email;
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('Auth에서 이메일 가져오기 실패:', error);
+      return null;
+    }
+  }
+
+  getUserIdFromAuth() {
+    // AuthContext나 다른 인증 시스템에서 사용자 ID 가져오기
+    try {
+      if (window.auth && window.auth.currentUser) {
+        return window.auth.currentUser.uid;
+      }
+      
+      if (window.authContext && window.authContext.user) {
+        return window.authContext.user.uid;
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('Auth에서 사용자 ID 가져오기 실패:', error);
+      return null;
+    }
+  }
+
+  getHeartPackage(packageId) {
+    return this.heartPackages.find(pkg => pkg.id === packageId);
   }
 }
 

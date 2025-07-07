@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
 import PersonaSelection from './PersonaCreation/PersonaSelection';
 import { charactersAPI } from '../services/api';
+import Avatar from '../components/Avatar';
 
 const ForYouPage = () => {
   const { isLoggedIn } = useAuth();
@@ -96,9 +97,13 @@ const ForYouPage = () => {
         {/* Character Info */}
         <div className="relative z-10 absolute top-20 left-4">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-white text-lg">🤖</span>
-            </div>
+            <Avatar 
+              src=""
+              alt="AI 캐릭터"
+              name="AI 캐릭터"
+              size="md"
+              fallbackType="emoji"
+            />
             <div>
               <h2 className="text-white text-lg font-bold">AI 캐릭터</h2>
               <p className="text-white text-sm opacity-80">
@@ -233,17 +238,13 @@ const ForYouPage = () => {
       {/* Character Info */}
       <div className="relative z-10 absolute top-16 left-4">
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-            {currentCharacter.avatarUrl ? (
-              <img 
-                src={currentCharacter.avatarUrl} 
-                alt={currentCharacter.name} 
-                className="w-12 h-12 rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-white text-lg">🤖</span>
-            )}
-          </div>
+          <Avatar 
+            src={currentCharacter.avatarUrl}
+            alt={currentCharacter.name}
+            name={currentCharacter.name}
+            size="md"
+            fallbackType="emoji"
+          />
           <div>
             <h2 className="text-white text-lg font-bold">{currentCharacter.name}</h2>
             <p className="text-white text-sm opacity-80">

@@ -1,18 +1,43 @@
 import React from 'react';
 import { XMarkIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
+import { isWebView } from '../../utils/webview';
 
 const Settings = ({ onClose }) => {
   const { logout, isLoggedIn } = useAuth();
 
   const handleServiceTerms = () => {
-    // 서비스 이용약관 페이지로 이동 또는 모달 표시
-    window.open('/terms', '_blank');
+    // WebView 환경 감지
+    if (isWebView()) {
+      // WebView에서는 네이티브 앱에 메시지 전송
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'openUrl',
+          url: 'https://minglingchat.com/terms',
+          title: '서비스 이용약관'
+        }));
+      }
+    } else {
+      // 일반 브라우저에서는 새 창으로 열기
+      window.open('https://minglingchat.com/terms', '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handlePrivacyPolicy = () => {
-    // 개인정보 처리방침 페이지로 이동 또는 모달 표시
-    window.open('/privacy', '_blank');
+    // WebView 환경 감지
+    if (isWebView()) {
+      // WebView에서는 네이티브 앱에 메시지 전송
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'openUrl',
+          url: 'https://minglingchat.com/privacy',
+          title: '개인정보 처리방침'
+        }));
+      }
+    } else {
+      // 일반 브라우저에서는 새 창으로 열기
+      window.open('https://minglingchat.com/privacy', '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handleLogout = async () => {

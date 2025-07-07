@@ -75,52 +75,33 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
 
     try {
       // 사용자 정보 가져오기
-      const userEmail = localStorage.getItem('userEmail') || 'user@example.com';
+      const userEmail = localStorage.getItem('userEmail') || 'user@minglingchat.com';
       const userId = localStorage.getItem('userId') || 'guest';
       
       console.log('👤 사용자 정보:', { userEmail, userId });
       
-      // 결제 데이터 구성
-      const paymentData = {
-        productName: `하트 ${pack.name} (${pack.hearts}개)`,
-        amount: pack.price,
-        userEmail: userEmail,
-        userName: userEmail.split('@')[0],
+      const userInfo = {
+        email: userEmail,
+        name: userEmail.split('@')[0],
         userId: userId,
-        productType: 'hearts',
-        heartAmount: pack.hearts
+        phone: '010-0000-0000'
       };
 
-      console.log('📋 결제 데이터 구성:', paymentData);
+      console.log('📋 결제 데이터 구성:', { pack, userInfo });
       setProcessingMessage('결제 진행 중...');
       
-      // 결제 요청
+      // PaymentService를 통한 결제 요청
       console.log('💳 결제 요청 시작');
       const paymentService = getPaymentService();
-      const paymentResult = await paymentService.requestPayment(paymentData);
-      console.log('💳 결제 요청 결과:', paymentResult);
+      const paymentResult = await paymentService.purchaseHearts(pack.id, userInfo);
+      console.log('💳 결제 결과:', paymentResult);
       
       if (paymentResult.success) {
-        console.log('✅ 결제 성공 - 검증 단계로 진행');
-        setProcessingMessage('결제 검증 중...');
+        console.log('✅ 결제 및 검증 완료');
         
-        // 결제 검증
-        console.log('🔍 결제 검증 시작');
-        const verifyResult = await paymentService.verifyPayment(
-          paymentResult.impUid, 
-          paymentResult.merchantUid
-        );
-        console.log('🔍 결제 검증 결과:', verifyResult);
-        
-        setProcessingMessage('하트 지급 중...');
-        
-        // 하트 지급
-        console.log('💖 하트 지급 시작');
-        const purchaseResult = await paymentService.completeHeartPurchase(
-          paymentResult, 
-          pack
-        );
-        console.log('💖 하트 지급 결과:', purchaseResult);
+        // 서버에서 실제 하트 잔액 가져오기
+        setProcessingMessage('하트 잔액 업데이트 중...');
+        const updatedHearts = await refreshHeartBalance();
         
         // 성공 처리
         console.log('🎉 전체 구매 과정 완료');
@@ -129,11 +110,12 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
           onPurchase({
             ...pack,
             success: true,
-            newHeartBalance: purchaseResult.newBalance
+            newHeartBalance: updatedHearts || paymentResult.verification?.newBalance || (currentHearts + pack.hearts)
           });
         }
         
-        alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n새 잔액: ${purchaseResult.newBalance}개`);
+        const finalHeartBalance = updatedHearts || paymentResult.verification?.newBalance || (currentHearts + pack.hearts);
+        alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n새 잔액: ${finalHeartBalance}개`);
         
       } else {
         console.error('❌ 결제 실패:', paymentResult);
@@ -150,10 +132,7 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       
       let errorMessage = '결제 중 오류가 발생했습니다.';
       
-      if (error.error) {
-        errorMessage = error.error;
-        console.log('🔍 에러 객체의 error 속성:', error.error);
-      } else if (error.message) {
+      if (error.message) {
         errorMessage = error.message;
         console.log('🔍 에러 메시지:', error.message);
       }
@@ -177,6 +156,37 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       setIsProcessing(false);
       setProcessingMessage('');
       setSelectedPack(null);
+    }
+  };
+
+  // 사용자 하트 잔액 새로고침 함수
+  const refreshHeartBalance = async () => {
+    try {
+      const userId = localStorage.getItem('userId') || 'guest';
+      const userEmail = localStorage.getItem('userEmail') || 'user@minglingchat.com';
+      
+      console.log('🔄 하트 잔액 새로고침 중...', { userId, userEmail });
+      
+      const response = await fetch(`http://localhost:8001/api/users/profile`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': userId,
+          'X-User-Email': userEmail
+        }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        console.log('✅ 사용자 정보 새로고침 완료:', userData);
+        return userData.hearts || 0;
+      } else {
+        console.warn('⚠️ 사용자 정보 조회 실패:', response.status);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ 하트 잔액 새로고침 실패:', error);
+      return null;
     }
   };
 

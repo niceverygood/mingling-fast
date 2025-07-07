@@ -14,7 +14,7 @@ console.log('🔧 Environment Configuration:', {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✅ Set' : '❌ Missing',
   OPENAI_API_KEY_LENGTH: process.env.OPENAI_API_KEY?.length,
   JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing',
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3005,https://minglingchat.com,https://www.minglingchat.com',
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3005,https://minglingchat.com,https://www.minglingchat.com',
   timestamp: new Date().toISOString()
 });
 
@@ -351,6 +351,7 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // API Routes
+console.log('🔧 Registering API routes...');
 app.use('/api/users', require('./routes/users'));
 app.use('/api/characters', require('./routes/characters'));
 app.use('/api/personas', require('./routes/personas'));
@@ -360,6 +361,17 @@ app.use('/api/upload', require('./routes/upload'));
 app.use('/api/hearts', require('./routes/hearts'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/payment', require('./routes/payment'));
+
+// Relations 라우트 등록 - 디버깅 추가
+try {
+  const relationsRouter = require('./routes/relations');
+  app.use('/api/relations', relationsRouter);
+  console.log('✅ Relations route registered successfully');
+} catch (error) {
+  console.error('❌ Failed to register relations route:', error);
+}
+
+console.log('✅ All API routes registered');
 
 // 📈 디버깅 엔드포인트 생성
 createStatsEndpoint(app);

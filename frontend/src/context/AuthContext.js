@@ -19,6 +19,55 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 개발 환경에서 즉시 임시 로그인
+    if (process.env.NODE_ENV === 'development') {
+      // 실제 로그인 사용자 정보가 localStorage에 있는지 확인
+      const storedUserEmail = localStorage.getItem('userEmail');
+      const storedUserId = localStorage.getItem('userId');
+      
+      if (storedUserEmail && storedUserId) {
+        // 실제 로그인한 사용자 정보 사용
+        const realUser = {
+          uid: storedUserId,
+          email: storedUserEmail,
+          displayName: storedUserEmail.split('@')[0],
+          photoURL: null,
+          provider: 'real'
+        };
+        
+        console.log('🔧 Development mode: Using real user from localStorage', realUser);
+        setIsLoggedIn(true);
+        setUser(realUser);
+        setLoading(false);
+        
+        // Firebase 사용자 ID를 axios 헤더에 설정
+        axios.defaults.headers.common['X-User-ID'] = realUser.uid;
+        axios.defaults.headers.common['X-User-Email'] = realUser.email;
+        
+        return;
+      }
+      
+      // 실제 사용자 정보가 없으면 임시 사용자 사용
+      const tempUser = {
+        uid: 'test-user-123',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        photoURL: null,
+        provider: 'temp'
+      };
+      
+      console.log('🔧 Development mode: Auto-login with temp user');
+      setIsLoggedIn(true);
+      setUser(tempUser);
+      setLoading(false);
+      
+      // Firebase 사용자 ID를 axios 헤더에 설정
+      axios.defaults.headers.common['X-User-ID'] = tempUser.uid;
+      axios.defaults.headers.common['X-User-Email'] = tempUser.email;
+      
+      return; // 개발 환경에서는 Firebase 인증 건너뛰기
+    }
+
     // WebView 환경에서 redirect 결과 처리
     const checkRedirectResult = async () => {
       try {
@@ -47,25 +96,49 @@ export const AuthProvider = ({ children }) => {
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        setIsLoggedIn(true);
-        setUser({
+        const userData = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
           provider: 'google'
+        };
+        
+        // localStorage에 사용자 정보 저장
+        localStorage.setItem('userEmail', firebaseUser.email);
+        localStorage.setItem('userId', firebaseUser.uid);
+        localStorage.setItem('userName', firebaseUser.displayName || firebaseUser.email.split('@')[0]);
+        
+        console.log('💾 사용자 정보 localStorage에 저장:', {
+          email: firebaseUser.email,
+          uid: firebaseUser.uid,
+          displayName: firebaseUser.displayName
         });
+        
+        setIsLoggedIn(true);
+        setUser(userData);
+        
         // Firebase 사용자 ID를 axios 헤더에 설정
         axios.defaults.headers.common['X-User-ID'] = firebaseUser.uid;
         axios.defaults.headers.common['X-User-Email'] = firebaseUser.email;
-      } else {
+      } else if (process.env.NODE_ENV !== 'development') {
+        // 프로덕션 환경에서만 로그아웃 처리
         setIsLoggedIn(false);
         setUser(null);
+        
+        // localStorage에서 사용자 정보 제거
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        
         // 로그아웃 시 헤더 제거
         delete axios.defaults.headers.common['X-User-ID'];
         delete axios.defaults.headers.common['X-User-Email'];
       }
-      setLoading(false);
+      
+      if (process.env.NODE_ENV !== 'development') {
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();

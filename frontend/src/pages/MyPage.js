@@ -14,6 +14,10 @@ import HeartShop from './HeartShop/HeartShop';
 import Settings from './Settings/Settings';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
+import Avatar from '../components/Avatar';
+import { goToHeartShop } from '../utils/webview';
+import FavorabilityGauge from '../components/FavorabilityGauge';
+import { getAllRelations } from '../services/favorabilityAPI';
 
 const MyPage = () => {
   const { isLoggedIn, user: authUser } = useAuth();
@@ -34,6 +38,7 @@ const MyPage = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showPersonaSelection, setShowPersonaSelection] = useState(false);
   const [selectedCharacterForChat, setSelectedCharacterForChat] = useState(null);
+  const [relations, setRelations] = useState([]);
   // eslint-disable-next-line no-unused-vars  
   const navigate = useNavigate();
 
@@ -42,9 +47,20 @@ const MyPage = () => {
       fetchUserData();
       fetchMyCharacters();
       fetchMyPersonas();
+      fetchRelations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, authUser]);
+
+  const fetchRelations = async () => {
+    try {
+      const relationsData = await getAllRelations();
+      setRelations(relationsData);
+    } catch (error) {
+      console.error('Error fetching relations:', error);
+      setRelations([]);
+    }
+  };
 
   const fetchUserData = async () => {
     try {
@@ -118,7 +134,7 @@ const MyPage = () => {
   };
 
   const handleChargeHearts = () => {
-    setShowHeartShop(true);
+    goToHeartShop(navigate, setShowHeartShop);
   };
 
   const handleHeartPurchase = async (pack) => {
@@ -240,6 +256,35 @@ const MyPage = () => {
     }
   };
 
+  const handlePersonaDelete = async (persona) => {
+    const confirmDelete = window.confirm(
+      `정말로 "${persona.name}" 페르소나를 삭제하시겠습니까?\n\n` +
+      `⚠️ 주의: 이 페르소나와 연결된 대화 기록이 있는 경우 페르소나는 비활성화되며, ` +
+      `대화 기록이 없는 경우 완전히 삭제됩니다.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const response = await personasAPI.delete(persona.id);
+      
+      if (response.data.type === 'deactivated') {
+        alert('페르소나가 비활성화되었습니다. (기존 대화 기록이 있어 완전 삭제되지 않았습니다)');
+      } else {
+        alert('페르소나가 완전히 삭제되었습니다.');
+      }
+      
+      fetchMyPersonas(); // 페르소나 목록 새로고침
+    } catch (error) {
+      console.error('Error deleting persona:', error);
+      if (error.response?.status === 403) {
+        alert('자신이 만든 페르소나만 삭제할 수 있습니다.');
+      } else {
+        alert('페르소나 삭제에 실패했습니다. 다시 시도해주세요.');
+      }
+    }
+  };
+
   const handleCharacterChat = (character) => {
     setSelectedCharacterForChat(character);
     setShowPersonaSelection(true);
@@ -249,8 +294,6 @@ const MyPage = () => {
     setShowPersonaSelection(false);
     setSelectedCharacterForChat(null);
   };
-
-
 
   if (!isLoggedIn) {
     return (
@@ -270,9 +313,13 @@ const MyPage = () => {
         {/* Guest Profile */}
         <div className="px-4 mb-6">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-2xl">👤</span>
-            </div>
+            <Avatar 
+              src=""
+              alt="게스트"
+              name="게스트"
+              size="lg"
+              fallbackType="icon"
+            />
             <div>
               <h2 className="text-lg font-semibold">게스트</h2>
               <p className="text-sm text-gray-500">게스트</p>
@@ -350,17 +397,13 @@ const MyPage = () => {
       <div className="px-4 py-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-              {authUser?.photoURL ? (
-                <img 
-                  src={authUser.photoURL} 
-                  alt="프로필" 
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-white text-lg font-medium">👤</span>
-              )}
-            </div>
+            <Avatar 
+              src={authUser?.photoURL}
+              alt="프로필"
+              name={authUser?.displayName || authUser?.email || '사용자'}
+              size="md"
+              fallbackType="icon"
+            />
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-lg font-medium text-black">
@@ -422,6 +465,16 @@ const MyPage = () => {
           >
             내 페르소나
           </button>
+          <button
+            onClick={() => setActiveTab('relations')}
+            className={`flex-1 py-4 text-center font-medium ${
+              activeTab === 'relations'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500'
+            }`}
+          >
+            관계 현황
+          </button>
         </div>
       </div>
 
@@ -470,20 +523,16 @@ const MyPage = () => {
                       className="flex items-center space-x-3 cursor-pointer"
                       onClick={() => handleCharacterClick(character)}
                     >
-                      <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-                        {character.avatarUrl ? (
-                          <img 
-                            src={character.avatarUrl} 
-                            alt={character.name} 
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-white text-lg">🤖</span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h5 className="font-medium text-black">{character.name}</h5>
-                        <p className="text-sm text-gray-500">{character.description}</p>
+                      <Avatar 
+                        src={character.avatarUrl}
+                        alt={character.name}
+                        name={character.name}
+                        size="md"
+                        fallbackType="emoji"
+                      />
+                      <div className="flex-1 text-left">
+                        <h5 className="font-medium text-black text-left">{character.name}</h5>
+                        <p className="text-sm text-gray-500 text-left">{character.description}</p>
                         <div className="flex items-center space-x-2 mt-1">
                           {character.age && (
                             <span className="text-xs text-gray-400">{character.age}세</span>
@@ -579,50 +628,142 @@ const MyPage = () => {
                 {myPersonas.map((persona) => (
                   <div 
                     key={persona.id}
-                    className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors"
                   >
                     <div 
-                      className="flex items-center space-x-3 flex-1"
+                      className="flex items-center space-x-3 cursor-pointer"
                       onClick={() => handlePersonaClick(persona)}
                     >
-                      <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
-                        {persona.avatarUrl ? (
-                          <img 
-                            src={persona.avatarUrl} 
-                            alt={persona.name} 
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-pink-500 text-lg font-bold">
-                            {persona.name?.charAt(0)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h5 className="font-medium text-black">{persona.name}</h5>
-                        <p className="text-sm text-gray-500">
+                      <Avatar 
+                        src={persona.avatarUrl}
+                        alt={persona.name}
+                        name={persona.name}
+                        size="md"
+                        fallbackType="initial"
+                      />
+                      <div className="flex-1 text-left">
+                        <h5 className="font-medium text-black text-left">{persona.name}</h5>
+                        <p className="text-sm text-gray-500 text-left">
                           {persona.age && `${persona.age}세`} {persona.age && persona.job && '•'} {persona.job || '직업 미설정'}
                         </p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-400 text-left">
                           {persona.gender === 'male' ? '남성' : persona.gender === 'female' ? '여성' : '성별 비공개'}
                         </p>
                         {persona.basicInfo && (
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2 text-left">
                             {persona.basicInfo}
                           </p>
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePersonaEdit(persona);
-                      }}
-                      className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 rounded-md shadow-sm transition-all duration-200"
-                      title="편집"
-                    >
-                      편집
-                    </button>
+                    
+                    {/* 버튼 영역 */}
+                    <div className="flex items-center justify-end space-x-2 mt-3 pt-3 border-t border-gray-200">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePersonaEdit(persona);
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 rounded-md transition-all duration-200"
+                        title="편집"
+                      >
+                        <span>편집</span>
+                      </button>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePersonaDelete(persona);
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 text-sm text-red-600 hover:text-red-800 border border-red-300 hover:border-red-400 bg-red-50 hover:bg-red-100 rounded-md transition-all duration-200"
+                        title="삭제"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                        <span>삭제</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'relations' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-black">관계 현황</h3>
+              <span className="text-sm text-gray-500">{relations.length}개의 관계</span>
+            </div>
+
+            {relations.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-16 h-16 mx-auto mb-4 text-gray-300">
+                  💕
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">
+                  아직 관계가 형성되지 않았어요
+                </h4>
+                <p className="text-gray-500 mb-6">
+                  AI 캐릭터들과 대화하면서 관계를 발전시켜보세요!
+                </p>
+                <button 
+                  onClick={() => navigate('/chats')}
+                  className="bg-black text-white px-8 py-3 rounded-full font-medium hover:bg-gray-800"
+                >
+                  채팅하러 가기
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {relations.map((relation) => (
+                  <div 
+                    key={relation.id}
+                    className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3 mb-3">
+                      <Avatar 
+                        src={relation.character?.avatarUrl}
+                        alt={relation.character?.name}
+                        name={relation.character?.name}
+                        size="md"
+                        fallbackType="emoji"
+                      />
+                      <div className="flex-1">
+                        <h5 className="font-medium text-black text-left">
+                          {relation.character?.name || '알 수 없는 캐릭터'}
+                        </h5>
+                        <p className="text-sm text-gray-500 text-left">
+                          {relation.character?.description || '설명 없음'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <FavorabilityGauge 
+                        score={relation.score}
+                        stage={relation.stage}
+                        showDetails={true}
+                        size="small"
+                        animated={true}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-xs text-gray-500">
+                        마지막 업데이트: {new Date(relation.updatedAt).toLocaleDateString('ko-KR')}
+                      </div>
+                      <button
+                        onClick={() => {
+                          // 해당 캐릭터와의 채팅으로 이동
+                          navigate(`/chats?character=${relation.character.id}`);
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 rounded-md transition-all duration-200"
+                      >
+                        <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                        <span>대화하기</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -704,22 +845,22 @@ const MyPage = () => {
         />
       )}
 
-              {/* Settings Modal */}
-        {showSettings && (
-          <Settings 
-            onClose={() => setShowSettings(false)}
-          />
-        )}
+      {/* Settings Modal */}
+      {showSettings && (
+        <Settings 
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
-        {/* Persona Selection Modal for Chat */}
-        {showPersonaSelection && selectedCharacterForChat && (
-          <PersonaSelection
-            isOpen={showPersonaSelection}
-            onClose={handleClosePersonaSelection}
-            characterId={selectedCharacterForChat.id}
-            characterName={selectedCharacterForChat.name}
-          />
-        )}
+      {/* Persona Selection Modal for Chat */}
+      {showPersonaSelection && selectedCharacterForChat && (
+        <PersonaSelection
+          isOpen={showPersonaSelection}
+          onClose={handleClosePersonaSelection}
+          characterId={selectedCharacterForChat.id}
+          characterName={selectedCharacterForChat.name}
+        />
+      )}
     </div>
   );
 };

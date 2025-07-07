@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { conversationsAPI } from '../services/api';
+import Avatar from './Avatar';
 
 const ConversationList = ({ characterId, personaId }) => {
   const [conversations, setConversations] = useState([]);
@@ -130,17 +131,13 @@ const ConversationList = ({ characterId, personaId }) => {
             <div key={conversation.id} className="p-4 hover:bg-gray-50 cursor-pointer">
               <div className="flex items-center space-x-3">
                 {/* Character Avatar */}
-                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                  {conversation.character?.avatarUrl ? (
-                    <img 
-                      src={conversation.character.avatarUrl} 
-                      alt={conversation.character.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-lg">🤖</span>
-                  )}
-                </div>
+                <Avatar 
+                  src={conversation.character?.avatarUrl}
+                  alt={conversation.character?.name}
+                  name={conversation.character?.name}
+                  size="md"
+                  fallbackType="emoji"
+                />
 
                 {/* Conversation Info */}
                 <div className="flex-1 min-w-0">

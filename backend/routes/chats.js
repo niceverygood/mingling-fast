@@ -1,5 +1,6 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const favorabilityEngine = require('../services/favorabilityEngine');
 const router = express.Router();
 const prisma = new PrismaClient();
 
@@ -213,7 +214,25 @@ router.post('/:chatId/messages', async (req, res) => {
       }
     });
 
-    res.json([userMessage, aiMessage]);
+    // 호감도 시스템 처리
+    let favorabilityResult = null;
+    try {
+      favorabilityResult = await favorabilityEngine.processMessage(
+        firebaseUserId,
+        chat.characterId,
+        content.trim(),
+        chat.character.personality
+      );
+      console.log('💖 Favorability updated:', favorabilityResult);
+    } catch (error) {
+      console.error('❌ Error updating favorability:', error);
+      // 호감도 업데이트 실패해도 채팅은 계속 진행
+    }
+
+    res.json({
+      messages: [userMessage, aiMessage],
+      favorability: favorabilityResult
+    });
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message' });
