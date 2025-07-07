@@ -4,10 +4,10 @@ class PaymentService {
   constructor() {
     console.log('🔧 PaymentService 초기화 시작');
     
-    // API URL 설정 (EC2 서버)
+    // API URL 설정 (로컬 백엔드 임시 사용)
     this.apiUrl = process.env.NODE_ENV === 'production' 
       ? 'https://api.minglingchat.com' 
-      : 'http://43.203.211.115:8001/api';
+      : 'http://localhost:8001/api';
     
     console.log('🌐 API URL 설정:', this.apiUrl);
     
