@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, getRedirectResult } from "firebase/auth";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -38,6 +38,37 @@ export const signInWithGoogle = async () => {
     };
   } catch (error) {
     console.error('Google sign in error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+// Handle Redirect Result (for WebView environments)
+export const handleRedirectResult = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      const user = result.user;
+      return {
+        success: true,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          provider: 'google'
+        }
+      };
+    } else {
+      return {
+        success: false,
+        error: 'No redirect result found'
+      };
+    }
+  } catch (error) {
+    console.error('Handle redirect result error:', error);
     return {
       success: false,
       error: error.message
