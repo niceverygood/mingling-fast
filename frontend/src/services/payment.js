@@ -4,9 +4,9 @@ class PaymentService {
   constructor() {
     console.log('🔧 PaymentService 초기화 시작');
     
-    // API URL 설정 (새 EC2 서버 IP) - 프로덕션에서도 EC2 IP 직접 사용
+    // API URL 설정 (클라우드플레어 HTTPS API)
     this.apiUrl = process.env.NODE_ENV === 'production' 
-      ? 'http://3.35.49.121:8001/api' 
+      ? 'https://api.minglingchat.com/api' 
       : 'http://3.35.49.121:8001/api';
     
     console.log('🌐 API URL 설정:', this.apiUrl);
