@@ -273,16 +273,51 @@ class PaymentService {
       }
       console.log('✅ 1단계: 하트 패키지 검증 완료', heartPackage);
 
-      // 2단계: 사용자 정보 수집
-      const userEmail = userInfo.email || 
-                       localStorage.getItem('userEmail') || 
-                       'user@minglingchat.com';
+      // 2단계: 사용자 정보 수집 (개선된 로직)
+      console.log('👤 2단계: 사용자 정보 수집 중...');
+      console.log('📋 전달받은 userInfo:', userInfo);
+      console.log('📋 localStorage 상태:', {
+        userEmail: localStorage.getItem('userEmail'),
+        userId: localStorage.getItem('userId'),
+        authData: localStorage.getItem('authData')
+      });
       
-      const userId = userInfo.userId || 
-                    localStorage.getItem('userId') || 
-                    'guest';
+      // userInfo에서 우선 확인
+      let userEmail = userInfo.email;
+      let userId = userInfo.userId;
       
-      console.log('✅ 2단계: 사용자 정보 확인 완료', { userEmail, userId });
+      // userInfo가 없으면 localStorage에서 확인
+      if (!userEmail || userEmail === 'user@minglingchat.com') {
+        userEmail = localStorage.getItem('userEmail');
+      }
+      if (!userId || userId === 'guest') {
+        userId = localStorage.getItem('userId');
+      }
+      
+      // authData에서도 확인
+      try {
+        const authData = JSON.parse(localStorage.getItem('authData') || '{}');
+        if (authData.email && (!userEmail || userEmail === 'user@minglingchat.com')) {
+          userEmail = authData.email;
+        }
+        if (authData.userId && (!userId || userId === 'guest')) {
+          userId = authData.userId;
+        }
+      } catch (error) {
+        console.warn('⚠️ authData 파싱 실패:', error);
+      }
+      
+      // 기본값 설정 (최후의 수단)
+      if (!userEmail || userEmail === 'user@minglingchat.com') {
+        userEmail = 'user@minglingchat.com';
+        console.warn('⚠️ 실제 사용자 이메일을 찾을 수 없어 기본값 사용');
+      }
+      if (!userId || userId === 'guest') {
+        userId = 'guest';
+        console.warn('⚠️ 실제 사용자 ID를 찾을 수 없어 기본값 사용');
+      }
+      
+      console.log('✅ 2단계: 최종 사용자 정보 확인 완료', { userEmail, userId });
 
       // 3단계: 결제 요청
       console.log('💳 3단계: 결제 요청 시작');
@@ -297,6 +332,7 @@ class PaymentService {
         heartAmount: heartPackage.hearts
       };
 
+      console.log('📋 결제 데이터 최종 확인:', paymentData);
       const paymentResult = await this.requestPayment(paymentData);
       console.log('✅ 3단계: 결제 완료', paymentResult);
 

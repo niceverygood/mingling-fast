@@ -79,11 +79,76 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
     setProcessingMessage('결제 준비 중...');
 
     try {
-      // 사용자 정보 가져오기
-      const userEmail = localStorage.getItem('userEmail') || 'user@minglingchat.com';
-      const userId = localStorage.getItem('userId') || 'guest';
+      // 사용자 정보 가져오기 - 여러 소스에서 확인
+      console.log('👤 사용자 정보 수집 중...');
+      console.log('📋 localStorage 확인:', {
+        userEmail: localStorage.getItem('userEmail'),
+        userId: localStorage.getItem('userId'),
+        authData: localStorage.getItem('authData')
+      });
       
-      console.log('👤 사용자 정보:', { userEmail, userId });
+      // 실제 사용자 정보 확인
+      let userEmail = localStorage.getItem('userEmail');
+      let userId = localStorage.getItem('userId');
+      
+      // authData에서도 확인
+      try {
+        const authData = JSON.parse(localStorage.getItem('authData') || '{}');
+        if (authData.email && !userEmail) {
+          userEmail = authData.email;
+        }
+        if (authData.userId && !userId) {
+          userId = authData.userId;
+        }
+        console.log('📋 authData 확인:', authData);
+      } catch (error) {
+        console.warn('⚠️ authData 파싱 실패:', error);
+      }
+      
+      // 사용자 정보가 없으면 백엔드에서 가져오기
+      if (!userEmail || !userId || userEmail === 'user@minglingchat.com' || userId === 'guest') {
+        console.log('🔄 백엔드에서 사용자 정보 확인 중...');
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-ID': userId || 'guest',
+              'X-User-Email': userEmail || 'user@minglingchat.com'
+            }
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            console.log('✅ 백엔드 사용자 정보:', userData);
+            if (userData.email) userEmail = userData.email;
+            if (userData.id) userId = userData.id;
+            
+            // localStorage 업데이트
+            localStorage.setItem('userEmail', userEmail);
+            localStorage.setItem('userId', userId);
+          }
+        } catch (error) {
+          console.warn('⚠️ 백엔드 사용자 정보 조회 실패:', error);
+        }
+      }
+      
+      // 최종 사용자 정보 확인
+      if (!userEmail || userEmail === 'user@minglingchat.com') {
+        const customEmail = prompt('결제를 위해 이메일 주소를 입력해주세요:', '');
+        if (!customEmail) {
+          throw new Error('이메일 주소가 필요합니다.');
+        }
+        userEmail = customEmail;
+        localStorage.setItem('userEmail', userEmail);
+      }
+      
+      if (!userId || userId === 'guest') {
+        userId = `user_${Date.now()}`;
+        localStorage.setItem('userId', userId);
+      }
+      
+      console.log('✅ 최종 사용자 정보:', { userEmail, userId });
       
       const userInfo = {
         email: userEmail,
@@ -158,6 +223,9 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       } else if (errorMessage.includes('검증')) {
         console.log('🚨 검증 오류 감지');
         errorMessage = '결제 검증에 실패했습니다.\n고객센터로 문의해주세요.';
+      } else if (errorMessage.includes('이메일')) {
+        console.log('🚨 이메일 오류 감지');
+        // 이메일 관련 에러는 그대로 표시
       }
       
       console.log('📢 사용자에게 표시할 에러 메시지:', errorMessage);
