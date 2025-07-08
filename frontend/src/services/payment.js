@@ -331,44 +331,62 @@ class PaymentService {
 
       console.log('✅ 4단계: 하트 충전 완료', chargeResult);
 
-      // 5단계: 하트 잔액 실시간 동기화 (최신 잔액 즉시 조회)
-      console.log('🔄 5단계: 하트 잔액 실시간 동기화 시작');
-      let currentHeartBalance = null;
-      
-      try {
-        // 최신 하트 잔액 조회
-        const balanceResponse = await fetch(`${this.apiURL}/api/hearts/balance`, {
-          method: 'GET',
-          headers: {
-            ...getDefaultHeaders(),
-            'X-User-ID': userId,
-            'X-User-Email': userEmail
-          }
-        });
+      // 5단계: 백엔드 응답 데이터 처리 (완전한 동기식 정보)
+      console.log('🔄 5단계: 백엔드 완전한 응답 데이터 처리');
+      console.log('📊 백엔드 응답 상세:', chargeResult);
 
-        if (balanceResponse.ok) {
-          const balanceData = await balanceResponse.json();
-          currentHeartBalance = balanceData.hearts;
-          console.log('✅ 최신 하트 잔액 조회 완료:', currentHeartBalance);
-        } else {
-          console.warn('⚠️ 하트 잔액 조회 실패 - 서버 응답값 사용');
-          currentHeartBalance = chargeResult.newBalance;
-        }
-      } catch (error) {
-        console.warn('⚠️ 하트 잔액 조회 에러 - 서버 응답값 사용:', error);
-        currentHeartBalance = chargeResult.newBalance;
+      // 데이터 검증
+      if (!chargeResult.hearts || !chargeResult.payment || !chargeResult.transaction) {
+        throw new Error('백엔드에서 불완전한 응답을 받았습니다.');
       }
 
-      // 6단계: 성공 응답 반환 (실시간 하트 잔액 포함)
-      console.log('🎉 전체 하트 구매 과정 완료');
+      // 하트 수량 검증 (계산값과 실제값 비교)
+      const expectedBalance = chargeResult.hearts.previousBalance + chargeResult.hearts.addedHearts;
+      const actualBalance = chargeResult.hearts.newBalance;
+      
+      if (expectedBalance !== actualBalance) {
+        console.warn('⚠️ 하트 수량 계산 불일치:', {
+          예상값: expectedBalance,
+          실제값: actualBalance,
+          이전하트: chargeResult.hearts.previousBalance,
+          추가하트: chargeResult.hearts.addedHearts
+        });
+      } else {
+        console.log('✅ 하트 수량 계산 검증 완료:', {
+          이전하트: chargeResult.hearts.previousBalance,
+          추가하트: chargeResult.hearts.addedHearts,
+          새로운하트: chargeResult.hearts.newBalance
+        });
+      }
+
+      // 6단계: 성공 응답 반환 (완전한 동기식 정보)
+      console.log('🎉 전체 하트 구매 과정 완료 - 완전한 동기식 플로우');
       return {
         success: true,
+        // 결제 정보
         paymentResult,
-        chargeResult,
-        heartPackage,
-        currentHeartBalance: currentHeartBalance,
-        addedHearts: heartPackage.hearts,
-        message: `${heartPackage.hearts}개의 하트가 성공적으로 충전되었습니다!`
+        // 백엔드 완전한 응답
+        backendResponse: chargeResult,
+        // 하트 정보 (UI 업데이트용)
+        hearts: chargeResult.hearts,
+        // 구매 정보
+        purchase: {
+          packageId: heartPackage.id,
+          packageName: heartPackage.name,
+          addedHearts: chargeResult.hearts.addedHearts,
+          previousBalance: chargeResult.hearts.previousBalance,
+          newBalance: chargeResult.hearts.newBalance
+        },
+        // 팝업 메시지
+        popup: {
+          title: '하트 충전 완료!',
+          message: chargeResult.message,
+          subtitle: chargeResult.subtitle
+        },
+        // 레거시 호환용
+        currentHeartBalance: chargeResult.hearts.newBalance,
+        addedHearts: chargeResult.hearts.addedHearts,
+        message: chargeResult.message
       };
 
     } catch (error) {

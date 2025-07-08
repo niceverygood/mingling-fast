@@ -242,10 +242,20 @@ router.post('/purchase', async (req, res) => {
       });
     }
 
-    // 7단계: 트랜잭션으로 하트 충전 및 거래 기록 생성
-    console.log('🔄 하트 충전 트랜잭션 시작...');
+    // 7단계: 완전한 동기식 트랜잭션으로 하트 충전 및 거래 기록 생성
+    console.log('🔄 완전한 동기식 하트 충전 트랜잭션 시작...');
+    console.log('📊 트랜잭션 전 상태:', { 기존하트: user.hearts, 추가하트: heart_amount, 예상총합: user.hearts + heart_amount });
+    
     const result = await prisma.$transaction(async (prisma) => {
-      // 하트 충전
+      // 1단계: 현재 사용자 하트 수량 다시 조회 (트랜잭션 내에서)
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { hearts: true, email: true, username: true }
+      });
+      
+      console.log('🔍 트랜잭션 내 현재 사용자 상태:', currentUser);
+      
+      // 2단계: 하트 수량 증가 (원자적 연산)
       const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
@@ -254,17 +264,25 @@ router.post('/purchase', async (req, res) => {
           }
         },
         select: {
-          hearts: true
+          hearts: true,
+          email: true,
+          username: true
         }
       });
+      
+      console.log('💎 하트 수량 증가 완료:', { 
+        이전하트: currentUser.hearts, 
+        추가하트: heart_amount, 
+        새로운하트: updatedUser.hearts 
+      });
 
-      // 하트 거래 기록 생성 (결제 정보 포함)
+      // 3단계: 결제 거래 기록 생성 (완전한 정보 포함)
       const transaction = await prisma.heartTransaction.create({
         data: {
           userId: userId,
           amount: heart_amount,
           type: 'purchase',
-          description: `${package_id} 패키지 구매 (${heart_amount}개 하트)`,
+          description: `${package_id} 패키지 구매 (${heart_amount}개 하트) - 총 ${updatedUser.hearts}개`,
           impUid: imp_uid,
           merchantUid: merchant_uid,
           status: 'completed',
@@ -274,31 +292,74 @@ router.post('/purchase', async (req, res) => {
           completedAt: new Date()
         }
       });
+      
+      console.log('📝 거래 기록 생성 완료:', { 거래ID: transaction.id, 결제금액: paid_amount });
 
+      // 4단계: 트랜잭션 결과 반환 (완전한 정보)
       return {
+        previousBalance: currentUser.hearts,
+        addedHearts: heart_amount,
         newBalance: updatedUser.hearts,
-        transaction: transaction
+        transaction: transaction,
+        userInfo: {
+          email: updatedUser.email,
+          username: updatedUser.username
+        }
       };
     });
 
-    console.log('✅ 하트 충전 완료:', {
+    console.log('✅ 완전한 동기식 하트 충전 완료:', {
       userId: userId,
-      addedHearts: heart_amount,
-      newBalance: result.newBalance,
-      transactionId: result.transaction.id
+      이전하트: result.previousBalance,
+      추가하트: result.addedHearts,
+      새로운하트: result.newBalance,
+      차이확인: result.newBalance - result.previousBalance,
+      거래ID: result.transaction.id,
+      사용자정보: result.userInfo
     });
 
-    res.json({
+    // 8단계: 프론트엔드에 완전한 정보 전달
+    const completeResponse = {
       success: true,
-      addedHearts: heart_amount,
-      newBalance: result.newBalance,
-      transaction: {
-        id: result.transaction.id,
+      // 하트 정보 (프론트엔드 UI 업데이트용)
+      hearts: {
+        previousBalance: result.previousBalance,
+        addedHearts: result.addedHearts,
+        newBalance: result.newBalance,
+        calculated: result.previousBalance + result.addedHearts // 검증용
+      },
+      // 결제 정보
+      payment: {
+        packageId: package_id,
+        packageName: `${package_id} 패키지`,
+        heartAmount: heart_amount,
+        paidAmount: paid_amount,
         impUid: imp_uid,
         merchantUid: merchant_uid,
-        amount: paid_amount
-      }
-    });
+        paymentMethod: 'card'
+      },
+      // 거래 정보
+      transaction: {
+        id: result.transaction.id,
+        status: 'completed',
+        createdAt: result.transaction.createdAt,
+        completedAt: result.transaction.completedAt
+      },
+      // 사용자 정보
+      user: {
+        id: userId,
+        email: result.userInfo.email,
+        username: result.userInfo.username
+      },
+      // 메시지 (팝업용)
+      message: `${heart_amount}개의 하트가 성공적으로 충전되었습니다!`,
+      subtitle: `이전 ${result.previousBalance}개 → 현재 ${result.newBalance}개`,
+      // 타임스탬프
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('📤 프론트엔드로 전송하는 완전한 응답:', completeResponse);
+    res.json(completeResponse);
 
   } catch (error) {
     console.error('❌ 하트 충전 처리 실패:', error);

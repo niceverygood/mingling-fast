@@ -90,33 +90,58 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
 
       console.log('✅ 하트 구매 완료:', result);
 
-              // 성공 처리
+              // 성공 처리 (완전한 동기식 플로우)
         if (result.success) {
           setProcessingMessage('하트 충전 완료!');
           
-          // 최신 하트 잔액 계산 (우선순위: 실시간 조회 > 서버 응답 > 계산값)
-          const finalBalance = result.currentHeartBalance || 
-                              result.chargeResult?.newBalance || 
-                              (currentHearts + pack.hearts);
+          console.log('🎉 HeartShop - 완전한 동기식 하트 구매 성공:', result);
           
-          console.log('📊 하트 잔액 업데이트:', {
-            이전잔액: currentHearts,
-            추가하트: pack.hearts,
-            서버응답: result.chargeResult?.newBalance,
-            실시간조회: result.currentHeartBalance,
-            최종잔액: finalBalance
-          });
+          // 백엔드에서 받은 완전한 정보 검증
+          if (!result.hearts || !result.purchase || !result.popup) {
+            console.error('❌ 불완전한 백엔드 응답:', result);
+            throw new Error('시스템 오류: 불완전한 응답을 받았습니다.');
+          }
           
-          // 부모 컴포넌트에 성공 알림 (실시간 하트 잔액 포함)
-          if (onPurchase) {
-            onPurchase({
-              hearts: pack.hearts,
-              newBalance: finalBalance,
-              addedHearts: result.addedHearts || pack.hearts,
-              message: result.message,
-              realTimeBalance: result.currentHeartBalance // 실시간 조회 값 포함
+          // 하트 수량 검증
+          const expectedBalance = result.hearts.previousBalance + result.hearts.addedHearts;
+          if (expectedBalance !== result.hearts.newBalance) {
+            console.warn('⚠️ 하트 수량 불일치 감지:', {
+              예상: expectedBalance,
+              실제: result.hearts.newBalance
             });
           }
+          
+          console.log('💎 완전한 하트 정보:', {
+            이전하트: result.hearts.previousBalance,
+            추가하트: result.hearts.addedHearts,
+            새로운하트: result.hearts.newBalance,
+            검증: expectedBalance === result.hearts.newBalance ? '✅' : '❌'
+          });
+          
+          // 부모 컴포넌트에 완전한 정보 전달
+          if (onPurchase) {
+            onPurchase({
+              // 완전한 하트 정보
+              hearts: result.hearts.addedHearts,
+              previousBalance: result.hearts.previousBalance,
+              newBalance: result.hearts.newBalance,
+              addedHearts: result.hearts.addedHearts,
+              
+              // 팝업 정보
+              popup: result.popup,
+              message: result.popup.message,
+              subtitle: result.popup.subtitle,
+              
+              // 구매 정보
+              purchase: result.purchase,
+              
+              // 레거시 호환
+              realTimeBalance: result.hearts.newBalance
+            });
+          }
+
+          // 성공 팝업 표시 (개선된 메시지)
+          alert(`${result.popup.title}\n${result.popup.message}\n${result.popup.subtitle}`);
 
           // 잠시 후 모달 닫기
           setTimeout(() => {

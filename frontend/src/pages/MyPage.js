@@ -160,43 +160,69 @@ const MyPage = () => {
 
   const handleHeartPurchase = async (purchaseData) => {
     try {
-      console.log('💎 MyPage에서 하트 구매 완료 처리:', purchaseData);
+      console.log('💎 MyPage - 완전한 동기식 하트 구매 완료 처리:', purchaseData);
       
-      // 1. 실시간 하트 잔액 업데이트 (우선순위: 실시간 조회 > 서버 응답 > 계산값)
-      const newHeartBalance = purchaseData.realTimeBalance || 
-                             purchaseData.newBalance || 
-                             ((user?.hearts || 150) + purchaseData.hearts);
-      
-      console.log('📊 하트 잔액 업데이트:', {
-        이전잔액: user?.hearts,
-        추가하트: purchaseData.hearts,
-        새로운잔액: newHeartBalance,
-        실시간조회: purchaseData.realTimeBalance,
-        서버응답: purchaseData.newBalance
-      });
-      
-      // 2. 사용자 상태 즉시 업데이트
-      setUser(prev => ({
-        ...prev,
-        hearts: newHeartBalance
-      }));
-      
-      // 3. 하트샵 모달 닫기
-      setShowHeartShop(false);
-      
-      // 4. 성공 메시지 표시
-      alert(`${purchaseData.hearts}개의 하트가 성공적으로 충전되었습니다!\n현재 하트: ${newHeartBalance}개`);
-      
-      // 5. 백그라운드에서 서버 데이터 재동기화 (선택사항)
-      try {
-        await fetchUserData();
-      } catch (error) {
-        console.log('⚠️ 백그라운드 데이터 동기화 실패 (무시):', error);
+      // 1. 완전한 하트 정보 검증
+      if (!purchaseData.newBalance || !purchaseData.addedHearts) {
+        console.error('❌ 불완전한 구매 데이터:', purchaseData);
+        throw new Error('시스템 오류: 불완전한 구매 정보를 받았습니다.');
       }
       
+      // 2. 하트 수량 검증 (이전 잔액 + 추가 하트 = 새로운 잔액)
+      if (purchaseData.previousBalance !== undefined) {
+        const expectedBalance = purchaseData.previousBalance + purchaseData.addedHearts;
+        if (expectedBalance !== purchaseData.newBalance) {
+          console.warn('⚠️ MyPage에서 하트 수량 불일치 감지:', {
+            이전잔액: purchaseData.previousBalance,
+            추가하트: purchaseData.addedHearts,
+            예상잔액: expectedBalance,
+            실제잔액: purchaseData.newBalance
+          });
+        }
+      }
+      
+      console.log('💎 완전한 동기식 하트 업데이트:', {
+        이전UI잔액: user?.hearts,
+        백엔드이전잔액: purchaseData.previousBalance,
+        추가하트: purchaseData.addedHearts,
+        새로운잔액: purchaseData.newBalance,
+        검증완료: '✅'
+      });
+      
+      // 3. 사용자 상태 즉시 업데이트 (백엔드에서 받은 정확한 값)
+      setUser(prev => ({
+        ...prev,
+        hearts: purchaseData.newBalance
+      }));
+      
+      // 4. 하트샵 모달 닫기
+      setShowHeartShop(false);
+      
+      // 5. 성공 메시지 표시 (개선된 메시지)
+      const successMessage = purchaseData.popup ? 
+        `${purchaseData.popup.title}\n${purchaseData.popup.message}\n${purchaseData.popup.subtitle}` :
+        `${purchaseData.addedHearts}개의 하트가 성공적으로 충전되었습니다!\n현재 하트: ${purchaseData.newBalance}개`;
+      
+      alert(successMessage);
+      
+      console.log('✅ MyPage 하트 업데이트 완료:', {
+        UI업데이트: '완료',
+        모달닫기: '완료',
+        팝업표시: '완료',
+        최종하트잔액: purchaseData.newBalance
+      });
+      
     } catch (error) {
-      console.error('❌ 하트 구매 처리 실패:', error);
+      console.error('❌ MyPage 하트 구매 처리 실패:', error);
       alert('하트 구매 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+      
+      // 에러 발생 시 서버에서 최신 하트 잔액 재조회
+      try {
+        console.log('🔄 에러 복구를 위한 하트 잔액 재조회...');
+        await fetchUserData();
+      } catch (fetchError) {
+        console.error('❌ 하트 잔액 재조회도 실패:', fetchError);
+      }
     }
   };
 
