@@ -10,20 +10,59 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Debug connection info
+      run: |
+        echo "🔍 Auto deployment info:"
+        echo "Repository: ${{ github.repository }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "Event: ${{ github.event_name }}"
     
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.5
+      uses: appleboy/ssh-action@v0.1.8
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        timeout: 120s
+        command_timeout: 15m
+        debug: true
         script: |
+          echo "🚀 Auto deployment started..."
+          echo "📅 Deployment time: $(date)"
+          
+          # 프로젝트 디렉토리 확인
+          if [ ! -d "/home/ec2-user/mingling_new" ]; then
+            echo "❌ Project directory not found, creating..."
+            cd /home/ec2-user
+            git clone https://github.com/niceverygood/mingling_new.git
+          fi
+          
           cd /home/ec2-user/mingling_new
-          git pull origin main
+          
+          echo "📥 Pulling latest code..."
+          git fetch origin
+          git reset --hard origin/main
+          
+          echo "🔄 Stopping existing processes..."
+          pm2 stop mingling-backend 2>/dev/null || echo "Backend not running"
+          pm2 delete mingling-backend 2>/dev/null || echo "Backend process not found"
+          
+          echo "📦 Installing dependencies..."
           cd backend
-          pm2 delete all || true
-          sleep 2
-          PORT=8001 pm2 start index.js --name "mingling-backend"
+          npm install --production
+          
+          echo "🔄 Starting backend..."
+          PORT=8001 NODE_ENV=production pm2 start index.js --name "mingling-backend"
+          
+          echo "📊 Checking status..."
           pm2 status
-          echo "✅ Deployment completed successfully!" 
+          
+          echo "🧪 Testing API..."
+          sleep 5
+          curl -s localhost:8001/api/health || echo "⚠️ API test failed"
+          
+          echo "✅ Auto deployment completed successfully!" 

@@ -16,6 +16,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Debug connection info
+      run: |
+        echo "🔍 Manual deployment info:"
+        echo "Repository: ${{ github.repository }}"
+        echo "Force deploy: ${{ github.event.inputs.force_deploy }}"
+        echo "Actor: ${{ github.actor }}"
+        
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v0.1.8
       with:
@@ -23,34 +30,91 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22
-        timeout: 60s
-        command_timeout: 10m
+        timeout: 120s
+        command_timeout: 15m
         debug: true
         script: |
           echo "🚀 Manual deployment started..."
+          echo "📅 Deployment time: $(date)"
+          echo "🖥️ Server info: $(uname -a)"
+          echo "👤 Current user: $(whoami)"
+          
+          # 프로젝트 디렉토리 확인
+          if [ ! -d "/home/ec2-user/mingling_new" ]; then
+            echo "❌ Project directory not found, creating..."
+            cd /home/ec2-user
+            git clone https://github.com/niceverygood/mingling_new.git
+          fi
           
           # EC2 백엔드 디렉토리로 이동
           cd /home/ec2-user/mingling_new
           
           echo "📥 Pulling latest code..."
-          git pull origin main
+          git fetch origin
+          git reset --hard origin/main || {
+            echo "❌ Git pull failed, trying alternative method..."
+            cd /home/ec2-user
+            rm -rf mingling_new
+            git clone https://github.com/niceverygood/mingling_new.git
+            cd mingling_new
+          }
+          
+          echo "🔍 Verifying code structure..."
+          ls -la
+          ls -la backend/ || { echo "❌ Backend directory not found"; exit 1; }
           
           echo "🔄 Stopping existing backend..."
           pm2 stop mingling-backend 2>/dev/null || echo "Backend not running"
           pm2 delete mingling-backend 2>/dev/null || echo "Backend process not found"
           
+          # .env 파일 확인
+          if [ ! -f backend/.env ]; then
+            echo "⚠️ .env file not found - please check environment variables"
+          else
+            echo "✅ .env file found"
+          fi
+          
           echo "📦 Installing dependencies..."
           cd backend
           npm install --production || { echo "❌ npm install failed"; exit 1; }
           
-          echo "🔄 Starting backend..."
-          pm2 start index.js --name "mingling-backend"
+          echo "🔍 Environment check..."
+          node -e "
+            const envVars = ['NODE_ENV', 'DATABASE_URL', 'OPENAI_API_KEY', 'JWT_SECRET'];
+            envVars.forEach(env => {
+              console.log(\`\${env}: \${process.env[env] ? '✅ Set' : '❌ Missing'}\`);
+            });
+          "
+          
+          echo "🔄 Starting backend with environment variables..."
+          PORT=8001 NODE_ENV=production pm2 start index.js --name "mingling-backend" --max-memory-restart 512M
           
           echo "📊 Checking PM2 status..."
           pm2 status
           
           echo "🧪 Testing API..."
-          sleep 3
-          curl -s localhost:8001/api/health || echo "⚠️ API test failed"
+          sleep 5
           
-          echo "✅ Manual deployment completed!" 
+          # 로컬 API 테스트
+          if curl -s localhost:8001/api/health > /dev/null; then
+            echo "✅ Local API test passed"
+            curl -s localhost:8001/api/health | head -3
+          else
+            echo "❌ Local API test failed"
+            echo "📋 PM2 logs:"
+            pm2 logs mingling-backend --lines 10
+            exit 1
+          fi
+          
+          # 외부 API 테스트
+          echo "🌐 Testing external API access..."
+          if curl -s https://api.minglingchat.com/api/health > /dev/null; then
+            echo "✅ External API test passed"
+          else
+            echo "❌ External API test failed"
+          fi
+          
+          echo "✅ Manual deployment completed successfully!"
+          echo "🚀 Server is running on port 8001"
+          echo "📊 Final status:"
+          pm2 status 

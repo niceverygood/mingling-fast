@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main ]
     paths: [ 'backend/**' ]  # 백엔드 파일이 변경될 때만 실행
+  workflow_dispatch:  # 수동 실행 허용
 
 jobs:
   deploy:
@@ -13,6 +14,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Debug connection info
+      run: |
+        echo "🔍 Connection debugging info:"
+        echo "Repository: ${{ github.repository }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "SHA: ${{ github.sha }}"
+        
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v0.1.8
       with:
@@ -20,11 +28,19 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22
-        timeout: 60s
-        command_timeout: 10m
+        timeout: 120s  # 타임아웃 증가
+        command_timeout: 15m  # 명령 타임아웃 증가
         debug: true
         script: |
           echo "🚀 Starting deployment..."
+          echo "📅 Deployment time: $(date)"
+          echo "🖥️ Server info: $(uname -a)"
+          echo "📍 Current directory: $(pwd)"
+          echo "👤 Current user: $(whoami)"
+          
+          # 네트워크 연결 테스트
+          echo "🌐 Testing network connectivity..."
+          ping -c 2 github.com || echo "⚠️ GitHub ping failed"
           
           # EC2 백엔드 디렉토리 정리 및 설정
           echo "📁 Setting up backend directory..."
@@ -32,12 +48,23 @@ jobs:
           mkdir -p ~/backend_temp
           cd ~/backend_temp
           
-          echo "📥 Cloning latest code..."
-          git clone https://github.com/niceverygood/mingling-fast.git .
+          echo "📥 Cloning latest code from correct repository..."
+          git clone https://github.com/niceverygood/mingling_new.git . || {
+            echo "❌ Git clone failed, trying alternative method..."
+            exit 1
+          }
+          
+          echo "🔍 Verifying cloned code..."
+          ls -la
+          ls -la backend/ || { echo "❌ Backend directory not found"; exit 1; }
           
           echo "🔄 Stopping existing backend..."
           pm2 stop mingling-backend 2>/dev/null || echo "Backend not running"
           pm2 delete mingling-backend 2>/dev/null || echo "Backend process not found"
+          
+          # 모든 Node.js 프로세스 정리
+          echo "🧹 Cleaning up any remaining processes..."
+          pkill -f "index.js" 2>/dev/null || echo "No index.js processes to kill"
           
           echo "📦 Preparing backend files..."
           # 기존 백엔드 디렉토리 백업
@@ -54,23 +81,54 @@ jobs:
           if [ -f ~/backend_env_backup ]; then
             cp ~/backend_env_backup ~/backend/.env
             echo "📄 .env file restored"
+          else
+            echo "⚠️ No .env backup found - please check environment variables"
           fi
           
           echo "📦 Installing dependencies..."
           cd ~/backend
           npm install --production || { echo "❌ npm install failed"; exit 1; }
           
-          echo "🔄 Starting backend..."
-          pm2 start index.js --name "mingling-backend"
+          echo "🔍 Environment check..."
+          node -e "
+            const envVars = ['NODE_ENV', 'DATABASE_URL', 'OPENAI_API_KEY', 'JWT_SECRET'];
+            envVars.forEach(env => {
+              console.log(\`\${env}: \${process.env[env] ? '✅ Set' : '❌ Missing'}\`);
+            });
+          "
+          
+          echo "🔄 Starting backend with environment variables..."
+          PORT=8001 NODE_ENV=production pm2 start index.js --name "mingling-backend" --max-memory-restart 512M
           
           echo "📊 Checking PM2 status..."
           pm2 status
           
           echo "🧪 Testing API..."
-          sleep 3
-          curl -s localhost:8001/api/health || echo "⚠️ API test failed"
+          sleep 5
+          
+          # 로컬 API 테스트
+          if curl -s localhost:8001/api/health > /dev/null; then
+            echo "✅ Local API test passed"
+            curl -s localhost:8001/api/health | head -3
+          else
+            echo "❌ Local API test failed"
+            echo "📋 PM2 logs:"
+            pm2 logs mingling-backend --lines 10
+            exit 1
+          fi
+          
+          # 외부 API 테스트
+          echo "🌐 Testing external API access..."
+          if curl -s https://api.minglingchat.com/api/health > /dev/null; then
+            echo "✅ External API test passed"
+          else
+            echo "❌ External API test failed"
+          fi
           
           echo "🗑️ Cleanup temporary files..."
           rm -rf ~/backend_temp ~/backend_env_backup
           
-          echo "✅ Backend deployment completed!" 
+          echo "✅ Backend deployment completed successfully!"
+          echo "🚀 Server is running on port 8001"
+          echo "📊 Final status:"
+          pm2 status 
