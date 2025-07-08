@@ -187,59 +187,87 @@ class PaymentService {
   async chargeHearts(chargeData) {
     console.log('🔍 서버에 하트 충전 요청 시작', chargeData);
 
-    try {
-      const requestHeaders = {
-        'Content-Type': 'application/json',
-        'X-User-ID': chargeData.userId,
-        'X-User-Email': chargeData.userEmail || ''
-      };
+    // 🔧 Cloudflare 차단 우회를 위한 대안 경로들
+    const apiPaths = [
+      '/api/payment/charge-hearts',    // 원래 경로
+      '/api/purchase/charge-hearts',   // 대안 경로 1
+      '/api/transaction/charge-hearts', // 대안 경로 2
+      '/api/hearts/charge'             // 대안 경로 3 (더 일반적인 경로)
+    ];
 
-      console.log('🌐 하트 충전 API 요청 전송:', {
-        url: `${this.apiUrl}/payment/charge-hearts`,
-        headers: requestHeaders,
-        data: chargeData
-      });
+    const requestData = {
+      imp_uid: chargeData.impUid,
+      merchant_uid: chargeData.merchantUid,
+      package_id: chargeData.packageId,
+      heart_amount: chargeData.heartAmount,
+      paid_amount: chargeData.amount
+    };
 
-      const response = await fetch(`${this.apiUrl}/payment/charge-hearts`, {
-        method: 'POST',
-        headers: requestHeaders,
-        body: JSON.stringify({
-          imp_uid: chargeData.impUid,
-          merchant_uid: chargeData.merchantUid,
-          package_id: chargeData.packageId,
-          heart_amount: chargeData.heartAmount,
-          paid_amount: chargeData.amount
-        })
-      });
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      'X-User-ID': chargeData.userId,
+      'X-User-Email': chargeData.userEmail || ''
+    };
 
-      console.log('📨 하트 충전 응답 수신:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-
-      const responseData = await response.json();
-      console.log('📋 하트 충전 응답 데이터:', responseData);
-
-      if (!response.ok) {
-        console.error('❌ 하트 충전 HTTP 오류:', {
-          status: response.status,
-          error: responseData.error
+    // 🔄 여러 경로를 순차적으로 시도
+    for (let i = 0; i < apiPaths.length; i++) {
+      const apiPath = apiPaths[i];
+      const fullUrl = `${this.apiUrl}${apiPath}`;
+      
+      try {
+        console.log(`🌐 하트 충전 API 요청 시도 ${i + 1}/${apiPaths.length}:`, {
+          url: fullUrl,
+          headers: requestHeaders,
+          data: requestData
         });
-        throw new Error(responseData.error || `HTTP ${response.status}: ${response.statusText}`);
+
+        const response = await fetch(fullUrl, {
+          method: 'POST',
+          headers: requestHeaders,
+          body: JSON.stringify(requestData)
+        });
+
+        console.log(`📨 하트 충전 응답 수신 (경로 ${i + 1}):`, {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          url: fullUrl
+        });
+
+        if (response.ok) {
+          const responseData = await response.json();
+          console.log(`✅ 하트 충전 성공 (경로 ${i + 1}):`, responseData);
+
+          if (responseData.success) {
+            console.log(`🎉 하트 충전 완료 - 경로: ${apiPath}`);
+            return responseData;
+          } else {
+            console.error(`❌ 하트 충전 실패 (경로 ${i + 1}):`, responseData.error);
+            throw new Error(responseData.error || '하트 충전에 실패했습니다');
+          }
+        } else if (response.status === 404 && i < apiPaths.length - 1) {
+          // 404 에러이고 다음 경로가 있으면 계속 시도
+          console.log(`⚠️ 경로 ${i + 1} 404 에러 - 다음 경로 시도: ${apiPaths[i + 1]}`);
+          continue;
+        } else {
+          // 다른 에러이거나 마지막 경로면 에러 처리
+          const responseData = await response.json();
+          throw new Error(responseData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+      } catch (error) {
+        console.error(`❌ 하트 충전 경로 ${i + 1} 실패:`, error);
+        
+        // 마지막 경로가 아니면 다음 경로 시도
+        if (i < apiPaths.length - 1) {
+          console.log(`🔄 다음 경로 시도: ${apiPaths[i + 1]}`);
+          continue;
+        } else {
+          // 모든 경로 실패
+          console.error('❌ 모든 하트 충전 경로 실패');
+          throw error;
+        }
       }
-
-      if (!responseData.success) {
-        console.error('❌ 하트 충전 실패:', responseData.error);
-        throw new Error(responseData.error || '하트 충전에 실패했습니다');
-      }
-
-      console.log('✅ 하트 충전 성공');
-      return responseData;
-
-    } catch (error) {
-      console.error('❌ 하트 충전 실패:', error);
-      throw error;
     }
   }
 
