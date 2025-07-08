@@ -10,9 +10,9 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
 
   console.log('💖 HeartShop 컴포넌트 렌더링:', { currentHearts, onPurchase: !!onPurchase });
 
-  // API URL 설정 (임시로 EC2 직접 연결)
+  // API URL 설정 (Cloudflare 프록시 사용)
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? 'http://3.35.49.121:8001' 
+    ? 'https://api.minglingchat.com' 
     : 'http://localhost:8001';
 
   // PaymentService 인스턴스 생성 (lazy)
