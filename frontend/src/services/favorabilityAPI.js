@@ -1,5 +1,5 @@
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://minglingchat.com/api' 
+  ? 'https://api.minglingchat.com/api' 
   : 'http://localhost:8001/api';
 
 // 호감도 정보 조회
