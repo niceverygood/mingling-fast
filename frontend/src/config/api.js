@@ -293,7 +293,12 @@ export const getAxiosConfig = () => ({
   baseURL: API_CONFIG.apiURL,
   timeout: API_CONFIG.timeout,
   withCredentials: false,
-  headers: getDefaultHeaders()
+  // 기본 헤더에서 Content-Type 제거 (인터셉터에서 동적으로 설정)
+  headers: {
+    'Accept': 'application/json',
+    'X-User-ID': localStorage.getItem('userId') || '',
+    'X-User-Email': localStorage.getItem('userEmail') || ''
+  }
 });
 
 /**

@@ -70,9 +70,13 @@ api.interceptors.request.use(
     const currentHeaders = getDefaultHeaders();
     
     if (isFileUpload) {
-      // 파일 업로드의 경우 Content-Type을 제거하고 다른 헤더만 추가
+      // 파일 업로드의 경우 Content-Type을 설정하지 않음 (브라우저가 자동으로 multipart/form-data 설정)
       const { 'Content-Type': _, ...headersWithoutContentType } = currentHeaders;
       Object.assign(config.headers, headersWithoutContentType);
+      
+      // 기존 Content-Type 헤더 완전 제거
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
     } else {
       // 일반 JSON 요청은 기존대로 처리
       Object.assign(config.headers, currentHeaders);
