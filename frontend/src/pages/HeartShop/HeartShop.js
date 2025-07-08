@@ -108,7 +108,8 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       // 결제 요청 (성공 코드 방식)
       setProcessingMessage('결제 진행 중...');
       const timestamp = Date.now();
-      const orderId = `HEART-${userId}-${pack.id}-${timestamp}`;
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const orderId = `HEART-${userId}-${pack.id}-${timestamp}-${randomId}`;
 
       console.log('💳 포트원 결제 요청 시작');
       const paymentResult = await new Promise((resolve, reject) => {

@@ -279,11 +279,12 @@ class PaymentService {
     }
   }
 
-  // 주문번호 생성
+  // 주문번호 생성 (중복 방지 강화)
   generateOrderId() {
     const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    const orderId = `HEART_${timestamp}_${random}`;
+    const random = Math.floor(Math.random() * 10000);
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const orderId = `HEART_${timestamp}_${random}_${randomStr}`;
     console.log('🆔 주문번호 생성:', orderId);
     return orderId;
   }
@@ -327,7 +328,8 @@ class PaymentService {
       // 3단계: 결제 요청 (성공 코드 방식 적용)
       console.log('💳 3단계: 결제 요청 시작');
       const timestamp = Date.now();
-      const orderId = `HEART-${userId}-${packageId}-${timestamp}`;
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const orderId = `HEART-${userId}-${packageId}-${timestamp}-${randomId}`;
 
       const paymentResult = await new Promise((resolve, reject) => {
         if (!window.IMP) {
