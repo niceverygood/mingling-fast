@@ -196,7 +196,7 @@ export const API_ENDPOINTS = {
   // User endpoints
   USERS: {
     BASE: `${API_CONFIG.apiURL}/users`,
-    ME: `${API_CONFIG.apiURL}/users/me`,
+    ME: `${API_CONFIG.apiURL}/users/profile`,
     UPDATE: `${API_CONFIG.apiURL}/users/update`
   },
   

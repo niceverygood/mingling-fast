@@ -168,19 +168,46 @@ router.post('/', async (req, res) => {
     });
 
     if (!user) {
-      // 고유한 username 생성
-      const baseUsername = firebaseUserEmail?.split('@')[0] || '사용자';
-      const timestamp = Date.now();
-      const uniqueUsername = `${baseUsername}_${timestamp}`;
+      console.log('👤 캐릭터 생성 중 사용자 자동 생성:', { firebaseUserId, firebaseUserEmail });
       
-      user = await prisma.user.create({
-        data: {
-          id: firebaseUserId,
-          email: firebaseUserEmail || `${firebaseUserId}@firebase.user`,
-          username: uniqueUsername,
-          hearts: 150
+      try {
+        // 안전한 이메일 및 사용자명 생성
+        const safeEmail = firebaseUserEmail || `${firebaseUserId}@auto.mingling`;
+        const baseUsername = firebaseUserEmail?.split('@')[0] || 'user';
+        const safeUsername = `${baseUsername}_${Date.now()}`;
+        
+        // upsert 패턴으로 안전하게 생성
+        user = await prisma.user.upsert({
+          where: { id: firebaseUserId },
+          update: {
+            // 이미 존재하면 업데이트하지 않음
+          },
+          create: {
+            id: firebaseUserId,
+            email: safeEmail,
+            username: safeUsername,
+            hearts: 150
+          }
+        });
+        
+        console.log('✅ 캐릭터 생성용 사용자 생성 완료:', user);
+      } catch (createError) {
+        console.error('❌ 사용자 생성 실패:', createError);
+        
+        // 최후의 수단: 다시 조회
+        user = await prisma.user.findUnique({
+          where: { id: firebaseUserId }
+        });
+        
+        if (!user) {
+          return res.status(500).json({ 
+            error: '사용자 생성에 실패했습니다. 다시 로그인해주세요.',
+            details: createError.message
+          });
         }
-      });
+      }
+    } else {
+      console.log('✅ 기존 사용자로 캐릭터 생성:', { userId: user.id, username: user.username });
     }
     
     const character = await prisma.character.create({
