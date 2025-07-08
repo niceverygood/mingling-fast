@@ -277,6 +277,21 @@ app.use((req, res, next) => {
     'origin': req.headers['origin'],
     'host': req.headers['host']
   });
+  
+  // 응답 통계 업데이트를 위한 후킹
+  const originalSend = res.send;
+  res.send = function(data) {
+    // 응답 상태에 따라 통계 업데이트
+    if (res.statusCode >= 200 && res.statusCode < 400) {
+      serverStats.successfulRequests++;
+    } else {
+      serverStats.errorRequests++;
+    }
+    
+    // 원본 send 함수 호출
+    return originalSend.call(this, data);
+  };
+  
   next();
 });
 
@@ -381,13 +396,143 @@ createStatsEndpoint(app);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
+  const healthInfo = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-    autoDeployment: 'enabled',
-    version: '1.0.7',
-    deploymentMethod: 'Improved GitHub Actions workflow with clean directory structure! 🎯'
-  });
+    environment: process.env.NODE_ENV,
+    version: '1.1.0',
+    deploymentMethod: 'Enhanced API integration with frontend! 🚀',
+    services: {
+      database: 'connected',
+      openai: openai ? 'ready' : 'disconnected',
+      s3: process.env.AWS_ACCESS_KEY_ID ? 'configured' : 'not_configured',
+      payment: process.env.IMP_SECRET ? 'configured' : 'not_configured'
+    },
+    cors: {
+      allowedOrigins: ALLOWED_ORIGINS.length,
+      development: process.env.NODE_ENV === 'development'
+    },
+    uptime: Math.floor((Date.now() - new Date(serverStats.startTime).getTime()) / 1000)
+  };
+  
+  res.json(healthInfo);
+});
+
+// 🔍 배포 검증 엔드포인트 (프론트엔드 validateDeployment와 연계)
+app.get('/api/deploy/validate', (req, res) => {
+  const validation = {
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    validation: {
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        port: PORT,
+        isProduction: process.env.NODE_ENV === 'production'
+      },
+      database: {
+        connected: !!process.env.DATABASE_URL,
+        status: 'ready'
+      },
+      services: {
+        openai: {
+          configured: !!process.env.OPENAI_API_KEY,
+          status: openai ? 'ready' : 'not_configured'
+        },
+        aws: {
+          configured: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
+          bucket: process.env.AWS_S3_BUCKET_NAME || 'not_set',
+          region: process.env.AWS_REGION || 'ap-northeast-2'
+        },
+        payment: {
+          configured: !!process.env.IMP_SECRET,
+          provider: 'portone + kg_inicis',
+          testMode: !process.env.IMP_SECRET || process.env.IMP_SECRET.includes('TEST')
+        }
+      },
+      cors: {
+        allowedOrigins: ALLOWED_ORIGINS,
+        totalOrigins: ALLOWED_ORIGINS.length,
+        cloudflareReady: ALLOWED_ORIGINS.some(origin => origin.includes('minglingchat.com'))
+      },
+      security: {
+        trustProxy: app.get('trust proxy'),
+        rateLimit: process.env.NODE_ENV === 'production' ? 100 : 1000,
+        httpsRedirect: false // 프론트엔드에서 처리
+      }
+    },
+    recommendations: []
+  };
+
+  // 권장사항 추가
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.IMP_SECRET || process.env.IMP_SECRET.includes('TEST')) {
+      validation.recommendations.push('Production payment credentials needed');
+    }
+    if (!validation.validation.services.aws.configured) {
+      validation.recommendations.push('AWS S3 configuration needed for file uploads');
+    }
+  }
+
+  res.json(validation);
+});
+
+// 🌐 환경 정보 엔드포인트 (보안 필터링)
+app.get('/api/environment', (req, res) => {
+  const envInfo = {
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+    server: {
+      port: PORT,
+      uptime: Math.floor((Date.now() - new Date(serverStats.startTime).getTime()) / 1000),
+      version: '1.1.0'
+    },
+    features: {
+      openai: !!openai,
+      fileUpload: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
+      payment: !!process.env.IMP_SECRET,
+      cors: {
+        enabled: true,
+        origins: ALLOWED_ORIGINS.length,
+        development: process.env.NODE_ENV === 'development'
+      }
+    },
+    deployment: {
+      cloudflareCompatible: true,
+      httpsReady: true,
+      corsOptimized: true,
+      paymentIntegrated: !!process.env.IMP_SECRET
+    }
+  };
+
+  res.json(envInfo);
+});
+
+// 📊 상세 통계 엔드포인트 (관리자용)
+app.get('/api/debug/detailed-stats', (req, res) => {
+  const detailedStats = {
+    ...serverStats,
+    uptime: Math.floor((Date.now() - new Date(serverStats.startTime).getTime()) / 1000),
+    successRate: serverStats.totalRequests > 0 ? 
+      (serverStats.successfulRequests / serverStats.totalRequests * 100).toFixed(2) + '%' : '0%',
+    corsRate: serverStats.totalRequests > 0 ? 
+      (serverStats.corsRequests / serverStats.totalRequests * 100).toFixed(2) + '%' : '0%',
+    environment: {
+      nodeEnv: process.env.NODE_ENV,
+      port: PORT,
+      allowedOrigins: ALLOWED_ORIGINS
+    },
+    services: {
+      openai: openai ? 'connected' : 'disconnected',
+      database: 'connected',
+      payment: process.env.IMP_SECRET ? 'configured' : 'not_configured'
+    },
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
+    }
+  };
+
+  res.json(detailedStats);
 });
 
 // 404 핸들러 - API 라우트를 찾을 수 없을 때
@@ -404,27 +549,69 @@ app.use('/api/*', (req, res) => {
 // Error handling
 app.use((err, req, res, _next) => {
   console.error('❌ Server Error:', err.stack);
-  res.status(500).json({ 
+  
+  // 에러 통계 업데이트
+  serverStats.errorRequests++;
+  
+  // 에러 정보 로깅
+  const errorInfo = {
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    url: req.url,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    userAgent: req.headers['user-agent'],
+    origin: req.headers['origin']
+  };
+  
+  console.error('🔍 Error Details:', errorInfo);
+  
+  // 에러 응답
+  const errorResponse = {
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong!',
-    timestamp: new Date().toISOString()
-  });
+    timestamp: new Date().toISOString(),
+    requestId: req.headers['cf-ray'] || `req-${Date.now()}`
+  };
+  
+  // 특정 에러 타입에 따른 상태 코드 설정
+  let statusCode = 500;
+  if (err.name === 'ValidationError') statusCode = 400;
+  if (err.name === 'UnauthorizedError') statusCode = 401;
+  if (err.name === 'ForbiddenError') statusCode = 403;
+  if (err.name === 'NotFoundError') statusCode = 404;
+  
+  res.status(statusCode).json(errorResponse);
 });
 
-// 테스트 환경이 아닐 때만 서버 시작
-if (process.env.NODE_ENV !== 'test') {
-  const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
-    console.log(`🌐 Server accessible from: http://0.0.0.0:${PORT}`);
+// 🔥 더 나은 포트 충돌 처리
+const startServerWithRetry = (port, retries = 3) => {
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Backend server running on http://localhost:${port}`);
+    console.log(`🌐 Server accessible from: http://0.0.0.0:${port}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV}`);
     console.log(`🕒 Started at: ${new Date().toISOString()}`);
+    console.log('🔧 Frontend Integration: Enhanced API endpoints ready! 🎯');
   });
 
   // 서버 오류 처리
   server.on('error', (error) => {
-    console.error('❌ Server error:', error);
     if (error.code === 'EADDRINUSE') {
-      console.error(`🔥 Port ${PORT} is already in use`);
+      console.error(`🔥 Port ${port} is already in use`);
+      
+      if (retries > 0) {
+        const newPort = port + 1;
+        console.log(`🔄 Trying port ${newPort}... (${retries} retries left)`);
+        server.close();
+        global.setTimeout(() => startServerWithRetry(newPort, retries - 1), 1000);
+      } else {
+        console.error('❌ No more ports to try. Please stop other services or change the PORT environment variable.');
+        console.error('💡 Try: killall node');
+        console.error('💡 Or: lsof -ti:8001 | xargs kill');
+        process.exit(1);
+      }
+    } else {
+      console.error('❌ Server error:', error);
       process.exit(1);
     }
   });
@@ -439,16 +626,25 @@ if (process.env.NODE_ENV !== 'test') {
   // 헬스 체크 자동 실행
   global.setTimeout(() => {
     console.log('🏥 Self health check...');
-    require('http').get(`http://localhost:${PORT}/api/health`, (res) => {
+    const actualPort = server.address()?.port || port;
+    require('http').get(`http://localhost:${actualPort}/api/health`, (res) => {
       console.log(`✅ Self health check passed: ${res.statusCode}`);
     }).on('error', (err) => {
       console.error('❌ Self health check failed:', err.message);
     });
   }, 5000);
+
+  return server;
+};
+
+// 테스트 환경이 아닐 때만 서버 시작
+if (process.env.NODE_ENV !== 'test') {
+  startServerWithRetry(PORT);
 }
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
+  console.log('🔄 Graceful shutdown initiated...');
   await prisma.$disconnect();
   process.exit(0);
 });
