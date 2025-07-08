@@ -258,28 +258,20 @@ router.post('/purchase', async (req, res) => {
         }
       });
 
-      // 결제 거래 기록 생성
-      const transaction = await prisma.paymentTransaction.create({
-        data: {
-          userId: userId,
-          impUid: imp_uid,
-          merchantUid: merchant_uid,
-          amount: paid_amount,
-          status: 'completed',
-          type: 'heart_purchase',
-          packageId: package_id,
-          heartAmount: heart_amount,
-          userEmail: userEmail
-        }
-      });
-
-      // 하트 거래 기록 생성
-      await prisma.heartTransaction.create({
+      // 하트 거래 기록 생성 (결제 정보 포함)
+      const transaction = await prisma.heartTransaction.create({
         data: {
           userId: userId,
           amount: heart_amount,
           type: 'purchase',
-          description: `${package_id} 패키지 구매 (${heart_amount}개 하트)`
+          description: `${package_id} 패키지 구매 (${heart_amount}개 하트)`,
+          impUid: imp_uid,
+          merchantUid: merchant_uid,
+          status: 'completed',
+          heartAmount: heart_amount,
+          paymentMethod: 'card',
+          paidAt: new Date(),
+          completedAt: new Date()
         }
       });
 
