@@ -6,13 +6,13 @@ const prisma = new PrismaClient();
 
 console.log('🔧 Payment 라우트 초기화');
 
-// 포트원 설정
-const PORTONE_API_URL = 'https://api.iamport.kr';
-const IMP_KEY = 'imp20122888'; // 실제 가맹점 식별코드
-const IMP_SECRET = process.env.IMP_SECRET || 'b1d469864e7b5c52a357cd18c82c816941e2d0795030b7d4466e68c2bfdd1fd3e5c2bfd3a6d1c0a5'; // 실제 API Secret
-const CHANNEL_KEY = 'channel-key-720d69be-767a-420c-91c8-2855ca00192d'; // 실제 채널키
-const PG_PROVIDER = 'html5_inicis'; // KG이니시스 모바일웹
-const MERCHANT_ID = 'MOIplay998'; // 실제 상점아이디
+// 포트원 설정 - 환경변수 우선 사용
+const PORTONE_API_URL = process.env.PORTONE_API_URL || 'https://api.iamport.kr';
+const IMP_KEY = process.env.IMP_KEY || 'imp20122888'; // 실제 가맹점 식별코드
+const IMP_SECRET = process.env.IMP_SECRET; // 환경변수에서만 가져오기
+const CHANNEL_KEY = process.env.CHANNEL_KEY || 'channel-key-720d69be-767a-420c-91c8-2855ca00192d'; // 실제 채널키
+const PG_PROVIDER = process.env.PG_PROVIDER || 'html5_inicis'; // KG이니시스 모바일웹
+const MERCHANT_ID = process.env.MERCHANT_ID || 'MOIplay998'; // 실제 상점아이디
 
 console.log('📋 포트원 설정 정보:', {
   PORTONE_API_URL,

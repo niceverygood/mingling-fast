@@ -65,9 +65,14 @@ router.get('/profile', async (req, res) => {
 router.put('/profile', async (req, res) => {
   try {
     const { username, avatarUrl } = req.body;
+    const firebaseUserId = req.headers['x-user-id'];
+    
+    if (!firebaseUserId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
     
     const updatedUser = await prisma.user.update({
-      where: { id: 'user-id' }, // 실제로는 JWT에서 추출
+      where: { id: firebaseUserId },
       data: {
         username,
         avatarUrl

@@ -7,16 +7,86 @@ const cors = require('cors');
 require('dotenv').config();
 
 // 🔧 환경 변수 검증 및 로깅
-console.log('🔧 Environment Configuration:', {
-  NODE_ENV: process.env.NODE_ENV,
-  PORT: process.env.PORT,
-  DATABASE_URL: process.env.DATABASE_URL ? '✅ Set' : '❌ Missing',
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✅ Set' : '❌ Missing',
-  OPENAI_API_KEY_LENGTH: process.env.OPENAI_API_KEY?.length,
-  JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing',
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3005,https://minglingchat.com,https://www.minglingchat.com',
-  timestamp: new Date().toISOString()
-});
+const validateEnvironment = () => {
+  const requiredEnvVars = {
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT,
+    DATABASE_URL: process.env.DATABASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    JWT_SECRET: process.env.JWT_SECRET
+  };
+
+  const optionalEnvVars = {
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3005,https://minglingchat.com,https://www.minglingchat.com',
+    IMP_SECRET: process.env.IMP_SECRET,
+    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY
+  };
+
+  const errors = [];
+  const warnings = [];
+
+  // 필수 환경 변수 검증
+  Object.entries(requiredEnvVars).forEach(([key, value]) => {
+    if (!value) {
+      errors.push(`❌ ${key} is required but not set`);
+    } else if (key === 'OPENAI_API_KEY' && value.length < 50) {
+      warnings.push(`⚠️ ${key} seems too short (${value.length} chars)`);
+    } else if (key === 'JWT_SECRET' && value.length < 16) {
+      warnings.push(`⚠️ ${key} is too short for security (${value.length} chars)`);
+    }
+  });
+
+  // 선택적 환경 변수 검증
+  if (process.env.NODE_ENV === 'production' && !optionalEnvVars.IMP_SECRET) {
+    warnings.push('⚠️ IMP_SECRET not set - payment system will be disabled');
+  }
+
+  if (!optionalEnvVars.AWS_ACCESS_KEY_ID || !optionalEnvVars.AWS_SECRET_ACCESS_KEY) {
+    warnings.push('⚠️ AWS credentials not set - file upload will be disabled');
+  }
+
+  // 프로덕션 환경 특별 검증
+  if (process.env.NODE_ENV === 'production') {
+    const prodOrigins = optionalEnvVars.ALLOWED_ORIGINS;
+    if (prodOrigins.includes('localhost')) {
+      warnings.push('⚠️ Production environment contains localhost origins');
+    }
+  }
+
+  // 결과 출력
+  console.log('🔧 Environment Configuration:', {
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT,
+    DATABASE_URL: process.env.DATABASE_URL ? '✅ Set' : '❌ Missing',
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY ? `✅ Set (${process.env.OPENAI_API_KEY.length} chars)` : '❌ Missing',
+    JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing',
+    ALLOWED_ORIGINS: optionalEnvVars.ALLOWED_ORIGINS,
+    IMP_SECRET: optionalEnvVars.IMP_SECRET ? '✅ Set' : '❌ Missing',
+    AWS_CONFIGURED: (optionalEnvVars.AWS_ACCESS_KEY_ID && optionalEnvVars.AWS_SECRET_ACCESS_KEY) ? '✅ Set' : '❌ Missing',
+    timestamp: new Date().toISOString()
+  });
+
+  // 에러 출력
+  if (errors.length > 0) {
+    console.error('💥 Environment Validation Errors:');
+    errors.forEach(error => console.error(error));
+    console.error('🚨 Server cannot start without required environment variables');
+    process.exit(1);
+  }
+
+  // 경고 출력
+  if (warnings.length > 0) {
+    console.warn('⚠️ Environment Validation Warnings:');
+    warnings.forEach(warning => console.warn(warning));
+  }
+
+  console.log('✅ Environment validation completed successfully');
+  return true;
+};
+
+// 환경 변수 검증 실행
+validateEnvironment();
 
 // 🌐 환경별 허용 Origins 설정
 const getAllowedOrigins = () => {

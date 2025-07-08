@@ -16,11 +16,11 @@ class PaymentService {
       enableDebug: this.apiConfig.enableDebug
     });
     
-    // 실제 포트원 채널 정보
-    this.channelKey = 'channel-key-720d69be-767a-420c-91c8-2855ca00192d';
-    this.pgProvider = 'html5_inicis.MOIplay998'; // PG사.상점아이디 형식
-    this.merchantId = 'MOIplay998';
-    this.impCode = 'imp20122888'; // 고객사 식별코드
+    // 환경별 포트원 설정
+    this.channelKey = process.env.REACT_APP_CHANNEL_KEY || 'channel-key-720d69be-767a-420c-91c8-2855ca00192d';
+    this.pgProvider = process.env.REACT_APP_PG_PROVIDER || 'html5_inicis.MOIplay998'; // PG사.상점아이디 형식
+    this.merchantId = process.env.REACT_APP_MERCHANT_ID || 'MOIplay998';
+    this.impCode = process.env.REACT_APP_IMP_CODE || 'imp20122888'; // 고객사 식별코드
     
     this.heartPackages = [
       { id: 'basic', hearts: 50, price: 1000, name: '기본 팩' },
