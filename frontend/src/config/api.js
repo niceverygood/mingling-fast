@@ -258,6 +258,7 @@ export const API_ENDPOINTS = {
     BALANCE: `${API_CONFIG.apiURL}/hearts/balance`,
     PURCHASE: `${API_CONFIG.apiURL}/hearts/purchase`,
     CHARGE: `${API_CONFIG.apiURL}/hearts/charge`,
+    SPEND: `${API_CONFIG.apiURL}/hearts/spend`,
     TRANSACTIONS: `${API_CONFIG.apiURL}/hearts/transactions`
   },
   

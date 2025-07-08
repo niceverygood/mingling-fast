@@ -253,7 +253,9 @@ export const heartsAPI = {
   getBalance: () => apiCall('get', API_ENDPOINTS.HEARTS.BALANCE),
   charge: (amount) => apiCall('post', API_ENDPOINTS.HEARTS.CHARGE, { amount }),
   purchase: (purchaseData) => apiCall('post', API_ENDPOINTS.HEARTS.PURCHASE, purchaseData),
-  getTransactions: () => apiCall('get', API_ENDPOINTS.HEARTS.TRANSACTIONS)
+  getTransactions: () => apiCall('get', API_ENDPOINTS.HEARTS.TRANSACTIONS),
+  // 하트 소모 함수 추가 (채팅 메시지 전송용)
+  spend: (amount, description) => apiCall('post', API_ENDPOINTS.HEARTS.SPEND, { amount, description })
 };
 
 // Users API
