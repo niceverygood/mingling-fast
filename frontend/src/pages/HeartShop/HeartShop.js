@@ -10,10 +10,10 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
 
   console.log('💖 HeartShop 컴포넌트 렌더링:', { currentHearts, onPurchase: !!onPurchase });
 
-  // API URL 설정 (클라우드플레어 HTTPS API)
+  // API URL 설정 (로컬 테스트용)
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? 'https://api.minglingchat.com' 
-    : 'http://3.35.49.121:8001';
+    : 'http://localhost:8001';
 
   // PaymentService 인스턴스 생성 (lazy)
   const getPaymentService = () => {
@@ -67,7 +67,7 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   ];
 
   const handlePurchase = async (pack) => {
-    console.log('🛒 하트 구매 시작 (즉시 검증 방식):', pack);
+    console.log('🛒 하트 구매 시작 (KG이니시스 방식):', pack);
     
     if (isProcessing) {
       console.log('⏳ 이미 처리 중인 결제 있음');
@@ -79,153 +79,125 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
     setProcessingMessage('결제 준비 중...');
 
     try {
-      // 사용자 정보 가져오기 - 여러 소스에서 확인
+      // 포트원 SDK 초기화 확인
+      if (!window.IMP) {
+        console.log('📦 포트원 SDK 로딩 중...');
+        await loadPortoneSDK();
+      }
+
+      // 사용자 정보 수집
       console.log('👤 사용자 정보 수집 중...');
-      console.log('📋 localStorage 확인:', {
-        userEmail: localStorage.getItem('userEmail'),
-        userId: localStorage.getItem('userId'),
-        authData: localStorage.getItem('authData')
-      });
-      
-      // 실제 사용자 정보 확인
-      let userEmail = localStorage.getItem('userEmail');
-      let userId = localStorage.getItem('userId');
+      let userEmail = localStorage.getItem('userEmail') || 'user@minglingchat.com';
+      let userId = localStorage.getItem('userId') || 'guest';
       
       // authData에서도 확인
       try {
         const authData = JSON.parse(localStorage.getItem('authData') || '{}');
-        if (authData.email && !userEmail) {
+        if (authData.email && (!userEmail || userEmail === 'user@minglingchat.com')) {
           userEmail = authData.email;
         }
-        if (authData.userId && !userId) {
+        if (authData.userId && (!userId || userId === 'guest')) {
           userId = authData.userId;
         }
-        console.log('📋 authData 확인:', authData);
       } catch (error) {
         console.warn('⚠️ authData 파싱 실패:', error);
       }
       
-      // 사용자 정보가 없으면 백엔드에서 가져오기
-      if (!userEmail || !userId || userEmail === 'user@minglingchat.com' || userId === 'guest') {
-        console.log('🔄 백엔드에서 사용자 정보 확인 중...');
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-ID': userId || 'guest',
-              'X-User-Email': userEmail || 'user@minglingchat.com'
-            }
-          });
-          
-          if (response.ok) {
-            const userData = await response.json();
-            console.log('✅ 백엔드 사용자 정보:', userData);
-            if (userData.email) userEmail = userData.email;
-            if (userData.id) userId = userData.id;
-            
-            // localStorage 업데이트
-            localStorage.setItem('userEmail', userEmail);
-            localStorage.setItem('userId', userId);
-          }
-        } catch (error) {
-          console.warn('⚠️ 백엔드 사용자 정보 조회 실패:', error);
-        }
-      }
+      console.log('✅ 사용자 정보 확인 완료:', { userEmail, userId });
       
-      // 최종 사용자 정보 확인
-      if (!userEmail || userEmail === 'user@minglingchat.com') {
-        const customEmail = prompt('결제를 위해 이메일 주소를 입력해주세요:', '');
-        if (!customEmail) {
-          throw new Error('이메일 주소가 필요합니다.');
-        }
-        userEmail = customEmail;
-        localStorage.setItem('userEmail', userEmail);
-      }
-      
-      if (!userId || userId === 'guest') {
-        userId = `user_${Date.now()}`;
-        localStorage.setItem('userId', userId);
-      }
-      
-      console.log('✅ 최종 사용자 정보:', { userEmail, userId });
-      
-      const userInfo = {
-        email: userEmail,
-        name: userEmail.split('@')[0],
-        userId: userId,
-        phone: '010-0000-0000'
-      };
-
-      console.log('📋 결제 데이터 구성:', { pack, userInfo });
+      // 결제 요청 (성공 코드 방식)
       setProcessingMessage('결제 진행 중...');
-      
-      // PaymentService를 통한 결제 요청 (즉시 검증 방식)
-      console.log('💳 결제 요청 시작 (즉시 검증 방식)');
-      const paymentService = getPaymentService();
-      const paymentResult = await paymentService.purchaseHearts(pack.id, userInfo);
-      console.log('💳 결제 및 검증 완료:', paymentResult);
-      
-      if (paymentResult.success) {
-        console.log('✅ 결제 및 하트 지급 완료');
-        
-        // 서버에서 실제 하트 잔액 가져오기
-        setProcessingMessage('하트 잔액 업데이트 중...');
-        const updatedHearts = await refreshHeartBalance();
-        
-        // 성공 처리
-        console.log('🎉 전체 구매 과정 완료');
-        if (onPurchase) {
-          console.log('📢 부모 컴포넌트에 구매 완료 알림');
-          onPurchase({
-            ...pack,
-            success: true,
-            newHeartBalance: updatedHearts || paymentResult.verification?.newBalance || (currentHearts + pack.hearts)
-          });
-        }
-        
-        const finalHeartBalance = updatedHearts || paymentResult.verification?.newBalance || (currentHearts + pack.hearts);
-        alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n하트가 즉시 지급되었습니다.\n새 잔액: ${finalHeartBalance}개`);
-        
-        // 성공 후 창 닫기
-        onClose();
-        
-      } else {
-        console.error('❌ 결제 실패:', paymentResult);
-        throw new Error(paymentResult.error || '결제 실패');
-      }
-    } catch (error) {
-      console.error('❌ 결제 과정 중 오류 발생:', {
-        error: error,
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        code: error.code
+      const timestamp = Date.now();
+      const orderId = `HEART-${userId}-${pack.id}-${timestamp}`;
+
+      console.log('💳 포트원 결제 요청 시작');
+      const paymentResult = await new Promise((resolve, reject) => {
+        window.IMP.request_pay({
+          pg: 'html5_inicis.MOIplay998', // KG이니시스
+          pay_method: 'card',
+          merchant_uid: orderId,
+          name: `${pack.hearts}개 하트`,
+          amount: pack.price,
+          buyer_email: userEmail,
+          buyer_name: userEmail.split('@')[0],
+          buyer_tel: '010-0000-0000',
+          m_redirect_url: `${window.location.origin}/payment/complete`,
+        }, (rsp) => {
+          console.log('📨 포트원 결제 응답:', rsp);
+          
+          if (rsp.success) {
+            console.log('✅ 결제 성공:', rsp.imp_uid);
+            resolve(rsp);
+          } else {
+            console.error('❌ 결제 실패:', rsp.error_msg);
+            reject(new Error(rsp.error_msg || '결제가 취소되었습니다.'));
+          }
+        });
       });
+
+      console.log('✅ 결제 완료:', paymentResult);
+
+      // 서버에 하트 충전 요청 (성공 코드 방식)
+      setProcessingMessage('하트 충전 중...');
+      console.log('🔍 서버에 하트 충전 요청');
+      
+      const chargeResponse = await fetch(`${API_BASE_URL}/api/payment/charge-hearts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': userId,
+          'X-User-Email': userEmail
+        },
+        body: JSON.stringify({
+          imp_uid: paymentResult.imp_uid,
+          merchant_uid: paymentResult.merchant_uid,
+          package_id: pack.id,
+          heart_amount: pack.hearts,
+          paid_amount: pack.price
+        })
+      });
+
+      const chargeData = await chargeResponse.json();
+      console.log('📨 하트 충전 응답:', chargeData);
+
+      if (!chargeResponse.ok || !chargeData.success) {
+        throw new Error(chargeData.error || '하트 충전에 실패했습니다.');
+      }
+
+      console.log('✅ 하트 충전 완료');
+      
+      // 성공 처리
+      console.log('🎉 전체 구매 과정 완료');
+      if (onPurchase) {
+        console.log('📢 부모 컴포넌트에 구매 완료 알림');
+        onPurchase({
+          ...pack,
+          success: true,
+          newHeartBalance: chargeData.newBalance
+        });
+      }
+      
+      alert(`🎉 ${pack.hearts}개 하트 구매 완료!\n하트가 즉시 지급되었습니다.\n새 잔액: ${chargeData.newBalance}개`);
+      
+      // 성공 후 창 닫기
+      onClose();
+        
+    } catch (error) {
+      console.error('❌ 결제 과정 중 오류 발생:', error);
       
       let errorMessage = '결제 중 오류가 발생했습니다.';
       
       if (error.message) {
         errorMessage = error.message;
-        console.log('🔍 에러 메시지:', error.message);
       }
       
       // 사용자에게 더 친숙한 메시지 제공
       if (errorMessage.includes('등록된 PG')) {
-        console.log('🚨 PG 설정 오류 감지');
         errorMessage = '결제 시스템 설정에 문제가 있습니다.\n잠시 후 다시 시도해주세요.';
       } else if (errorMessage.includes('취소')) {
-        console.log('🚨 결제 취소 감지');
         errorMessage = '결제가 취소되었습니다.';
       } else if (errorMessage.includes('SDK')) {
-        console.log('🚨 SDK 오류 감지');
         errorMessage = '결제 시스템 로딩에 실패했습니다.\n페이지를 새로고침 후 다시 시도해주세요.';
-      } else if (errorMessage.includes('검증')) {
-        console.log('🚨 검증 오류 감지');
-        errorMessage = '결제 검증에 실패했습니다.\n고객센터로 문의해주세요.';
-      } else if (errorMessage.includes('이메일')) {
-        console.log('🚨 이메일 오류 감지');
-        // 이메일 관련 에러는 그대로 표시
       }
       
       console.log('📢 사용자에게 표시할 에러 메시지:', errorMessage);
@@ -236,6 +208,43 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
       setProcessingMessage('');
       setSelectedPack(null);
     }
+  };
+
+  // 포트원 SDK 로딩 함수
+  const loadPortoneSDK = () => {
+    return new Promise((resolve, reject) => {
+      if (window.IMP) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.iamport.kr/js/iamport.payment-1.2.0.js';
+      script.async = true;
+      
+      script.onload = () => {
+        setTimeout(() => {
+          if (window.IMP) {
+            try {
+              window.IMP.init('imp20122888'); // 고객사 식별코드
+              console.log('✅ 포트원 SDK 초기화 완료');
+              resolve();
+            } catch (error) {
+              console.error('❌ 포트원 SDK 초기화 실패:', error);
+              reject(error);
+            }
+          } else {
+            reject(new Error('포트원 SDK 로드 실패'));
+          }
+        }, 500);
+      };
+      
+      script.onerror = () => {
+        reject(new Error('포트원 SDK 스크립트 로드 실패'));
+      };
+      
+      document.head.appendChild(script);
+    });
   };
 
   // 사용자 하트 잔액 새로고침 함수 (EC2 서버)

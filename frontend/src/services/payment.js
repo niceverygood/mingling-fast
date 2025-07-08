@@ -4,10 +4,10 @@ class PaymentService {
   constructor() {
     console.log('🔧 PaymentService 초기화 시작');
     
-    // API URL 설정 (클라우드플레어 HTTPS API)
+    // API URL 설정 (로컬 테스트용)
     this.apiUrl = process.env.NODE_ENV === 'production' 
       ? 'https://api.minglingchat.com/api' 
-      : 'http://3.35.49.121:8001/api';
+      : 'http://localhost:8001/api';
     
     console.log('🌐 API URL 설정:', this.apiUrl);
     
@@ -183,50 +183,46 @@ class PaymentService {
     }
   }
 
-  // 🚀 즉시 결제 검증 (웹훅 대신 사용)
-  async verifyPayment(imp_uid, merchant_uid, userId, userEmail) {
-    console.log('🔍 즉시 결제 검증 시작', {
-      imp_uid,
-      merchant_uid,
-      userId,
-      userEmail
-    });
+  // 🚀 서버에 하트 충전 요청 (성공 코드 방식)
+  async chargeHearts(chargeData) {
+    console.log('🔍 서버에 하트 충전 요청 시작', chargeData);
 
     try {
-      const requestData = {
-        imp_uid,
-        merchant_uid
-      };
-
       const requestHeaders = {
         'Content-Type': 'application/json',
-        'X-User-ID': userId,
-        'X-User-Email': userEmail || ''
+        'X-User-ID': chargeData.userId,
+        'X-User-Email': chargeData.userEmail || ''
       };
 
-      console.log('🌐 검증 API 요청 전송:', {
-        url: `${this.apiUrl}/payment/verify`,
+      console.log('🌐 하트 충전 API 요청 전송:', {
+        url: `${this.apiUrl}/payment/charge-hearts`,
         headers: requestHeaders,
-        data: requestData
+        data: chargeData
       });
 
-      const response = await fetch(`${this.apiUrl}/payment/verify`, {
+      const response = await fetch(`${this.apiUrl}/payment/charge-hearts`, {
         method: 'POST',
         headers: requestHeaders,
-        body: JSON.stringify(requestData)
+        body: JSON.stringify({
+          imp_uid: chargeData.impUid,
+          merchant_uid: chargeData.merchantUid,
+          package_id: chargeData.packageId,
+          heart_amount: chargeData.heartAmount,
+          paid_amount: chargeData.amount
+        })
       });
 
-      console.log('📨 검증 응답 수신:', {
+      console.log('📨 하트 충전 응답 수신:', {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok
       });
 
       const responseData = await response.json();
-      console.log('📋 검증 응답 데이터:', responseData);
+      console.log('📋 하트 충전 응답 데이터:', responseData);
 
       if (!response.ok) {
-        console.error('❌ 검증 HTTP 오류:', {
+        console.error('❌ 하트 충전 HTTP 오류:', {
           status: response.status,
           error: responseData.error
         });
@@ -234,15 +230,15 @@ class PaymentService {
       }
 
       if (!responseData.success) {
-        console.error('❌ 검증 실패:', responseData.error);
-        throw new Error(responseData.error || '결제 검증에 실패했습니다');
+        console.error('❌ 하트 충전 실패:', responseData.error);
+        throw new Error(responseData.error || '하트 충전에 실패했습니다');
       }
 
-      console.log('✅ 즉시 결제 검증 성공');
-      return responseData.verification || responseData;
+      console.log('✅ 하트 충전 성공');
+      return responseData;
 
     } catch (error) {
-      console.error('❌ 즉시 결제 검증 실패:', error);
+      console.error('❌ 하트 충전 실패:', error);
       throw error;
     }
   }
@@ -261,9 +257,9 @@ class PaymentService {
     return this.heartPackages;
   }
 
-  // 🎯 메인 하트 구매 함수 (웹훅 대신 즉시 검증)
+  // 🎯 메인 하트 구매 함수 (성공 코드 기반 개선)
   async purchaseHearts(packageId, userInfo = {}) {
-    console.log('🛒 하트 구매 시작 (즉시 검증 방식)', { packageId, userInfo });
+    console.log('🛒 하트 구매 시작 (KG이니시스 방식)', { packageId, userInfo });
     
     try {
       // 1단계: 하트 패키지 검증
@@ -273,26 +269,9 @@ class PaymentService {
       }
       console.log('✅ 1단계: 하트 패키지 검증 완료', heartPackage);
 
-      // 2단계: 사용자 정보 수집 (개선된 로직)
-      console.log('👤 2단계: 사용자 정보 수집 중...');
-      console.log('📋 전달받은 userInfo:', userInfo);
-      console.log('📋 localStorage 상태:', {
-        userEmail: localStorage.getItem('userEmail'),
-        userId: localStorage.getItem('userId'),
-        authData: localStorage.getItem('authData')
-      });
-      
-      // userInfo에서 우선 확인
-      let userEmail = userInfo.email;
-      let userId = userInfo.userId;
-      
-      // userInfo가 없으면 localStorage에서 확인
-      if (!userEmail || userEmail === 'user@minglingchat.com') {
-        userEmail = localStorage.getItem('userEmail');
-      }
-      if (!userId || userId === 'guest') {
-        userId = localStorage.getItem('userId');
-      }
+      // 2단계: 사용자 정보 수집
+      let userEmail = userInfo.email || localStorage.getItem('userEmail') || 'user@minglingchat.com';
+      let userId = userInfo.userId || localStorage.getItem('userId') || 'guest';
       
       // authData에서도 확인
       try {
@@ -307,54 +286,74 @@ class PaymentService {
         console.warn('⚠️ authData 파싱 실패:', error);
       }
       
-      // 기본값 설정 (최후의 수단)
-      if (!userEmail || userEmail === 'user@minglingchat.com') {
-        userEmail = 'user@minglingchat.com';
-        console.warn('⚠️ 실제 사용자 이메일을 찾을 수 없어 기본값 사용');
-      }
-      if (!userId || userId === 'guest') {
-        userId = 'guest';
-        console.warn('⚠️ 실제 사용자 ID를 찾을 수 없어 기본값 사용');
-      }
-      
-      console.log('✅ 2단계: 최종 사용자 정보 확인 완료', { userEmail, userId });
+      console.log('✅ 2단계: 사용자 정보 확인 완료', { userEmail, userId });
 
-      // 3단계: 결제 요청
+      // 3단계: 결제 요청 (성공 코드 방식 적용)
       console.log('💳 3단계: 결제 요청 시작');
-      const paymentData = {
-        productName: heartPackage.name,
-        amount: heartPackage.price,
-        userEmail: userEmail,
-        userName: userInfo.name || userEmail.split('@')[0],
-        userPhone: userInfo.phone || '010-0000-0000',
-        userId: userId,
-        productType: 'hearts',
-        heartAmount: heartPackage.hearts
-      };
+      const timestamp = Date.now();
+      const orderId = `HEART-${userId}-${packageId}-${timestamp}`;
 
-      console.log('📋 결제 데이터 최종 확인:', paymentData);
-      const paymentResult = await this.requestPayment(paymentData);
+      const paymentResult = await new Promise((resolve, reject) => {
+        if (!window.IMP) {
+          reject(new Error('포트원 SDK가 로드되지 않았습니다.'));
+          return;
+        }
+
+        console.log('🔥 포트원 결제 요청 시작');
+        window.IMP.request_pay({
+          pg: 'html5_inicis.MOIplay998', // KG이니시스 설정
+          pay_method: 'card',
+          merchant_uid: orderId,
+          name: `${heartPackage.hearts}개 하트`,
+          amount: heartPackage.price,
+          buyer_email: userEmail,
+          buyer_name: userInfo.name || userEmail.split('@')[0],
+          buyer_tel: userInfo.phone || '010-0000-0000',
+          m_redirect_url: `${window.location.origin}/payment/complete`,
+        }, async (rsp) => {
+          console.log('📨 포트원 결제 응답:', rsp);
+          
+          if (rsp.success) {
+            console.log('✅ 결제 성공:', rsp.imp_uid);
+            resolve({
+              success: true,
+              impUid: rsp.imp_uid,
+              merchantUid: rsp.merchant_uid,
+              amount: rsp.paid_amount,
+              status: rsp.status
+            });
+          } else {
+            console.error('❌ 결제 실패:', rsp.error_msg);
+            reject(new Error(rsp.error_msg || '결제가 취소되었습니다.'));
+          }
+        });
+      });
+
       console.log('✅ 3단계: 결제 완료', paymentResult);
 
-      // 4단계: 즉시 결제 검증 및 하트 지급
-      console.log('🔍 4단계: 즉시 결제 검증 시작');
-      const verification = await this.verifyPayment(
-        paymentResult.impUid,
-        paymentResult.merchantUid,
-        userId,
-        userEmail
-      );
-      console.log('✅ 4단계: 결제 검증 및 하트 지급 완료', verification);
+      // 4단계: 서버에 하트 충전 요청 (성공 코드 방식)
+      console.log('🔍 4단계: 서버에 하트 충전 요청');
+      const chargeResult = await this.chargeHearts({
+        impUid: paymentResult.impUid,
+        merchantUid: paymentResult.merchantUid,
+        packageId: packageId,
+        heartAmount: heartPackage.hearts,
+        amount: heartPackage.price,
+        userId: userId,
+        userEmail: userEmail
+      });
+
+      console.log('✅ 4단계: 하트 충전 완료', chargeResult);
 
       // 5단계: 성공 응답 반환
       console.log('🎉 전체 하트 구매 과정 완료');
       return {
         success: true,
-        verification: verification,
         impUid: paymentResult.impUid,
         merchantUid: paymentResult.merchantUid,
         amount: paymentResult.amount,
         hearts: heartPackage.hearts,
+        newBalance: chargeResult.newBalance,
         message: `${heartPackage.hearts}개 하트 구매 완료!`
       };
 

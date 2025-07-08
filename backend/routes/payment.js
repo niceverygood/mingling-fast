@@ -394,156 +394,130 @@ router.post('/verify', async (req, res) => {
   }
 });
 
-// 하트 구매 완료 처리
-router.post('/hearts/purchase', async (req, res) => {
-  console.log('💖 하트 구매 완료 처리 시작');
+// 하트 충전 처리 (성공 코드 방식)
+router.post('/charge-hearts', async (req, res) => {
+  console.log('💖 하트 충전 처리 시작 (KG이니시스 방식)');
   
   try {
     const { 
       imp_uid, 
       merchant_uid, 
-      product_id, 
+      package_id, 
       heart_amount, 
       paid_amount 
     } = req.body;
     
-    const firebaseUserId = req.headers['x-user-id'];
+    const userId = req.headers['x-user-id'];
+    const userEmail = req.headers['x-user-email'];
     
-    console.log('📋 하트 구매 요청 정보:', {
+    console.log('📋 하트 충전 요청 정보:', {
       imp_uid,
       merchant_uid,
-      product_id,
+      package_id,
       heart_amount,
       paid_amount,
-      firebaseUserId,
+      userId,
+      userEmail,
       headers: req.headers
     });
     
-    if (!firebaseUserId) {
+    if (!userId) {
       console.error('❌ 사용자 ID 없음');
-      return res.status(401).json({ error: 'User ID required' });
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User ID required' 
+      });
     }
 
-    console.log('💖 하트 구매 처리:', {
-      userId: firebaseUserId,
-      productId: product_id,
+    console.log('💖 하트 충전 처리:', {
+      userId: userId,
+      packageId: package_id,
       heartAmount: heart_amount,
       paidAmount: paid_amount
     });
 
-    // 결제 검증 확인
-    console.log('🔍 결제 검증 상태 확인 중...');
-    const transaction = await prisma.heartTransaction.findFirst({
-      where: {
-        impUid: imp_uid,
-        userId: firebaseUserId,
-        status: 'verified'
-      }
-    });
-
-    if (!transaction) {
-      console.error('❌ 검증되지 않은 결제:', {
-        imp_uid,
-        userId: firebaseUserId,
-        searchedStatus: 'verified'
-      });
-      
-      // 모든 관련 거래 조회하여 디버깅
-      const allTransactions = await prisma.heartTransaction.findMany({
-        where: {
-          OR: [
-            { impUid: imp_uid },
-            { userId: firebaseUserId }
-          ]
-        }
-      });
-      
-      console.log('🔍 관련 거래 내역:', allTransactions);
-      
-      return res.status(400).json({ error: '검증되지 않은 결제입니다' });
-    }
-
-    console.log('✅ 검증된 거래 확인:', transaction);
-
-    // 결제 금액 확인
-    if (transaction.amount !== paid_amount) {
-      console.error('❌ 결제 금액 불일치:', {
-        transactionAmount: transaction.amount,
-        paidAmount: paid_amount
-      });
-      return res.status(400).json({ error: '결제 금액이 일치하지 않습니다' });
-    }
-
-    // 사용자 정보 가져오기
+    // 사용자 정보 조회 또는 생성
     console.log('👤 사용자 정보 조회 중...');
     let user = await prisma.user.findUnique({
-      where: { id: firebaseUserId }
+      where: { id: userId }
     });
 
     if (!user) {
       console.log('👤 사용자 자동 생성 중...');
-      // 사용자 자동 생성
       user = await prisma.user.create({
         data: {
-          id: firebaseUserId,
-          email: req.headers['x-user-email'] || `${firebaseUserId}@firebase.user`,
-          username: req.headers['x-user-email']?.split('@')[0] || '사용자',
-          hearts: heart_amount // 구매한 하트로 시작
+          id: userId,
+          email: userEmail || `${userId}@minglingchat.user`,
+          username: userEmail?.split('@')[0] || '사용자',
+          hearts: 150 // 기본 하트
         }
       });
       console.log('✅ 사용자 생성 완료:', user);
-    } else {
-      console.log('👤 기존 사용자 하트 추가 중...');
-      console.log('📊 현재 하트:', user.hearts);
-      // 기존 사용자 하트 추가
-      user = await prisma.user.update({
-        where: { id: firebaseUserId },
+    }
+
+    // 트랜잭션으로 하트 충전 및 거래 기록 생성
+    console.log('🔄 하트 충전 트랜잭션 시작...');
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. 하트 충전
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
         data: {
           hearts: {
             increment: heart_amount
           }
         }
       });
-      console.log('✅ 하트 추가 완료 - 새 잔액:', user.hearts);
-    }
 
-    // 거래 완료 처리
-    console.log('💾 거래 완료 처리 중...');
-    const completedTransaction = await prisma.heartTransaction.update({
-      where: { id: transaction.id },
-      data: {
-        status: 'completed',
-        heartAmount: heart_amount,
-        completedAt: new Date()
-      }
+      // 2. 거래 기록 생성
+      const heartTransaction = await tx.heartTransaction.create({
+        data: {
+          userId: userId,
+          amount: paid_amount,
+          heartAmount: heart_amount,
+          impUid: imp_uid,
+          merchantUid: merchant_uid,
+          status: 'completed',
+          type: 'purchase',
+          paymentMethod: 'card',
+          paidAt: new Date(),
+          completedAt: new Date()
+        }
+      });
+
+      return {
+        user: updatedUser,
+        transaction: heartTransaction
+      };
     });
 
-    console.log('✅ 하트 지급 완료:', {
-      userId: firebaseUserId,
+    console.log('✅ 하트 충전 완료:', {
+      userId: userId,
       addedHearts: heart_amount,
-      newBalance: user.hearts,
-      transactionId: completedTransaction.id
+      newBalance: result.user.hearts,
+      transactionId: result.transaction.id
     });
 
     res.json({
       success: true,
       addedHearts: heart_amount,
-      newBalance: user.hearts,
+      newBalance: result.user.hearts,
       transaction: {
-        id: completedTransaction.id,
+        id: result.transaction.id,
         impUid: imp_uid,
+        merchantUid: merchant_uid,
         amount: paid_amount
       }
     });
 
   } catch (error) {
-    console.error('❌ 하트 구매 처리 실패:', {
+    console.error('❌ 하트 충전 처리 실패:', {
       message: error.message,
       stack: error.stack,
       name: error.name
     });
     res.status(500).json({ 
-      error: '하트 지급 중 오류가 발생했습니다',
+      success: false,
+      error: '하트 충전 중 오류가 발생했습니다',
       details: error.message
     });
   }
