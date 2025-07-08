@@ -3,6 +3,7 @@ import { CogIcon, PlusIcon, TrashIcon, ChatBubbleLeftRightIcon } from '@heroicon
 import { HeartIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
 import { usersAPI, charactersAPI, personasAPI, heartsAPI, chatsAPI } from '../services/api';
+import API_CONFIG from '../config/api';
 import CharacterCreation from './CharacterCreation/CharacterCreation';
 import CharacterEdit from './CharacterCreation/CharacterEdit';
 import CharacterDetail from './CharacterCreation/CharacterDetail';
@@ -44,12 +45,26 @@ const MyPage = () => {
 
   useEffect(() => {
     if (isLoggedIn && authUser) {
+      console.log('🚀 MyPage 마운트 - 사용자 데이터 로딩 시작');
       fetchUserData();
       fetchMyCharacters();
       fetchMyPersonas();
       fetchRelations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, authUser]);
+
+  // 페이지가 포커스될 때마다 하트 잔액 새로고침
+  useEffect(() => {
+    const handleFocus = () => {
+      if (isLoggedIn && authUser) {
+        console.log('👀 페이지 포커스 - 하트 잔액 새로고침');
+        fetchUserData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [isLoggedIn, authUser]);
 
   const fetchRelations = async () => {
@@ -64,32 +79,69 @@ const MyPage = () => {
 
   const fetchUserData = async () => {
     try {
+      console.log('🔄 사용자 데이터 가져오기 시작...');
+      
       // Firebase 사용자 정보를 기본으로 사용
       if (authUser) {
-        setUser({
+        // 먼저 기본 사용자 정보 설정
+        const baseUserData = {
           id: authUser.uid,
           username: authUser.displayName || authUser.email?.split('@')[0] || '사용자',
           email: authUser.email,
           avatarUrl: authUser.photoURL,
-          hearts: 150 // 기본값
-        });
-      }
+          hearts: 150 // 임시 기본값
+        };
+        
+        setUser(baseUserData);
+        
+        // 실제 하트 잔액 조회
+        try {
+          console.log('💎 실제 하트 잔액 조회 중...');
+          const response = await fetch(`${API_CONFIG.apiURL}/api/hearts/balance`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-ID': authUser.uid,
+              'X-User-Email': authUser.email || ''
+            }
+          });
 
-      // 백엔드에서 추가 정보 가져오기 (선택사항)
-      try {
-        const response = await usersAPI.getProfile();
-        if (response.data && authUser) {
-          setUser(prev => ({
-            ...prev,
-            hearts: response.data.hearts || 150,
-            joinedAt: response.data.joinedAt
-          }));
+          if (response.ok) {
+            const heartData = await response.json();
+            console.log('✅ 하트 잔액 조회 성공:', heartData);
+            
+            setUser(prev => ({
+              ...prev,
+              hearts: heartData.hearts || 150
+            }));
+          } else if (response.status === 404) {
+            console.log('👤 새 사용자 - 기본 하트 150개 사용');
+            // 새 사용자의 경우 기본값 150 유지
+          } else {
+            console.warn('⚠️ 하트 잔액 조회 실패:', response.status);
+          }
+        } catch (heartError) {
+          console.error('❌ 하트 잔액 조회 에러:', heartError);
+          // 에러가 발생해도 기본값 150 유지
         }
-      } catch (error) {
-        console.log('Backend user data not available, using Firebase data only');
+
+        // 백엔드에서 추가 사용자 정보 가져오기 (선택사항)
+        try {
+          const profileResponse = await usersAPI.getProfile();
+          if (profileResponse.data) {
+            console.log('✅ 추가 프로필 정보 조회 성공:', profileResponse.data);
+            setUser(prev => ({
+              ...prev,
+              joinedAt: profileResponse.data.joinedAt,
+              // hearts는 위에서 이미 업데이트했으므로 덮어쓰지 않음
+            }));
+          }
+        } catch (profileError) {
+          console.log('⚠️ 추가 프로필 정보 조회 실패 (무시):', profileError.message);
+        }
       }
     } catch (error) {
-      console.error('Error setting user data:', error);
+      console.error('❌ 사용자 데이터 설정 실패:', error);
       // Firebase 사용자 정보도 없으면 기본값 설정
       setUser({
         id: 'guest',
@@ -166,11 +218,39 @@ const MyPage = () => {
       // 4. 성공 메시지 표시
       alert(`${purchaseData.hearts}개의 하트가 성공적으로 충전되었습니다!\n현재 하트: ${newHeartBalance}개`);
       
-      // 5. 백그라운드에서 서버 데이터 재동기화 (선택사항)
+      // 5. 즉시 서버 데이터 재동기화 (필수)
+      console.log('🔄 서버에서 최신 하트 잔액 재조회...');
       try {
-        await fetchUserData();
+        const response = await fetch(`${API_CONFIG.apiURL}/api/hearts/balance`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-ID': authUser?.uid,
+            'X-User-Email': authUser?.email || ''
+          }
+        });
+
+        if (response.ok) {
+          const heartData = await response.json();
+          console.log('✅ 최신 하트 잔액 조회 성공:', heartData);
+          
+          // 서버에서 받은 실제 잔액으로 업데이트
+          setUser(prev => ({
+            ...prev,
+            hearts: heartData.hearts
+          }));
+          
+          console.log('📊 최종 하트 잔액 동기화 완료:', {
+            결제전: user?.hearts,
+            결제후계산값: newHeartBalance,
+            서버실제값: heartData.hearts
+          });
+        } else {
+          console.warn('⚠️ 서버 하트 잔액 재조회 실패 - 계산값 유지');
+        }
       } catch (error) {
-        console.log('⚠️ 백그라운드 데이터 동기화 실패 (무시):', error);
+        console.error('❌ 서버 하트 잔액 재조회 실패:', error);
+        // 에러 발생 시 계산값 유지
       }
       
     } catch (error) {
