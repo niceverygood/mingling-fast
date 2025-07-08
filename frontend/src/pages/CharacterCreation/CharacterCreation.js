@@ -84,12 +84,15 @@ const CharacterCreation = ({ onClose, onComplete }) => {
   };
 
   const handleComplete = async () => {
+    console.log('🎭 캐릭터 생성 시작:', { formData });
+    
+    // 필수 필드 검증 강화
     if (!formData.name.trim()) {
       alert('캐릭터 이름을 입력해주세요.');
       return;
     }
 
-    if (!formData.avatarUrl) {
+    if (!formData.avatarUrl || formData.avatarUrl.trim() === '') {
       alert('프로필 이미지를 선택해주세요.');
       return;
     }
@@ -100,22 +103,91 @@ const CharacterCreation = ({ onClose, onComplete }) => {
     }
 
     setLoading(true);
+    
     try {
+      // 사용자 인증 정보 확인
+      const userId = localStorage.getItem('userId');
+      const userEmail = localStorage.getItem('userEmail');
+      
+      console.log('👤 사용자 인증 정보:', { userId, userEmail });
+      
+      if (!userId || !userEmail) {
+        alert('로그인 정보가 없습니다. 다시 로그인해주세요.');
+        setLoading(false);
+        return;
+      }
+
+      // 캐릭터 데이터 구성 (안전한 형식)
       const characterData = {
-        ...formData,
-        hashtagCode: formData.hashtagCode || `#${formData.name}`,
-        backupChats: formData.allowBackup
+        name: formData.name.trim(),
+        age: formData.age?.trim() || null,
+        gender: formData.gender || 'undisclosed',
+        characterType: formData.characterType,
+        hashtags: Array.isArray(formData.hashtags) ? formData.hashtags : [],
+        avatarUrl: formData.avatarUrl.trim(),
+        firstImpression: formData.firstImpression?.trim() || null,
+        basicSetting: formData.basicSetting?.trim() || null,
+        likes: formData.likes?.trim() || null,
+        dislikes: formData.dislikes?.trim() || null,
+        weapons: Array.isArray(formData.weapons) ? formData.weapons.filter(w => w.trim()) : [],
+        isPublic: formData.isPublic !== false,
+        hashtagCode: formData.hashtagCode?.trim() || `#${formData.name.trim()}`,
+        backupChats: formData.allowBackup !== false,
+        isCommercial: formData.isCommercial || false
       };
 
-      const response = await charactersAPI.create(characterData);
-      onComplete(response.data);
-    } catch (error) {
-      console.error('Error creating character:', error);
-      if (error.response?.data?.error) {
-        alert(error.response.data.error);
-      } else {
-        alert('캐릭터 생성에 실패했습니다. 다시 시도해주세요.');
+      console.log('📊 전송할 캐릭터 데이터:', characterData);
+
+      // API 호출 (재시도 로직 포함)
+      let response;
+      let lastError;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔄 캐릭터 생성 시도 ${attempt}/3`);
+          response = await charactersAPI.create(characterData);
+          console.log('✅ 캐릭터 생성 성공:', response.data);
+          break;
+        } catch (attemptError) {
+          console.error(`❌ 시도 ${attempt} 실패:`, attemptError);
+          lastError = attemptError;
+          
+          if (attempt < 3) {
+            console.log('⏳ 1초 후 재시도...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
       }
+      
+      if (!response) {
+        throw lastError;
+      }
+
+      console.log('🎉 캐릭터 생성 완료');
+      onComplete(response.data);
+      
+    } catch (error) {
+      console.error('❌ 캐릭터 생성 실패:', error);
+      
+      let errorMessage = '캐릭터 생성에 실패했습니다.';
+      
+      if (error.response?.status === 400) {
+        if (error.response.data?.error?.includes('email')) {
+          errorMessage = '사용자 정보 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        } else if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else {
+          errorMessage = '입력 정보를 확인해주세요.';
+        }
+      } else if (error.response?.status === 401) {
+        errorMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
