@@ -254,6 +254,9 @@ export const uploadAPI = {
   }),
   personaImage: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.PERSONA, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  userProfile: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.USER_PROFILE, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
   })
 };
 

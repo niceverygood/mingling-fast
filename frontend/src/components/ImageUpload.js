@@ -37,9 +37,9 @@ const ImageUpload = ({
   const getUploadAPI = (type) => {
     switch (type) {
       case 'character':
-        return uploadAPI.characterAvatar;
+        return uploadAPI.characterImage;
       case 'persona':
-        return uploadAPI.personaAvatar;
+        return uploadAPI.personaImage;
       case 'user':
         return uploadAPI.userProfile;
       default:
@@ -60,9 +60,16 @@ const ImageUpload = ({
       reader.onload = (e) => setPreview(e.target.result);
       reader.readAsDataURL(file);
 
+      // FormData 생성
+      const formData = new FormData();
+      const fieldName = type === 'character' ? 'avatar' : 
+                        type === 'persona' ? 'avatar' : 
+                        type === 'user' ? 'profile' : 'image';
+      formData.append(fieldName, file);
+
       // S3 업로드
       const uploadFunc = getUploadAPI(type);
-      const response = await uploadFunc(file);
+      const response = await uploadFunc(formData);
 
       if (response.data.success) {
         setPreview(response.data.data.url);

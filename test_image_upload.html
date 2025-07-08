@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이미지 업로드 테스트</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .upload-area { border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 20px 0; }
+        .result { margin: 20px 0; padding: 10px; border: 1px solid #ddd; background: #f9f9f9; }
+        .error { background: #ffebee; border-color: #f44336; color: #c62828; }
+        .success { background: #e8f5e8; border-color: #4caf50; color: #2e7d32; }
+        .loading { background: #fff3e0; border-color: #ff9800; color: #ef6c00; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .upload-btn { background: #2196f3; color: white; border: none; }
+        .test-btn { background: #4caf50; color: white; border: none; }
+        img { max-width: 200px; max-height: 200px; object-fit: cover; }
+    </style>
+</head>
+<body>
+    <h1>🖼️ 이미지 업로드 테스트</h1>
+    
+    <div class="result">
+        <h3>API 상태</h3>
+        <button class="test-btn" onclick="checkApiStatus()">API 상태 확인</button>
+        <div id="api-status"></div>
+    </div>
+
+    <div class="upload-area">
+        <h3>이미지 업로드</h3>
+        <input type="file" id="imageInput" accept="image/*" style="display:none">
+        <button class="upload-btn" onclick="document.getElementById('imageInput').click()">이미지 선택</button>
+        <p>또는 이미지를 여기에 드래그하세요</p>
+    </div>
+
+    <div>
+        <h3>업로드 타입 선택</h3>
+        <label><input type="radio" name="uploadType" value="image" checked> 일반 이미지</label>
+        <label><input type="radio" name="uploadType" value="character-avatar"> 캐릭터 아바타</label>
+        <label><input type="radio" name="uploadType" value="persona-avatar"> 페르소나 아바타</label>
+        <label><input type="radio" name="uploadType" value="user-profile"> 사용자 프로필</label>
+    </div>
+
+    <div id="result" class="result" style="display:none"></div>
+
+    <script>
+        const API_BASE = 'https://api.minglingchat.com/api';
+        
+        async function checkApiStatus() {
+            const statusDiv = document.getElementById('api-status');
+            statusDiv.innerHTML = '<div class="loading">API 상태 확인 중...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="success">
+                        <strong>✅ API 정상 작동</strong><br>
+                        버전: ${data.version}<br>
+                        환경: ${data.environment}<br>
+                        파일 업로드: ${data.services?.s3 ? '✅ 설정됨' : '❌ 미설정'}
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ API 연결 실패</strong><br>
+                        오류: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function uploadImage(file, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <div class="loading">
+                    <strong>업로드 중...</strong><br>
+                    파일: ${file.name} (${(file.size / 1024).toFixed(1)} KB)<br>
+                    타입: ${type}
+                </div>
+            `;
+
+            try {
+                const formData = new FormData();
+                const fieldName = type === 'character-avatar' ? 'avatar' : 
+                                  type === 'persona-avatar' ? 'avatar' : 
+                                  type === 'user-profile' ? 'profile' : 'image';
+                formData.append(fieldName, file);
+
+                const response = await fetch(`${API_BASE}/upload/${type}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ 업로드 성공!</strong><br>
+                            URL: <a href="${data.data.url}" target="_blank">${data.data.url}</a><br>
+                            크기: ${(data.data.size / 1024).toFixed(1)} KB<br>
+                            타입: ${data.data.mimetype}<br>
+                            <br>
+                            <img src="${data.data.url}" alt="업로드된 이미지">
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || '업로드 실패');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ 업로드 실패</strong><br>
+                        오류: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 파일 선택 이벤트
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const uploadType = document.querySelector('input[name="uploadType"]:checked').value;
+                uploadImage(file, uploadType);
+            }
+        });
+
+        // 드래그 앤 드롭
+        const uploadArea = document.querySelector('.upload-area');
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.style.background = '#e3f2fd';
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.style.background = '';
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.style.background = '';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const uploadType = document.querySelector('input[name="uploadType"]:checked').value;
+                uploadImage(files[0], uploadType);
+            }
+        });
+
+        // 페이지 로드 시 API 상태 확인
+        window.onload = function() {
+            checkApiStatus();
+        };
+    </script>
+</body>
+</html> 

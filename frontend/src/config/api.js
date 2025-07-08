@@ -262,8 +262,9 @@ export const API_ENDPOINTS = {
   // Upload endpoints
   UPLOAD: {
     IMAGE: `${API_CONFIG.apiURL}/upload/image`,
-    CHARACTER: `${API_CONFIG.apiURL}/upload/character`,
-    PERSONA: `${API_CONFIG.apiURL}/upload/persona`
+    CHARACTER: `${API_CONFIG.apiURL}/upload/character-avatar`,
+    PERSONA: `${API_CONFIG.apiURL}/upload/persona-avatar`,
+    USER_PROFILE: `${API_CONFIG.apiURL}/upload/user-profile`
   },
   
   // Health/Debug endpoints
