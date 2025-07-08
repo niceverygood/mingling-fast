@@ -1,17 +1,11 @@
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.minglingchat.com/api' 
-  : 'http://localhost:8001/api';
+import { API_ENDPOINTS, getDefaultHeaders } from '../config/api';
 
 // 호감도 정보 조회
 export const getRelationInfo = async (characterId) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/relations/${characterId}`, {
+    const response = await fetch(API_ENDPOINTS.RELATIONS.BY_CHARACTER(characterId), {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': localStorage.getItem('firebaseUserId') || 'test-user-123',
-        'X-User-Email': localStorage.getItem('userEmail') || 'test@example.com'
-      }
+      headers: getDefaultHeaders()
     });
 
     if (!response.ok) {
@@ -29,13 +23,9 @@ export const getRelationInfo = async (characterId) => {
 // 특별 이벤트 처리
 export const processSpecialEvent = async (characterId, eventType, deltaScore, description) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/relations/${characterId}/event`, {
+    const response = await fetch(API_ENDPOINTS.RELATIONS.EVENT(characterId), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': localStorage.getItem('firebaseUserId') || 'test-user-123',
-        'X-User-Email': localStorage.getItem('userEmail') || 'test@example.com'
-      },
+      headers: getDefaultHeaders(),
       body: JSON.stringify({
         eventType,
         deltaScore,
@@ -58,13 +48,9 @@ export const processSpecialEvent = async (characterId, eventType, deltaScore, de
 // 호감도 히스토리 조회
 export const getRelationHistory = async (characterId, limit = 20, offset = 0) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/relations/${characterId}/history?limit=${limit}&offset=${offset}`, {
+    const response = await fetch(`${API_ENDPOINTS.RELATIONS.HISTORY(characterId)}?limit=${limit}&offset=${offset}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': localStorage.getItem('firebaseUserId') || 'test-user-123',
-        'X-User-Email': localStorage.getItem('userEmail') || 'test@example.com'
-      }
+      headers: getDefaultHeaders()
     });
 
     if (!response.ok) {
@@ -82,13 +68,9 @@ export const getRelationHistory = async (characterId, limit = 20, offset = 0) =>
 // 모든 관계 조회
 export const getAllRelations = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/relations`, {
+    const response = await fetch(API_ENDPOINTS.RELATIONS.BASE, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': localStorage.getItem('firebaseUserId') || 'test-user-123',
-        'X-User-Email': localStorage.getItem('userEmail') || 'test@example.com'
-      }
+      headers: getDefaultHeaders()
     });
 
     if (!response.ok) {
@@ -106,13 +88,9 @@ export const getAllRelations = async () => {
 // 수동 점수 조정 (테스트용)
 export const adjustScore = async (characterId, deltaScore, reason) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/relations/${characterId}/adjust`, {
+    const response = await fetch(API_ENDPOINTS.RELATIONS.ADJUST(characterId), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': localStorage.getItem('firebaseUserId') || 'test-user-123',
-        'X-User-Email': localStorage.getItem('userEmail') || 'test@example.com'
-      },
+      headers: getDefaultHeaders(),
       body: JSON.stringify({
         deltaScore,
         reason

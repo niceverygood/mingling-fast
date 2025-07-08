@@ -1,30 +1,12 @@
 import axios from 'axios';
-
-// 🔍 디버깅 모드 설정
-const DEBUG_MODE = process.env.NODE_ENV === 'development';
-
-// 🌐 환경별 API 베이스 URL 설정
-const getApiBaseUrl = () => {
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
-  
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://api.minglingchat.com';
-  } else {
-    return 'http://localhost:8001';
-  }
-};
-
-// ✅ Cloudflare 프록시 + HTTPS 설정
-// Cloudflare Flexible SSL 모드: HTTPS → HTTP (EC2 8001 포트)
-const API_BASE_URL = 'https://api.minglingchat.com';
+import API_CONFIG, { API_ENDPOINTS, getAxiosConfig, getDefaultHeaders } from '../config/api';
 
 // 🔧 환경 정보 로깅
-if (DEBUG_MODE) {
-  console.log('🔧 API Configuration:', {
-    NODE_ENV: process.env.NODE_ENV,
-    API_BASE_URL: API_BASE_URL,
+if (API_CONFIG.enableDebug) {
+  console.log('🔧 API Service 초기화:', {
+    environment: API_CONFIG.environment,
+    baseURL: API_CONFIG.baseURL,
+    apiURL: API_CONFIG.apiURL,
     timestamp: new Date().toISOString()
   });
 }
@@ -39,7 +21,7 @@ const apiStats = {
 
 // 🔍 안전한 로깅 함수
 const safeLog = (level, message, data = {}) => {
-  if (DEBUG_MODE) {
+  if (API_CONFIG.enableDebug) {
     console[level](`[API ${level.toUpperCase()}]`, message, data);
   }
   
@@ -72,16 +54,8 @@ const classifyError = (error) => {
   }
 };
 
-// Axios 인스턴스 생성
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  withCredentials: false,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  }
-});
+// Axios 인스턴스 생성 (새로운 설정 사용)
+const api = axios.create(getAxiosConfig());
 
 // 요청 인터셉터
 api.interceptors.request.use(
@@ -89,13 +63,9 @@ api.interceptors.request.use(
     apiStats.totalRequests++;
     config.metadata = { startTime: Date.now() };
     
-    // 인증 헤더 추가
-    if (axios.defaults.headers.common['X-User-ID']) {
-      config.headers['X-User-ID'] = axios.defaults.headers.common['X-User-ID'];
-    }
-    if (axios.defaults.headers.common['X-User-Email']) {
-      config.headers['X-User-Email'] = axios.defaults.headers.common['X-User-Email'];
-    }
+    // 최신 헤더 정보로 업데이트
+    const currentHeaders = getDefaultHeaders();
+    Object.assign(config.headers, currentHeaders);
     
     safeLog('info', '🚀 API Request', {
       method: config.method?.toUpperCase(),
@@ -160,115 +130,138 @@ api.interceptors.response.use(
 );
 
 // API 디버깅 함수
-if (DEBUG_MODE) {
+if (API_CONFIG.enableDebug && typeof window !== 'undefined') {
   window.apiDebug = {
     getStats: () => apiStats,
     getErrorLogs: () => JSON.parse(localStorage.getItem('api_error_logs') || '[]'),
-    clearErrorLogs: () => localStorage.removeItem('api_error_logs')
+    clearErrorLogs: () => localStorage.removeItem('api_error_logs'),
+    getConfig: () => API_CONFIG,
+    getEndpoints: () => API_ENDPOINTS
   };
 }
 
+// 🔄 재시도 로직을 포함한 API 호출 함수
+const apiCall = async (method, url, data = null, options = {}) => {
+  const maxRetries = options.retries || 1;
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const config = {
+        method,
+        url,
+        ...options
+      };
+      
+      if (data && ['post', 'put', 'patch'].includes(method.toLowerCase())) {
+        config.data = data;
+      }
+      
+      const response = await api(config);
+      return response;
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt - 1) * 1000; // 지수 백오프
+        safeLog('warn', `🔄 API 재시도 ${attempt}/${maxRetries} (${delay}ms 후)`, {
+          url,
+          error: error.message
+        });
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
+};
+
 // Characters API
 export const charactersAPI = {
-  getAll: () => api.get('/api/characters'),
-  getMy: () => api.get('/api/characters/my'),
-  getRecommended: () => api.get('/api/characters/recommended'),
-  getById: (id) => api.get(`/api/characters/${id}`),
-  create: (characterData) => api.post('/api/characters', characterData),
-  update: (id, characterData) => api.put(`/api/characters/${id}`, characterData),
-  delete: (id) => api.delete(`/api/characters/${id}`),
-  getTypes: () => api.get('/api/characters/types'),
-  getHashtags: () => api.get('/api/characters/hashtags'),
+  getAll: () => apiCall('get', API_ENDPOINTS.CHARACTERS.BASE),
+  getMy: () => apiCall('get', API_ENDPOINTS.CHARACTERS.MY),
+  getRecommended: () => apiCall('get', API_ENDPOINTS.CHARACTERS.RECOMMENDED),
+  getById: (id) => apiCall('get', API_ENDPOINTS.CHARACTERS.BY_ID(id)),
+  create: (characterData) => apiCall('post', API_ENDPOINTS.CHARACTERS.BASE, characterData),
+  update: (id, characterData) => apiCall('put', API_ENDPOINTS.CHARACTERS.BY_ID(id), characterData),
+  delete: (id) => apiCall('delete', API_ENDPOINTS.CHARACTERS.BY_ID(id)),
+  getTypes: () => apiCall('get', API_ENDPOINTS.CHARACTERS.TYPES),
+  getHashtags: () => apiCall('get', API_ENDPOINTS.CHARACTERS.HASHTAGS)
 };
 
 // Personas API
 export const personasAPI = {
-  getAll: () => api.get('/api/personas'),
-  getMy: () => api.get('/api/personas/my'),
-  getById: (id) => api.get(`/api/personas/${id}`),
-  create: (personaData) => api.post('/api/personas', personaData),
-  update: (id, personaData) => api.put(`/api/personas/${id}`, personaData),
-  delete: (id) => api.delete(`/api/personas/${id}`),
+  getAll: () => apiCall('get', API_ENDPOINTS.PERSONAS.BASE),
+  getMy: () => apiCall('get', API_ENDPOINTS.PERSONAS.MY),
+  getById: (id) => apiCall('get', API_ENDPOINTS.PERSONAS.BY_ID(id)),
+  create: (personaData) => apiCall('post', API_ENDPOINTS.PERSONAS.BASE, personaData),
+  update: (id, personaData) => apiCall('put', API_ENDPOINTS.PERSONAS.BY_ID(id), personaData),
+  delete: (id) => apiCall('delete', API_ENDPOINTS.PERSONAS.BY_ID(id))
 };
 
 // Chats API
 export const chatsAPI = {
-  getAll: () => api.get('/api/chats'),
-  getMessages: (chatId) => api.get(`/api/chats/${chatId}/messages`),
-  sendMessage: (chatId, messageData) => api.post(`/api/chats/${chatId}/messages`, messageData),
-  create: (chatData) => api.post('/api/chats', chatData),
+  getAll: () => apiCall('get', API_ENDPOINTS.CHATS.BASE),
+  getById: (id) => apiCall('get', API_ENDPOINTS.CHATS.BY_ID(id)),
+  create: (chatData) => apiCall('post', API_ENDPOINTS.CHATS.BASE, chatData),
+  update: (id, chatData) => apiCall('put', API_ENDPOINTS.CHATS.BY_ID(id), chatData),
+  delete: (id) => apiCall('delete', API_ENDPOINTS.CHATS.BY_ID(id)),
+  getMessages: (chatId) => apiCall('get', API_ENDPOINTS.CHATS.MESSAGES(chatId)),
+  sendMessage: (chatId, messageData) => apiCall('post', API_ENDPOINTS.CHATS.MESSAGES(chatId), messageData)
 };
 
-// Users API
-export const usersAPI = {
-  getProfile: () => api.get('/api/users/profile'),
-  updateProfile: (profileData) => api.put('/api/users/profile', profileData),
+// Conversations API
+export const conversationsAPI = {
+  getAll: () => apiCall('get', API_ENDPOINTS.CONVERSATIONS.BASE),
+  getById: (id) => apiCall('get', API_ENDPOINTS.CONVERSATIONS.BY_ID(id)),
+  create: (conversationData) => apiCall('post', API_ENDPOINTS.CONVERSATIONS.BASE, conversationData),
+  update: (id, conversationData) => apiCall('put', API_ENDPOINTS.CONVERSATIONS.BY_ID(id), conversationData),
+  delete: (id) => apiCall('delete', API_ENDPOINTS.CONVERSATIONS.BY_ID(id))
+};
+
+// Relations/Favorability API
+export const relationsAPI = {
+  getAll: () => apiCall('get', API_ENDPOINTS.RELATIONS.BASE),
+  getByCharacter: (characterId) => apiCall('get', API_ENDPOINTS.RELATIONS.BY_CHARACTER(characterId)),
+  getHistory: (characterId, limit = 20, offset = 0) => 
+    apiCall('get', `${API_ENDPOINTS.RELATIONS.HISTORY(characterId)}?limit=${limit}&offset=${offset}`),
+  processEvent: (characterId, eventData) => 
+    apiCall('post', API_ENDPOINTS.RELATIONS.EVENT(characterId), eventData),
+  adjustScore: (characterId, adjustData) => 
+    apiCall('post', API_ENDPOINTS.RELATIONS.ADJUST(characterId), adjustData)
 };
 
 // Hearts API
 export const heartsAPI = {
-  getBalance: () => api.get('/api/hearts/balance'),
-  charge: (amount) => api.post('/api/hearts/charge', { amount }),
-  spend: (amount, description = '') => api.post('/api/hearts/spend', { amount, description }),
-  getTransactions: () => api.get('/api/hearts/transactions'),
+  getBalance: () => apiCall('get', API_ENDPOINTS.HEARTS.BASE),
+  charge: (amount) => apiCall('post', API_ENDPOINTS.HEARTS.CHARGE, { amount }),
+  purchase: (purchaseData) => apiCall('post', API_ENDPOINTS.HEARTS.PURCHASE, purchaseData)
 };
 
-// Auth API
-export const authAPI = {
-  logout: () => api.post('/api/auth/logout'),
-  withdraw: () => api.delete('/api/auth/withdraw'),
+// Users API
+export const usersAPI = {
+  getMe: () => apiCall('get', API_ENDPOINTS.USERS.ME),
+  update: (userData) => apiCall('put', API_ENDPOINTS.USERS.UPDATE, userData)
 };
 
 // Upload API
 export const uploadAPI = {
-  characterAvatar: (file) => {
-    const formData = new FormData();
-    formData.append('avatar', file);
-    return api.post('/api/upload/character-avatar', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-  personaAvatar: (file) => {
-    const formData = new FormData();
-    formData.append('avatar', file);
-    return api.post('/api/upload/persona-avatar', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-  userProfile: (file) => {
-    const formData = new FormData();
-    formData.append('profile', file);
-    return api.post('/api/upload/user-profile', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-  image: (file) => {
-    const formData = new FormData();
-    formData.append('image', file);
-    return api.post('/api/upload/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-  images: (files) => {
-    const formData = new FormData();
-    files.forEach(file => {
-      formData.append('images', file);
-    });
-    return api.post('/api/upload/images', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-  deleteFile: (url) => api.delete('/api/upload/file', { data: { url } }),
+  image: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.IMAGE, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  characterImage: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.CHARACTER, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  personaImage: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.PERSONA, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 };
 
-export default api; 
+// Health/Debug API
+export const debugAPI = {
+  health: () => apiCall('get', API_ENDPOINTS.HEALTH),
+  stats: () => apiCall('get', API_ENDPOINTS.DEBUG.STATS)
+};
+
+// 기본 axios 인스턴스와 설정 내보내기
+export { api as default, API_CONFIG, API_ENDPOINTS }; 

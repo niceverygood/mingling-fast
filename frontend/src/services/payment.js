@@ -1,15 +1,20 @@
 // 💳 포트원(아임포트) + KG이니시스 결제 서비스
+import API_CONFIG, { API_ENDPOINTS, getDefaultHeaders } from '../config/api';
 
 class PaymentService {
   constructor() {
     console.log('🔧 PaymentService 초기화 시작');
     
-    // API URL 설정 (Cloudflare HTTPS 사용)
-    this.apiUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://api.minglingchat.com/api' 
-      : 'http://localhost:8001/api';
+    // API 설정 사용 (중앙화된 설정)
+    this.apiConfig = API_CONFIG;
+    this.apiURL = API_CONFIG.apiURL;
+    this.endpoints = API_ENDPOINTS;
     
-    console.log('🌐 API URL 설정:', this.apiUrl);
+    console.log('🌐 Payment API 설정:', {
+      environment: this.apiConfig.environment,
+      apiURL: this.apiURL,
+      enableDebug: this.apiConfig.enableDebug
+    });
     
     // 실제 포트원 채널 정보
     this.channelKey = 'channel-key-720d69be-767a-420c-91c8-2855ca00192d';
@@ -28,66 +33,55 @@ class PaymentService {
     this.isSDKLoaded = false;
   }
 
-  // 포트원 SDK 로드 (V1 SDK 사용) - lazy loading
+  // 포트원 SDK 로드
   async loadSDK() {
-    console.log('📦 포트원 SDK 로드 시작');
-    
-    if (this.isSDKLoaded || window.IMP) {
+    if (this.isSDKLoaded) {
       console.log('✅ 포트원 SDK 이미 로드됨');
-      this.isSDKLoaded = true;
-      return;
+      return Promise.resolve();
     }
 
+    console.log('📦 포트원 SDK 로드 시작');
+    
     return new Promise((resolve, reject) => {
-      console.log('🔄 포트원 V1 SDK 스크립트 로드 중...');
-      
-      // 기존 스크립트 제거
-      const existingScript = document.querySelector('script[src*="iamport"]');
-      if (existingScript) {
-        console.log('🗑️ 기존 포트원 스크립트 제거');
-        existingScript.remove();
+      // 이미 로드된 경우
+      if (window.IMP) {
+        window.IMP.init(this.impCode);
+        this.isSDKLoaded = true;
+        console.log('✅ 포트원 SDK 로드 완료 (캐시됨)');
+        resolve();
+        return;
       }
-      
+
+      // 스크립트 태그 생성
       const script = document.createElement('script');
-      // 포트원 V1 SDK 사용 (안정적인 버전)
-      script.src = 'https://cdn.iamport.kr/js/iamport.payment-1.2.0.js';
-      script.async = true;
-      
+      script.src = 'https://cdn.iamport.kr/v1/iamport.js';
       script.onload = () => {
-        console.log('📦 포트원 V1 SDK 스크립트 로드됨');
-        console.log('🔍 window 객체 확인:', {
-          IMP: !!window.IMP,
-          windowKeys: Object.keys(window).filter(key => key.includes('IMP'))
-        });
-        
-        // 잠시 대기 후 초기화
-        setTimeout(() => {
-          if (window.IMP) {
-            try {
-              console.log('🔧 IMP.init 호출:', this.impCode);
-              window.IMP.init(this.impCode); // 고객사 식별코드로 초기화
-              this.isSDKLoaded = true;
-              console.log('✅ 포트원 V1 SDK 초기화 완료:', this.impCode);
-              resolve();
-            } catch (error) {
-              console.error('❌ 포트원 V1 SDK 초기화 실패:', error);
-              reject(error);
-            }
-          } else {
-            console.error('❌ 포트원 SDK 객체를 찾을 수 없음');
-            reject(new Error('포트원 SDK 로드 실패'));
-          }
-        }, 500);
+        if (window.IMP) {
+          window.IMP.init(this.impCode);
+          this.isSDKLoaded = true;
+          console.log('✅ 포트원 SDK 로드 완료');
+          resolve();
+        } else {
+          console.error('❌ 포트원 SDK 로드 실패: IMP 객체 없음');
+          reject(new Error('포트원 SDK 로드 실패'));
+        }
       };
-      
       script.onerror = (error) => {
         console.error('❌ 포트원 SDK 스크립트 로드 실패:', error);
         reject(new Error('포트원 SDK 스크립트 로드 실패'));
       };
-      
-      console.log('📡 포트원 V1 SDK 스크립트 추가:', script.src);
+
       document.head.appendChild(script);
+      console.log('📡 포트원 SDK 스크립트 추가됨');
     });
+  }
+
+  // 주문 ID 생성 (고유성 강화)
+  generateOrderId() {
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    return `HEART-${timestamp}-${randomId}-${randomStr}`;
   }
 
   // 결제 요청
@@ -127,74 +121,49 @@ class PaymentService {
 
       console.log('📋 결제 파라미터 구성 완료:', paymentParams);
 
-      // 결제 실행
-      return new Promise(async (resolve, reject) => {
-        console.log('🚀 결제 실행 시작');
-        
-        try {
-          // 포트원 V1 SDK 사용
-          if (window.IMP) {
-            console.log('🔥 포트원 V1 SDK 사용');
-            console.log('🎯 IMP.request_pay 호출');
-            
-            window.IMP.request_pay(paymentParams, (response) => {
-              console.log('📨 포트원 V1 응답:', response);
-              
-              if (response.success) {
-                console.log('✅ 결제 성공 (V1)');
-                resolve({
-                  success: true,
-                  impUid: response.imp_uid,
-                  merchantUid: response.merchant_uid,
-                  amount: response.paid_amount,
-                  status: response.status
-                });
-              } else {
-                const errorMsg = response.error_msg || '결제가 취소되었습니다';
-                console.error('❌ 결제 실패 (V1):', {
-                  error_msg: response.error_msg,
-                  error_code: response.error_code,
-                  full_response: response
-                });
-                reject({
-                  success: false,
-                  error: errorMsg,
-                  code: response.error_code
-                });
-              }
+      // 포트원 결제 요청
+      const paymentResult = await new Promise((resolve, reject) => {
+        if (!window.IMP) {
+          reject(new Error('포트원 SDK가 로드되지 않았습니다.'));
+          return;
+        }
+
+        console.log('🔥 포트원 결제 요청 시작');
+        window.IMP.request_pay(paymentParams, (response) => {
+          console.log('📨 포트원 결제 응답:', response);
+          
+          if (response.success) {
+            console.log('✅ 결제 성공:', response.imp_uid);
+            resolve({
+              success: true,
+              impUid: response.imp_uid,
+              merchantUid: response.merchant_uid,
+              amount: response.paid_amount,
+              status: response.status,
+              payMethod: response.pay_method
             });
           } else {
-            console.error('❌ 포트원 SDK 사용 불가');
-            reject(new Error('포트원 SDK가 로드되지 않았습니다'));
+            console.error('❌ 결제 실패:', response.error_msg);
+            reject(new Error(response.error_msg || '결제가 취소되었습니다.'));
           }
-        } catch (error) {
-          console.error('💥 결제 요청 중 예외 발생:', error);
-          reject({
-            success: false,
-            error: error.message || '결제 요청 실패',
-            code: 'SDK_ERROR'
-          });
-        }
+        });
       });
 
+      console.log('✅ 포트원 결제 완료:', paymentResult);
+      return paymentResult;
+
     } catch (error) {
-      console.error('❌ 결제 요청 최종 실패:', error);
+      console.error('❌ 결제 요청 실패:', error);
       throw error;
     }
   }
 
-  // 🚀 서버에 하트 충전 요청 (성공 코드 방식)
+  // 🚀 서버에 하트 충전 요청 (다중 경로 지원)
   async chargeHearts(chargeData) {
     console.log('🔍 서버에 하트 충전 요청 시작', chargeData);
 
-    // 🔧 Cloudflare 차단 우회를 위한 대안 경로들
-    const apiPaths = [
-      '/api/payment/charge-hearts',    // 원래 경로
-      '/api/purchase/charge-hearts',   // 대안 경로 1
-      '/api/transaction/charge-hearts', // 대안 경로 2
-      '/api/hearts/purchase',          // 대안 경로 3 (새로운 결제 검증 포함)
-      '/api/hearts/charge'             // 대안 경로 4 (기존 단순 충전 - 임시 해결책)
-    ];
+    // 🔧 대안 경로들 (API_ENDPOINTS에서 가져오기)
+    const apiPaths = this.endpoints.PAYMENT.CHARGE_HEARTS;
 
     const requestData = {
       imp_uid: chargeData.impUid,
@@ -205,19 +174,18 @@ class PaymentService {
     };
 
     const requestHeaders = {
-      'Content-Type': 'application/json',
+      ...getDefaultHeaders(),
       'X-User-ID': chargeData.userId,
       'X-User-Email': chargeData.userEmail || ''
     };
 
     // 🔄 여러 경로를 순차적으로 시도
     for (let i = 0; i < apiPaths.length; i++) {
-      const apiPath = apiPaths[i];
-      const fullUrl = `${this.apiUrl}${apiPath}`;
+      const fullUrl = apiPaths[i];
       
       // 🔧 경로에 맞는 요청 데이터 형식 변환
       let requestPayload = requestData;
-      if (apiPath === '/api/hearts/charge') {
+      if (fullUrl.includes('/hearts/charge')) {
         // 기존 hearts/charge 엔드포인트는 단순히 amount만 필요
         requestPayload = { amount: chargeData.heartAmount };
       }
@@ -247,7 +215,7 @@ class PaymentService {
           console.log(`✅ 하트 충전 성공 (경로 ${i + 1}):`, responseData);
 
           if (responseData.success) {
-            console.log(`🎉 하트 충전 완료 - 경로: ${apiPath}`);
+            console.log(`🎉 하트 충전 완료 - 경로: ${fullUrl}`);
             return responseData;
           } else {
             console.error(`❌ 하트 충전 실패 (경로 ${i + 1}):`, responseData.error);
@@ -279,57 +247,37 @@ class PaymentService {
     }
   }
 
-  // 주문번호 생성 (중복 방지 강화)
-  generateOrderId() {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000);
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const orderId = `HEART_${timestamp}_${random}_${randomStr}`;
-    console.log('🆔 주문번호 생성:', orderId);
-    return orderId;
-  }
-
   // 하트 상품 정보
   getHeartProducts() {
     return this.heartPackages;
   }
 
-  // 🎯 메인 하트 구매 함수 (성공 코드 기반 개선)
+  // 하트 구매 통합 메서드
   async purchaseHearts(packageId, userInfo = {}) {
-    console.log('🛒 하트 구매 시작 (KG이니시스 방식)', { packageId, userInfo });
-    
     try {
-      // 1단계: 하트 패키지 검증
+      console.log('🛒 하트 구매 시작:', { packageId, userInfo });
+
+      // 1단계: 사용자 정보 확인
+      const userId = localStorage.getItem('userId') || userInfo.userId;
+      const userEmail = localStorage.getItem('userEmail') || userInfo.email;
+      
+      if (!userId || !userEmail) {
+        throw new Error('사용자 정보가 없습니다. 다시 로그인해주세요.');
+      }
+
+      console.log('✅ 1단계: 사용자 정보 확인 완료', { userId, userEmail });
+
+      // 2단계: 하트 패키지 정보 확인
       const heartPackage = this.heartPackages.find(pkg => pkg.id === packageId);
       if (!heartPackage) {
         throw new Error('유효하지 않은 하트 패키지입니다.');
       }
-      console.log('✅ 1단계: 하트 패키지 검증 완료', heartPackage);
 
-      // 2단계: 사용자 정보 수집
-      let userEmail = userInfo.email || localStorage.getItem('userEmail') || 'user@minglingchat.com';
-      let userId = userInfo.userId || localStorage.getItem('userId') || 'guest';
-      
-      // authData에서도 확인
-      try {
-        const authData = JSON.parse(localStorage.getItem('authData') || '{}');
-        if (authData.email && (!userEmail || userEmail === 'user@minglingchat.com')) {
-          userEmail = authData.email;
-        }
-        if (authData.userId && (!userId || userId === 'guest')) {
-          userId = authData.userId;
-        }
-      } catch (error) {
-        console.warn('⚠️ authData 파싱 실패:', error);
-      }
-      
-      console.log('✅ 2단계: 사용자 정보 확인 완료', { userEmail, userId });
+      console.log('✅ 2단계: 하트 패키지 확인 완료', heartPackage);
 
-      // 3단계: 결제 요청 (성공 코드 방식 적용)
-      console.log('💳 3단계: 결제 요청 시작');
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const orderId = `HEART-${userId}-${packageId}-${timestamp}-${randomId}`;
+      // 3단계: 결제 요청 (포트원)
+      console.log('🔍 3단계: 포트원 결제 요청');
+      const orderId = this.generateOrderId();
 
       const paymentResult = await new Promise((resolve, reject) => {
         if (!window.IMP) {
@@ -369,7 +317,7 @@ class PaymentService {
 
       console.log('✅ 3단계: 결제 완료', paymentResult);
 
-      // 4단계: 서버에 하트 충전 요청 (성공 코드 방식)
+      // 4단계: 서버에 하트 충전 요청
       console.log('🔍 4단계: 서버에 하트 충전 요청');
       const chargeResult = await this.chargeHearts({
         impUid: paymentResult.impUid,
@@ -387,12 +335,10 @@ class PaymentService {
       console.log('🎉 전체 하트 구매 과정 완료');
       return {
         success: true,
-        impUid: paymentResult.impUid,
-        merchantUid: paymentResult.merchantUid,
-        amount: paymentResult.amount,
-        hearts: heartPackage.hearts,
-        newBalance: chargeResult.newBalance,
-        message: `${heartPackage.hearts}개 하트 구매 완료!`
+        paymentResult,
+        chargeResult,
+        heartPackage,
+        message: `${heartPackage.hearts}개의 하트가 성공적으로 충전되었습니다!`
       };
 
     } catch (error) {
@@ -426,5 +372,15 @@ class PaymentService {
     return this.heartPackages.find(pkg => pkg.id === packageId);
   }
 }
+
+// 싱글톤 패턴으로 인스턴스 관리
+let paymentServiceInstance = null;
+
+export const getPaymentService = () => {
+  if (!paymentServiceInstance) {
+    paymentServiceInstance = new PaymentService();
+  }
+  return paymentServiceInstance;
+};
 
 export default PaymentService; 

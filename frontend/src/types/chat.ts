@@ -14,6 +14,8 @@ export interface Chat {
   heartCount?: number;
   emotion?: string;
   emotionColor?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ChatDisplayData {
