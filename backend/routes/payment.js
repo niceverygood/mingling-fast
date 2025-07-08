@@ -436,23 +436,52 @@ router.post('/charge-hearts', async (req, res) => {
       paidAmount: paid_amount
     });
 
-    // 사용자 정보 조회 또는 생성
-    console.log('👤 사용자 정보 조회 중...');
-    let user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) {
-      console.log('👤 사용자 자동 생성 중...');
-      user = await prisma.user.create({
-        data: {
-          id: userId,
-          email: userEmail || `${userId}@minglingchat.user`,
-          username: userEmail?.split('@')[0] || '사용자',
-          hearts: 150 // 기본 하트
-        }
+    // 사용자 정보 조회 또는 생성 (upsert 패턴)
+    console.log('👤 사용자 정보 조회 및 자동 생성 중...');
+    let user;
+    
+    try {
+      // 먼저 사용자 ID로 조회
+      user = await prisma.user.findUnique({
+        where: { id: userId }
       });
-      console.log('✅ 사용자 생성 완료:', user);
+
+      if (!user) {
+        console.log('👤 사용자 자동 생성 중...', { userId, userEmail });
+        
+        // 사용자 생성 시 이메일 중복 방지
+        const safeEmail = userEmail || `${userId}@auto.mingling`;
+        const safeUsername = userEmail?.split('@')[0] || `user_${userId.substring(0, 8)}`;
+        
+        // upsert 패턴으로 안전하게 생성
+        user = await prisma.user.upsert({
+          where: { id: userId },
+          update: {
+            // 이미 존재하면 업데이트하지 않음
+          },
+          create: {
+            id: userId,
+            email: safeEmail,
+            username: safeUsername,
+            hearts: 150 // 기본 하트
+          }
+        });
+        
+        console.log('✅ 사용자 자동 생성 완료:', user);
+      } else {
+        console.log('✅ 기존 사용자 발견:', { userId, hearts: user.hearts });
+      }
+    } catch (createError) {
+      console.error('❌ 사용자 처리 실패:', createError);
+      
+      // 최후의 수단: 사용자 ID로 다시 조회
+      user = await prisma.user.findUnique({
+        where: { id: userId }
+      });
+      
+      if (!user) {
+        throw new Error('사용자 생성에 실패했습니다');
+      }
     }
 
     // 트랜잭션으로 하트 충전 및 거래 기록 생성

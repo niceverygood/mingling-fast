@@ -242,10 +242,10 @@ export const API_ENDPOINTS = {
   // Payment endpoints (여러 경로 지원)
   PAYMENT: {
     CHARGE_HEARTS: [
+      `${API_CONFIG.apiURL}/hearts/purchase`,
       `${API_CONFIG.apiURL}/payment/charge-hearts`,
       `${API_CONFIG.apiURL}/purchase/charge-hearts`,
       `${API_CONFIG.apiURL}/transaction/charge-hearts`,
-      `${API_CONFIG.apiURL}/hearts/purchase`,
       `${API_CONFIG.apiURL}/hearts/charge`
     ],
     VERIFY: `${API_CONFIG.apiURL}/payment/verify`,

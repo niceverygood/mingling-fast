@@ -189,28 +189,53 @@ router.post('/purchase', async (req, res) => {
       });
     }
 
-    // 5단계: 사용자 정보 조회 또는 자동 생성
+    // 5단계: 사용자 정보 조회 또는 자동 생성 (upsert 패턴)
     console.log('👤 사용자 정보 조회 및 자동 생성 중...');
-    let user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { hearts: true }
-    });
+    let user;
+    
+    try {
+      // 먼저 사용자 ID로 조회
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { hearts: true, email: true, username: true }
+      });
 
-    if (!user) {
-      console.log('👤 사용자 자동 생성 중...', { userId, userEmail });
-      try {
-        user = await prisma.user.create({
-          data: {
+      if (!user) {
+        console.log('👤 사용자 자동 생성 중...', { userId, userEmail });
+        
+        // 사용자 생성 시 이메일 중복 방지
+        const safeEmail = userEmail || `${userId}@auto.mingling`;
+        const safeUsername = userEmail?.split('@')[0] || `user_${userId.substring(0, 8)}`;
+        
+        // upsert 패턴으로 안전하게 생성
+        user = await prisma.user.upsert({
+          where: { id: userId },
+          update: {
+            // 이미 존재하면 업데이트하지 않음
+          },
+          create: {
             id: userId,
-            email: userEmail || `${userId}@auto.user`,
-            username: userEmail?.split('@')[0] || `user_${userId.substring(0, 8)}`,
+            email: safeEmail,
+            username: safeUsername,
             hearts: 150 // 기본 하트
           },
-          select: { hearts: true }
+          select: { hearts: true, email: true, username: true }
         });
+        
         console.log('✅ 사용자 자동 생성 완료:', user);
-      } catch (createError) {
-        console.error('❌ 사용자 생성 실패:', createError);
+      } else {
+        console.log('✅ 기존 사용자 발견:', { userId, hearts: user.hearts });
+      }
+    } catch (createError) {
+      console.error('❌ 사용자 처리 실패:', createError);
+      
+      // 최후의 수단: 사용자 ID로 다시 조회
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { hearts: true, email: true, username: true }
+      });
+      
+      if (!user) {
         return res.status(500).json({
           success: false,
           error: '사용자 생성에 실패했습니다'
