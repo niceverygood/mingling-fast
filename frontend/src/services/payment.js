@@ -192,7 +192,8 @@ class PaymentService {
       '/api/payment/charge-hearts',    // 원래 경로
       '/api/purchase/charge-hearts',   // 대안 경로 1
       '/api/transaction/charge-hearts', // 대안 경로 2
-      '/api/hearts/charge'             // 대안 경로 3 (더 일반적인 경로)
+      '/api/hearts/purchase',          // 대안 경로 3 (새로운 결제 검증 포함)
+      '/api/hearts/charge'             // 대안 경로 4 (기존 단순 충전 - 임시 해결책)
     ];
 
     const requestData = {
@@ -214,17 +215,24 @@ class PaymentService {
       const apiPath = apiPaths[i];
       const fullUrl = `${this.apiUrl}${apiPath}`;
       
+      // 🔧 경로에 맞는 요청 데이터 형식 변환
+      let requestPayload = requestData;
+      if (apiPath === '/api/hearts/charge') {
+        // 기존 hearts/charge 엔드포인트는 단순히 amount만 필요
+        requestPayload = { amount: chargeData.heartAmount };
+      }
+      
       try {
         console.log(`🌐 하트 충전 API 요청 시도 ${i + 1}/${apiPaths.length}:`, {
           url: fullUrl,
           headers: requestHeaders,
-          data: requestData
+          data: requestPayload
         });
 
         const response = await fetch(fullUrl, {
           method: 'POST',
           headers: requestHeaders,
-          body: JSON.stringify(requestData)
+          body: JSON.stringify(requestPayload)
         });
 
         console.log(`📨 하트 충전 응답 수신 (경로 ${i + 1}):`, {
