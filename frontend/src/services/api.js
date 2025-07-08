@@ -63,13 +63,26 @@ api.interceptors.request.use(
     apiStats.totalRequests++;
     config.metadata = { startTime: Date.now() };
     
+    // FormData 업로드 요청 감지
+    const isFileUpload = config.data instanceof FormData;
+    
     // 최신 헤더 정보로 업데이트
     const currentHeaders = getDefaultHeaders();
-    Object.assign(config.headers, currentHeaders);
+    
+    if (isFileUpload) {
+      // 파일 업로드의 경우 Content-Type을 제거하고 다른 헤더만 추가
+      const { 'Content-Type': _, ...headersWithoutContentType } = currentHeaders;
+      Object.assign(config.headers, headersWithoutContentType);
+    } else {
+      // 일반 JSON 요청은 기존대로 처리
+      Object.assign(config.headers, currentHeaders);
+    }
     
     safeLog('info', '🚀 API Request', {
       method: config.method?.toUpperCase(),
-      url: config.url
+      url: config.url,
+      contentType: config.headers['Content-Type'] || 'auto-detect',
+      isFileUpload
     });
     
     return config;
@@ -248,16 +261,16 @@ export const usersAPI = {
 // Upload API
 export const uploadAPI = {
   image: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.IMAGE, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    // Content-Type 헤더를 제거하여 브라우저가 자동으로 multipart/form-data를 설정하도록 함
   }),
   characterImage: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.CHARACTER, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    // Content-Type 헤더를 제거하여 브라우저가 자동으로 multipart/form-data를 설정하도록 함
   }),
   personaImage: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.PERSONA, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    // Content-Type 헤더를 제거하여 브라우저가 자동으로 multipart/form-data를 설정하도록 함
   }),
   userProfile: (formData) => apiCall('post', API_ENDPOINTS.UPLOAD.USER_PROFILE, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    // Content-Type 헤더를 제거하여 브라우저가 자동으로 multipart/form-data를 설정하도록 함
   })
 };
 
