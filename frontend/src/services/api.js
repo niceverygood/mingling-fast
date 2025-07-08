@@ -16,11 +16,9 @@ const getApiBaseUrl = () => {
   }
 };
 
-// 임시 해결책: Cloudflare 프록시 문제로 인해 EC2 직접 접근 사용
-// ⚠️ 주의: Mixed Content 문제 가능성 있음 (HTTPS → HTTP)
-// 💡 더 나은 해결책: backend.minglingchat.com → 3.35.49.121 (DNS only)
-// const API_BASE_URL = 'https://api.minglingchat.com';
-const API_BASE_URL = 'http://3.35.49.121:8001';
+// ✅ Cloudflare DNS only 설정 완료: EC2 직접 접근 가능
+// HTTP 포트 8001로 접속 (Mixed Content 문제 해결 위해서는 HTTPS 설정 필요)
+const API_BASE_URL = 'http://api.minglingchat.com:8001';
 
 // 🔧 환경 정보 로깅
 if (DEBUG_MODE) {
