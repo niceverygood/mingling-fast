@@ -90,28 +90,43 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
 
       console.log('✅ 하트 구매 완료:', result);
 
-      // 성공 처리
-      if (result.success) {
-        setProcessingMessage('하트 충전 완료!');
-        
-        // 부모 컴포넌트에 성공 알림
-        if (onPurchase) {
-          onPurchase({
-            hearts: pack.hearts,
-            newBalance: result.chargeResult?.newBalance || (currentHearts + pack.hearts),
-            message: result.message
+              // 성공 처리
+        if (result.success) {
+          setProcessingMessage('하트 충전 완료!');
+          
+          // 최신 하트 잔액 계산 (우선순위: 실시간 조회 > 서버 응답 > 계산값)
+          const finalBalance = result.currentHeartBalance || 
+                              result.chargeResult?.newBalance || 
+                              (currentHearts + pack.hearts);
+          
+          console.log('📊 하트 잔액 업데이트:', {
+            이전잔액: currentHearts,
+            추가하트: pack.hearts,
+            서버응답: result.chargeResult?.newBalance,
+            실시간조회: result.currentHeartBalance,
+            최종잔액: finalBalance
           });
-        }
+          
+          // 부모 컴포넌트에 성공 알림 (실시간 하트 잔액 포함)
+          if (onPurchase) {
+            onPurchase({
+              hearts: pack.hearts,
+              newBalance: finalBalance,
+              addedHearts: result.addedHearts || pack.hearts,
+              message: result.message,
+              realTimeBalance: result.currentHeartBalance // 실시간 조회 값 포함
+            });
+          }
 
-        // 잠시 후 모달 닫기
-        setTimeout(() => {
-          setIsProcessing(false);
-          setSelectedPack(null);
-          onClose();
-        }, 2000);
-      } else {
-        throw new Error(result.message || '하트 구매에 실패했습니다.');
-      }
+          // 잠시 후 모달 닫기
+          setTimeout(() => {
+            setIsProcessing(false);
+            setSelectedPack(null);
+            onClose();
+          }, 2000);
+        } else {
+          throw new Error(result.message || '하트 구매에 실패했습니다.');
+        }
 
     } catch (error) {
       console.error('❌ 하트 구매 실패:', error);

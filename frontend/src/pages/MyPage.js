@@ -137,15 +137,45 @@ const MyPage = () => {
     goToHeartShop(navigate, setShowHeartShop);
   };
 
-  const handleHeartPurchase = async (pack) => {
+  const handleHeartPurchase = async (purchaseData) => {
     try {
-      await heartsAPI.charge(pack.hearts);
-      fetchUserData(); // 업데이트된 하트 수 반영
+      console.log('💎 MyPage에서 하트 구매 완료 처리:', purchaseData);
+      
+      // 1. 실시간 하트 잔액 업데이트 (우선순위: 실시간 조회 > 서버 응답 > 계산값)
+      const newHeartBalance = purchaseData.realTimeBalance || 
+                             purchaseData.newBalance || 
+                             ((user?.hearts || 150) + purchaseData.hearts);
+      
+      console.log('📊 하트 잔액 업데이트:', {
+        이전잔액: user?.hearts,
+        추가하트: purchaseData.hearts,
+        새로운잔액: newHeartBalance,
+        실시간조회: purchaseData.realTimeBalance,
+        서버응답: purchaseData.newBalance
+      });
+      
+      // 2. 사용자 상태 즉시 업데이트
+      setUser(prev => ({
+        ...prev,
+        hearts: newHeartBalance
+      }));
+      
+      // 3. 하트샵 모달 닫기
       setShowHeartShop(false);
-      alert(`${pack.hearts}개의 하트를 성공적으로 구매했습니다!`);
+      
+      // 4. 성공 메시지 표시
+      alert(`${purchaseData.hearts}개의 하트가 성공적으로 충전되었습니다!\n현재 하트: ${newHeartBalance}개`);
+      
+      // 5. 백그라운드에서 서버 데이터 재동기화 (선택사항)
+      try {
+        await fetchUserData();
+      } catch (error) {
+        console.log('⚠️ 백그라운드 데이터 동기화 실패 (무시):', error);
+      }
+      
     } catch (error) {
-      console.error('Error purchasing hearts:', error);
-      alert('하트 구매에 실패했습니다. 다시 시도해주세요.');
+      console.error('❌ 하트 구매 처리 실패:', error);
+      alert('하트 구매 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };
 

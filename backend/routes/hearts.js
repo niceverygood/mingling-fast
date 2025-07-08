@@ -189,19 +189,33 @@ router.post('/purchase', async (req, res) => {
       });
     }
 
-    // 5단계: 사용자 정보 조회
-    console.log('👤 사용자 정보 조회 중...');
-    const user = await prisma.user.findUnique({
+    // 5단계: 사용자 정보 조회 또는 자동 생성
+    console.log('👤 사용자 정보 조회 및 자동 생성 중...');
+    let user = await prisma.user.findUnique({
       where: { id: userId },
       select: { hearts: true }
     });
 
     if (!user) {
-      console.log('❌ 사용자를 찾을 수 없음:', userId);
-      return res.status(404).json({
-        success: false,
-        error: '사용자를 찾을 수 없습니다'
-      });
+      console.log('👤 사용자 자동 생성 중...', { userId, userEmail });
+      try {
+        user = await prisma.user.create({
+          data: {
+            id: userId,
+            email: userEmail || `${userId}@auto.user`,
+            username: userEmail?.split('@')[0] || `user_${userId.substring(0, 8)}`,
+            hearts: 150 // 기본 하트
+          },
+          select: { hearts: true }
+        });
+        console.log('✅ 사용자 자동 생성 완료:', user);
+      } catch (createError) {
+        console.error('❌ 사용자 생성 실패:', createError);
+        return res.status(500).json({
+          success: false,
+          error: '사용자 생성에 실패했습니다'
+        });
+      }
     }
 
     // 6단계: 포트원 결제 검증 (테스트 모드 또는 실제 검증)

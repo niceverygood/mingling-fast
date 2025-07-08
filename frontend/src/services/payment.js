@@ -331,13 +331,43 @@ class PaymentService {
 
       console.log('✅ 4단계: 하트 충전 완료', chargeResult);
 
-      // 5단계: 성공 응답 반환
+      // 5단계: 하트 잔액 실시간 동기화 (최신 잔액 즉시 조회)
+      console.log('🔄 5단계: 하트 잔액 실시간 동기화 시작');
+      let currentHeartBalance = null;
+      
+      try {
+        // 최신 하트 잔액 조회
+        const balanceResponse = await fetch(`${this.apiURL}/api/hearts/balance`, {
+          method: 'GET',
+          headers: {
+            ...getDefaultHeaders(),
+            'X-User-ID': userId,
+            'X-User-Email': userEmail
+          }
+        });
+
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json();
+          currentHeartBalance = balanceData.hearts;
+          console.log('✅ 최신 하트 잔액 조회 완료:', currentHeartBalance);
+        } else {
+          console.warn('⚠️ 하트 잔액 조회 실패 - 서버 응답값 사용');
+          currentHeartBalance = chargeResult.newBalance;
+        }
+      } catch (error) {
+        console.warn('⚠️ 하트 잔액 조회 에러 - 서버 응답값 사용:', error);
+        currentHeartBalance = chargeResult.newBalance;
+      }
+
+      // 6단계: 성공 응답 반환 (실시간 하트 잔액 포함)
       console.log('🎉 전체 하트 구매 과정 완료');
       return {
         success: true,
         paymentResult,
         chargeResult,
         heartPackage,
+        currentHeartBalance: currentHeartBalance,
+        addedHearts: heartPackage.hearts,
         message: `${heartPackage.hearts}개의 하트가 성공적으로 충전되었습니다!`
       };
 
