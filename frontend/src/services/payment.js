@@ -4,9 +4,9 @@ class PaymentService {
   constructor() {
     console.log('🔧 PaymentService 초기화 시작');
     
-    // API URL 설정 (EC2 직접 연결 - 임시)
+    // API URL 설정 (Cloudflare HTTPS 사용)
     this.apiUrl = process.env.NODE_ENV === 'production' 
-      ? 'http://3.35.49.121:8001/api' 
+      ? 'https://api.minglingchat.com/api' 
       : 'http://localhost:8001/api';
     
     console.log('🌐 API URL 설정:', this.apiUrl);
