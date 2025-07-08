@@ -233,9 +233,10 @@ export const relationsAPI = {
 
 // Hearts API
 export const heartsAPI = {
-  getBalance: () => apiCall('get', API_ENDPOINTS.HEARTS.BASE),
+  getBalance: () => apiCall('get', API_ENDPOINTS.HEARTS.BALANCE),
   charge: (amount) => apiCall('post', API_ENDPOINTS.HEARTS.CHARGE, { amount }),
-  purchase: (purchaseData) => apiCall('post', API_ENDPOINTS.HEARTS.PURCHASE, purchaseData)
+  purchase: (purchaseData) => apiCall('post', API_ENDPOINTS.HEARTS.PURCHASE, purchaseData),
+  getTransactions: () => apiCall('get', API_ENDPOINTS.HEARTS.TRANSACTIONS)
 };
 
 // Users API

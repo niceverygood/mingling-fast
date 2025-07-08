@@ -255,8 +255,10 @@ export const API_ENDPOINTS = {
   // Hearts endpoints
   HEARTS: {
     BASE: `${API_CONFIG.apiURL}/hearts`,
+    BALANCE: `${API_CONFIG.apiURL}/hearts/balance`,
     PURCHASE: `${API_CONFIG.apiURL}/hearts/purchase`,
-    CHARGE: `${API_CONFIG.apiURL}/hearts/charge`
+    CHARGE: `${API_CONFIG.apiURL}/hearts/charge`,
+    TRANSACTIONS: `${API_CONFIG.apiURL}/hearts/transactions`
   },
   
   // Upload endpoints
