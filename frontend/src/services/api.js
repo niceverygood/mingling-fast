@@ -16,9 +16,9 @@ const getApiBaseUrl = () => {
   }
 };
 
-// ✅ Cloudflare DNS only 설정 완료: EC2 직접 접근 가능
-// HTTP 포트 8001로 접속 (Mixed Content 문제 해결 위해서는 HTTPS 설정 필요)
-const API_BASE_URL = 'http://api.minglingchat.com:8001';
+// ✅ Cloudflare 프록시 + HTTPS 설정
+// Cloudflare Flexible SSL 모드: HTTPS → HTTP (EC2 8001 포트)
+const API_BASE_URL = 'https://api.minglingchat.com';
 
 // 🔧 환경 정보 로깅
 if (DEBUG_MODE) {
