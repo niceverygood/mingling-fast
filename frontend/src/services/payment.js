@@ -4,9 +4,9 @@ class PaymentService {
   constructor() {
     console.log('🔧 PaymentService 초기화 시작');
     
-    // API URL 설정 (로컬 테스트용)
+    // API URL 설정 (임시로 EC2 직접 연결)
     this.apiUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://api.minglingchat.com/api' 
+      ? 'http://3.35.49.121:8001/api' 
       : 'http://localhost:8001/api';
     
     console.log('🌐 API URL 설정:', this.apiUrl);
