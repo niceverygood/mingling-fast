@@ -157,9 +157,9 @@ if (API_CONFIG.enableDebug && typeof window !== 'undefined') {
   };
 }
 
-// 🔄 재시도 로직을 포함한 API 호출 함수
+// 🔄 재시도 로직을 포함한 API 호출 함수 (최적화됨)
 const apiCall = async (method, url, data = null, options = {}) => {
-  const maxRetries = options.retries || 1;
+  const maxRetries = options.retries || 3; // 재시도 횟수 증가
   let lastError;
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -167,6 +167,7 @@ const apiCall = async (method, url, data = null, options = {}) => {
       const config = {
         method,
         url,
+        timeout: options.timeout || 15000, // 타임아웃 증가
         ...options
       };
       
@@ -175,17 +176,32 @@ const apiCall = async (method, url, data = null, options = {}) => {
       }
       
       const response = await api(config);
+      
+      // 성공 시 이전 에러 클리어
+      if (attempt > 1) {
+        safeLog('info', `✅ API 호출 성공 (${attempt}번째 시도)`, { url });
+      }
+      
       return response;
     } catch (error) {
       lastError = error;
       
+      // 특정 에러는 재시도하지 않음
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        safeLog('error', '🚫 인증 에러 - 재시도 중단', { url, status: error.response.status });
+        break;
+      }
+      
       if (attempt < maxRetries) {
-        const delay = Math.pow(2, attempt - 1) * 1000; // 지수 백오프
+        const delay = Math.min(Math.pow(2, attempt - 1) * 1000, 5000); // 최대 5초 제한
         safeLog('warn', `🔄 API 재시도 ${attempt}/${maxRetries} (${delay}ms 후)`, {
           url,
-          error: error.message
+          error: error.message,
+          status: error.response?.status
         });
         await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        safeLog('error', '❌ 모든 재시도 실패', { url, attempts: maxRetries });
       }
     }
   }
@@ -193,17 +209,56 @@ const apiCall = async (method, url, data = null, options = {}) => {
   throw lastError;
 };
 
-// Characters API
+// Characters API (최적화됨)
 export const charactersAPI = {
-  getAll: () => apiCall('get', API_ENDPOINTS.CHARACTERS.BASE),
-  getMy: () => apiCall('get', API_ENDPOINTS.CHARACTERS.MY),
-  getRecommended: () => apiCall('get', API_ENDPOINTS.CHARACTERS.RECOMMENDED),
-  getById: (id) => apiCall('get', API_ENDPOINTS.CHARACTERS.BY_ID(id)),
-  create: (characterData) => apiCall('post', API_ENDPOINTS.CHARACTERS.BASE, characterData),
-  update: (id, characterData) => apiCall('put', API_ENDPOINTS.CHARACTERS.BY_ID(id), characterData),
-  delete: (id) => apiCall('delete', API_ENDPOINTS.CHARACTERS.BY_ID(id)),
-  getTypes: () => apiCall('get', API_ENDPOINTS.CHARACTERS.TYPES),
-  getHashtags: () => apiCall('get', API_ENDPOINTS.CHARACTERS.HASHTAGS)
+  getAll: () => apiCall('get', API_ENDPOINTS.CHARACTERS.BASE, null, { timeout: 15000 }),
+  getMy: () => apiCall('get', API_ENDPOINTS.CHARACTERS.MY, null, { timeout: 10000 }),
+  getRecommended: () => apiCall('get', API_ENDPOINTS.CHARACTERS.RECOMMENDED, null, { timeout: 15000 }),
+  getById: (id) => apiCall('get', API_ENDPOINTS.CHARACTERS.BY_ID(id), null, { timeout: 10000 }),
+  
+  // 캐릭터 생성 (최적화됨)
+  create: async (characterData) => {
+    try {
+      // 필수 필드 검증
+      if (!characterData.name?.trim()) {
+        throw new Error('캐릭터 이름은 필수입니다.');
+      }
+      if (!characterData.avatarUrl?.trim()) {
+        throw new Error('프로필 이미지는 필수입니다.');
+      }
+      
+      const response = await apiCall('post', API_ENDPOINTS.CHARACTERS.BASE, characterData, { 
+        retries: 2,
+        timeout: 20000 
+      });
+      
+      safeLog('info', '✅ 캐릭터 생성 성공', { characterId: response.data.id, name: response.data.name });
+      return response;
+    } catch (error) {
+      safeLog('error', '❌ 캐릭터 생성 실패', { error: error.message, characterData: { name: characterData.name } });
+      throw error;
+    }
+  },
+  
+  // 캐릭터 수정 (최적화됨)
+  update: async (id, characterData) => {
+    try {
+      const response = await apiCall('put', API_ENDPOINTS.CHARACTERS.BY_ID(id), characterData, { 
+        retries: 2,
+        timeout: 20000 
+      });
+      
+      safeLog('info', '✅ 캐릭터 수정 성공', { characterId: id, name: response.data.name });
+      return response;
+    } catch (error) {
+      safeLog('error', '❌ 캐릭터 수정 실패', { characterId: id, error: error.message });
+      throw error;
+    }
+  },
+  
+  delete: (id) => apiCall('delete', API_ENDPOINTS.CHARACTERS.BY_ID(id), null, { timeout: 10000 }),
+  getTypes: () => apiCall('get', API_ENDPOINTS.CHARACTERS.TYPES, null, { timeout: 5000 }),
+  getHashtags: () => apiCall('get', API_ENDPOINTS.CHARACTERS.HASHTAGS, null, { timeout: 5000 })
 };
 
 // Personas API
@@ -248,14 +303,72 @@ export const relationsAPI = {
     apiCall('post', API_ENDPOINTS.RELATIONS.ADJUST(characterId), adjustData)
 };
 
-// Hearts API
+// Hearts API (최적화됨)
 export const heartsAPI = {
-  getBalance: () => apiCall('get', API_ENDPOINTS.HEARTS.BALANCE),
-  charge: (amount) => apiCall('post', API_ENDPOINTS.HEARTS.CHARGE, { amount }),
-  purchase: (purchaseData) => apiCall('post', API_ENDPOINTS.HEARTS.PURCHASE, purchaseData),
-  getTransactions: () => apiCall('get', API_ENDPOINTS.HEARTS.TRANSACTIONS),
-  // 하트 소모 함수 추가 (채팅 메시지 전송용)
-  spend: (amount, description) => apiCall('post', API_ENDPOINTS.HEARTS.SPEND, { amount, description })
+  // 하트 잔액 조회 (캐싱 포함)
+  getBalance: async () => {
+    try {
+      const response = await apiCall('get', API_ENDPOINTS.HEARTS.BALANCE, null, { timeout: 10000 });
+      
+      // 로컬 캐시에 저장 (1분 유효)
+      localStorage.setItem('heartBalance', JSON.stringify({
+        hearts: response.data.hearts,
+        timestamp: Date.now()
+      }));
+      
+      return response;
+    } catch (error) {
+      // 캐시된 데이터 사용 시도
+      try {
+        const cached = JSON.parse(localStorage.getItem('heartBalance') || '{}');
+        if (cached.hearts && Date.now() - cached.timestamp < 60000) {
+          safeLog('warn', '🔄 하트 잔액 캐시 사용', { cachedHearts: cached.hearts });
+          return { data: { hearts: cached.hearts } };
+        }
+      } catch (cacheError) {
+        // 캐시 에러 무시
+      }
+      throw error;
+    }
+  },
+  
+  // 하트 충전
+  charge: (amount) => apiCall('post', API_ENDPOINTS.HEARTS.CHARGE, { amount }, { 
+    retries: 2,
+    timeout: 20000 // 결제는 더 긴 타임아웃
+  }),
+  
+  // 하트 구매
+  purchase: (purchaseData) => apiCall('post', API_ENDPOINTS.HEARTS.PURCHASE, purchaseData, { 
+    retries: 2,
+    timeout: 30000 // 결제는 가장 긴 타임아웃
+  }),
+  
+  // 하트 거래 내역
+  getTransactions: () => apiCall('get', API_ENDPOINTS.HEARTS.TRANSACTIONS, null, { timeout: 10000 }),
+  
+  // 하트 소모 함수 (채팅 메시지 전송용) - 최적화됨
+  spend: async (amount, description) => {
+    try {
+      const response = await apiCall('post', API_ENDPOINTS.HEARTS.SPEND, { amount, description }, { 
+        retries: 2,
+        timeout: 10000
+      });
+      
+      // 성공 시 캐시 업데이트
+      if (response.data.hearts !== undefined) {
+        localStorage.setItem('heartBalance', JSON.stringify({
+          hearts: response.data.hearts,
+          timestamp: Date.now()
+        }));
+      }
+      
+      return response;
+    } catch (error) {
+      safeLog('error', '❌ 하트 소모 실패', { amount, description, error: error.message });
+      throw error;
+    }
+  }
 };
 
 // Users API

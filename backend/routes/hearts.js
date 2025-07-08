@@ -396,13 +396,16 @@ router.post('/purchase', async (req, res) => {
   }
 });
 
-// POST /api/hearts/spend - 하트 사용
+// POST /api/hearts/spend - 하트 사용 (최적화됨)
 router.post('/spend', async (req, res) => {
+  const startTime = Date.now();
+  
   try {
     const { amount, description } = req.body;
     
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid spend amount' });
+    // 입력 검증 강화
+    if (!amount || amount <= 0 || amount > 100) {
+      return res.status(400).json({ error: 'Invalid spend amount (must be 1-100)' });
     }
 
     const firebaseUserId = req.headers['x-user-id'];
@@ -411,47 +414,86 @@ router.post('/spend', async (req, res) => {
       return res.status(401).json({ error: 'User ID required' });
     }
 
-    // 현재 하트 잔액 확인
-    const user = await prisma.user.findUnique({
-      where: { id: firebaseUserId },
-      select: { hearts: true }
-    });
+    console.log('💖 하트 소모 요청:', { userId: firebaseUserId, amount, description });
 
-    if (!user || user.hearts < amount) {
-      return res.status(400).json({ error: 'Insufficient hearts' });
-    }
+    // 트랜잭션으로 원자적 처리
+    const result = await prisma.$transaction(async (tx) => {
+      // 현재 하트 잔액 확인 (row lock)
+      const user = await tx.user.findUnique({
+        where: { id: firebaseUserId },
+        select: { hearts: true }
+      });
 
-    // 하트 차감
-    const updatedUser = await prisma.user.update({
-      where: { id: firebaseUserId },
-      data: {
-        hearts: {
-          decrement: amount
+      if (!user) {
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      if (user.hearts < amount) {
+        throw new Error('INSUFFICIENT_HEARTS');
+      }
+
+      // 하트 차감
+      const updatedUser = await tx.user.update({
+        where: { id: firebaseUserId },
+        data: {
+          hearts: {
+            decrement: amount
+          }
+        },
+        select: { hearts: true }
+      });
+
+      // 거래 기록 생성
+      const transaction = await tx.heartTransaction.create({
+        data: {
+          userId: firebaseUserId,
+          amount: -amount,
+          type: 'spend',
+          description: description || `${amount} 하트 사용`,
+          status: 'completed',
+          completedAt: new Date()
         }
-      },
-      select: {
-        hearts: true
-      }
+      });
+
+      return {
+        user: updatedUser,
+        transaction
+      };
     });
 
-    // 하트 거래 기록 생성
-    await prisma.heartTransaction.create({
-      data: {
-        userId: firebaseUserId,
-        amount: -amount,
-        type: 'spend',
-        description: description || `${amount} 하트 사용`
-      }
+    const processTime = Date.now() - startTime;
+    console.log('✅ 하트 소모 완료:', { 
+      userId: firebaseUserId, 
+      spent: amount, 
+      newBalance: result.user.hearts,
+      processTime: `${processTime}ms`
     });
 
     res.json({ 
       success: true, 
-      hearts: updatedUser.hearts,
-      spent: amount
+      hearts: result.user.hearts,
+      spent: amount,
+      transactionId: result.transaction.id
     });
   } catch (error) {
-    console.error('Error spending hearts:', error);
-    res.status(500).json({ error: 'Failed to spend hearts' });
+    const processTime = Date.now() - startTime;
+    console.error('❌ 하트 소모 실패:', {
+      error: error.message,
+      userId: req.headers['x-user-id'],
+      processTime: `${processTime}ms`
+    });
+    
+    // 에러 타입별 처리
+    if (error.message === 'USER_NOT_FOUND') {
+      return res.status(404).json({ error: 'User not found' });
+    } else if (error.message === 'INSUFFICIENT_HEARTS') {
+      return res.status(400).json({ error: 'Insufficient hearts' });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to spend hearts',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

@@ -123,36 +123,29 @@ router.get('/recommended', async (req, res) => {
   }
 });
 
-// POST /api/characters - 새 캐릭터 생성 (확장된 버전)
+// POST /api/characters - 새 캐릭터 생성 (최적화된 버전)
 router.post('/', async (req, res) => {
+  const startTime = Date.now();
+  
   try {
     const { 
-      name, 
-      age, 
-      description, 
-      personality, 
-      avatarUrl,
-      characterType,
-      background,
-      mbti,
-      height,
-      likes,
-      dislikes,
-      hashtags,
-      gender,
-      firstImpression,
-      basicSetting,
-      allowViolence,
-      backupChats,
-      hashtagCode,
-      isPublic,
-      weapons,
-      isCommercial
+      name, age, description, personality, avatarUrl, characterType,
+      background, mbti, height, likes, dislikes, hashtags, gender,
+      firstImpression, basicSetting, allowViolence, backupChats,
+      hashtagCode, isPublic, weapons, isCommercial
     } = req.body;
 
-    // 이름은 필수
+    // 입력 데이터 검증 강화
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Name is required' });
+    }
+    
+    if (name.length > 15) {
+      return res.status(400).json({ error: 'Name must be 15 characters or less' });
+    }
+    
+    if (!avatarUrl || avatarUrl.trim() === '') {
+      return res.status(400).json({ error: 'Avatar image is required' });
     }
     
     const firebaseUserId = req.headers['x-user-id'];
@@ -162,79 +155,77 @@ router.post('/', async (req, res) => {
       return res.status(401).json({ error: 'User ID required' });
     }
 
-    // 사용자가 없으면 생성
+    console.log('🎭 캐릭터 생성 시작:', { 
+      userId: firebaseUserId, 
+      characterName: name.trim(),
+      hasAvatar: !!avatarUrl,
+      startTime: new Date().toISOString()
+    });
+
+    // 사용자 정보 조회 또는 생성 (최적화된 upsert)
     let user = await prisma.user.findUnique({
-      where: { id: firebaseUserId }
+      where: { id: firebaseUserId },
+      select: { id: true, username: true }
     });
 
     if (!user) {
-      console.log('👤 캐릭터 생성 중 사용자 자동 생성:', { firebaseUserId, firebaseUserEmail });
+      console.log('👤 사용자 자동 생성 중...', { firebaseUserId, firebaseUserEmail });
       
       try {
-        // 안전한 이메일 및 사용자명 생성
         const safeEmail = firebaseUserEmail || `${firebaseUserId}@auto.mingling`;
         const baseUsername = firebaseUserEmail?.split('@')[0] || 'user';
         const safeUsername = `${baseUsername}_${Date.now()}`;
         
-        // upsert 패턴으로 안전하게 생성
         user = await prisma.user.upsert({
           where: { id: firebaseUserId },
-          update: {
-            // 이미 존재하면 업데이트하지 않음
-          },
+          update: {},
           create: {
             id: firebaseUserId,
             email: safeEmail,
             username: safeUsername,
             hearts: 150
-          }
+          },
+          select: { id: true, username: true }
         });
         
-        console.log('✅ 캐릭터 생성용 사용자 생성 완료:', user);
+        console.log('✅ 사용자 생성 완료:', { userId: user.id, username: user.username });
       } catch (createError) {
         console.error('❌ 사용자 생성 실패:', createError);
-        
-        // 최후의 수단: 다시 조회
-        user = await prisma.user.findUnique({
-          where: { id: firebaseUserId }
+        return res.status(500).json({ 
+          error: '사용자 생성에 실패했습니다. 다시 로그인해주세요.',
+          details: createError.message
         });
-        
-        if (!user) {
-          return res.status(500).json({ 
-            error: '사용자 생성에 실패했습니다. 다시 로그인해주세요.',
-            details: createError.message
-          });
-        }
       }
-    } else {
-      console.log('✅ 기존 사용자로 캐릭터 생성:', { userId: user.id, username: user.username });
     }
     
+    // 캐릭터 데이터 정제 및 생성
+    const characterData = {
+      name: name.trim(),
+      age: age?.trim() || null,
+      description: description?.trim() || null,
+      personality: personality?.trim() || null,
+      avatarUrl: avatarUrl.trim(),
+      characterType: characterType || null,
+      background: background?.trim() || null,
+      mbti: mbti?.trim() || null,
+      height: height?.trim() || null,
+      likes: likes?.trim() || null,
+      dislikes: dislikes?.trim() || null,
+      hashtags: Array.isArray(hashtags) ? hashtags : (hashtags ? [hashtags] : undefined),
+      gender: gender || 'undisclosed',
+      firstImpression: firstImpression?.trim() || null,
+      basicSetting: basicSetting?.trim() || null,
+      weapons: Array.isArray(weapons) ? weapons.filter(w => w?.trim()) : undefined,
+      isCommercial: Boolean(isCommercial),
+      allowViolence: Boolean(allowViolence),
+      backupChats: backupChats !== false,
+      hashtagCode: hashtagCode?.trim() || `#${name.trim()}`,
+      isPublic: isPublic !== false,
+      userId: firebaseUserId
+    };
+
     const character = await prisma.character.create({
-      data: {
-        name: name.trim(),
-        age: age?.trim() || null,
-        description: description?.trim() || null,
-        personality: personality?.trim() || null,
-        avatarUrl: avatarUrl || null,
-        characterType: characterType || null,
-        background: background?.trim() || null,
-        mbti: mbti?.trim() || null,
-        height: height?.trim() || null,
-        likes: likes?.trim() || null,
-        dislikes: dislikes?.trim() || null,
-        hashtags: hashtags || undefined,
-        gender: gender || 'undisclosed',
-        firstImpression: firstImpression?.trim() || null,
-        basicSetting: basicSetting?.trim() || null,
-        weapons: weapons || undefined,
-        isCommercial: isCommercial || false,
-        allowViolence: allowViolence || false,
-        backupChats: backupChats !== false,
-        hashtagCode: hashtagCode?.trim() || null,
-        isPublic: isPublic !== false,
-        userId: firebaseUserId
-      },
+      data: characterData,
       select: {
         id: true,
         name: true,
@@ -248,12 +239,36 @@ router.post('/', async (req, res) => {
       }
     });
 
+    const processTime = Date.now() - startTime;
+    console.log('✅ 캐릭터 생성 완료:', { 
+      characterId: character.id, 
+      name: character.name,
+      userId: firebaseUserId,
+      processTime: `${processTime}ms`
+    });
+
     res.status(201).json(character);
   } catch (error) {
-    console.error('Error creating character:', error);
-    console.error('Error details:', error.message);
-    console.error('Stack trace:', error.stack);
-    res.status(500).json({ error: 'Failed to create character', details: error.message });
+    const processTime = Date.now() - startTime;
+    console.error('❌ 캐릭터 생성 실패:', {
+      error: error.message,
+      stack: error.stack,
+      processTime: `${processTime}ms`,
+      userId: req.headers['x-user-id']
+    });
+    
+    // 사용자 친화적 에러 메시지
+    let errorMessage = '캐릭터 생성에 실패했습니다.';
+    if (error.code === 'P2002') {
+      errorMessage = '이미 존재하는 정보입니다. 다른 이름을 사용해주세요.';
+    } else if (error.message.includes('timeout')) {
+      errorMessage = '요청 시간이 초과되었습니다. 다시 시도해주세요.';
+    }
+    
+    res.status(500).json({ 
+      error: errorMessage, 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
