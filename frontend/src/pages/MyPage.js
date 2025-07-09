@@ -582,16 +582,7 @@ const MyPage = () => {
             <HeartIcon className="w-8 h-8 text-pink-500" />
             <div>
               <p className="text-sm text-gray-600">내 하트</p>
-              <div className="flex items-center space-x-2">
-                <p className="text-2xl font-bold text-pink-600">{user?.hearts || 150}</p>
-                <button
-                  onClick={fetchUserData}
-                  className="text-xs text-gray-500 hover:text-gray-700 bg-white hover:bg-gray-50 px-2 py-1 rounded-md border border-gray-200"
-                  title="하트 잔액 새로고침"
-                >
-                  🔄
-                </button>
-              </div>
+              <p className="text-2xl font-bold text-pink-600">{user?.hearts || 150}</p>
             </div>
           </div>
           <button 
