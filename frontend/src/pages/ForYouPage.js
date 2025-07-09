@@ -43,6 +43,28 @@ const ForYouPage = () => {
       }
     } catch (error) {
       console.error('Error fetching recommended characters:', error);
+      
+      // 인증 문제로 에러 발생 시 게스트 모드로 재시도
+      if (error.response?.status === 500 || error.response?.status === 401) {
+        try {
+          console.log('🔄 게스트 모드로 재시도 중...');
+          // 인증 헤더 없이 직접 API 호출
+          const guestResponse = await fetch('https://api.minglingchat.com/api/characters/recommended');
+          const guestData = await guestResponse.json();
+          
+          if (Array.isArray(guestData)) {
+            setCharacters(guestData.map(char => ({ ...char, isOwner: false })));
+            if (guestData.length > 0) {
+              setCurrentIndex(0);
+            }
+            console.log('✅ 게스트 모드로 캐릭터 로딩 성공');
+            return;
+          }
+        } catch (guestError) {
+          console.error('게스트 모드 재시도도 실패:', guestError);
+        }
+      }
+      
       setCharacters([]);
       setError(error.response?.data?.error || '캐릭터를 불러오는 중 오류가 발생했습니다.');
     } finally {
