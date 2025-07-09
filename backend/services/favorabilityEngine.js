@@ -165,14 +165,22 @@ async function updateFavorability(userId, characterId, deltaScore, eventType, de
     const shouldChange = shouldChangeStage(oldStage, newStage, newScore);
     const finalStage = shouldChange ? newStage : oldStage;
     
-    // 관계 업데이트
+    // 관계 업데이트 (메시지 카운트도 함께 업데이트)
+    const updateData = {
+      score: newScore,
+      stage: finalStage,
+      updatedAt: new Date()
+    };
+    
+    // 메시지 처리인 경우 totalMessages 증가
+    if (eventType.includes('chat')) {
+      updateData.totalMessages = { increment: 1 };
+      updateData.lastEventAt = new Date();
+    }
+    
     const updatedRelation = await prisma.relation.update({
       where: { id: relation.id },
-      data: {
-        score: newScore,
-        stage: finalStage,
-        updatedAt: new Date()
-      }
+      data: updateData
     });
 
     // 이벤트 로그 기록
@@ -194,12 +202,15 @@ async function updateFavorability(userId, characterId, deltaScore, eventType, de
       newStage: finalStage,
       stageChanged,
       deltaScore,
-      stageInfo: STAGES[finalStage]
+      stageInfo: STAGES[finalStage],
+      score: newScore // 실제 점수 포함
     };
 
     if (stageChanged) {
       console.log(`🎉 Stage changed for user ${userId} with character ${characterId}: ${STAGES[oldStage].label} → ${STAGES[finalStage].label}`);
     }
+
+    console.log(`💖 Favorability updated: ${oldScore} → ${newScore} (${deltaScore > 0 ? '+' : ''}${deltaScore})`);
 
     return result;
   } catch (error) {

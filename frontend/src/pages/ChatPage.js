@@ -220,15 +220,20 @@ const ChatPage = () => {
       if (messageResponse.data.favorability) {
         const favorabilityData = messageResponse.data.favorability;
         
-        // 호감도 정보 업데이트
-        setRelationInfo(favorabilityData.relation);
+        console.log('🔄 호감도 변화 데이터:', favorabilityData);
+        
+        // 호감도 정보 즉시 업데이트
+        if (favorabilityData.relation) {
+          setRelationInfo(favorabilityData.relation);
+          console.log('✅ 관계 정보 업데이트됨:', favorabilityData.relation);
+        }
         
         // 변화 알림 표시
         if (favorabilityData.deltaScore !== 0) {
           setFavorabilityNotification({
             deltaScore: favorabilityData.deltaScore,
             oldStage: favorabilityData.oldStage,
-            newStage: favorabilityData.relation.stage,
+            newStage: favorabilityData.newStage || favorabilityData.relation?.stage,
             stageChanged: favorabilityData.stageChanged
           });
           
@@ -237,13 +242,21 @@ const ChatPage = () => {
             setFavorabilityNotification(null);
           }, 3000);
         }
-      }
-      
-      // 메시지 전송 후 관계 정보 다시 불러오기 (동기화 보장)
-      if (chatInfo?.character?.id) {
+        
+        // 메시지 전송 후 관계 정보 다시 불러오기 (최종 동기화 보장)
         setTimeout(() => {
-          fetchRelationInfo(chatInfo.character.id);
-        }, 1000);
+          if (chatInfo?.character?.id) {
+            fetchRelationInfo(chatInfo.character.id);
+          }
+        }, 500);
+      } else {
+        // 호감도 데이터가 없는 경우에도 관계 정보 새로고침
+        console.log('⚠️ 호감도 데이터 없음, 관계 정보 새로고침');
+        setTimeout(() => {
+          if (chatInfo?.character?.id) {
+            fetchRelationInfo(chatInfo.character.id);
+          }
+        }, 500);
       }
       
       // 타이핑 애니메이션 종료 및 메시지 수신 효과 표시

@@ -214,64 +214,18 @@ router.post('/:chatId/messages', async (req, res) => {
       }
     });
 
-    // 호감도 시스템 처리 (통합된 관계 시스템 사용)
+    // 호감도 시스템 처리 (favorabilityEngine에서 모든 DB 처리 담당)
     let favorabilityResult = null;
     
     try {
-      // 관계 생성 또는 업데이트를 트랜잭션으로 처리
-      const relationResult = await prisma.$transaction(async (tx) => {
-        // 기존 관계 조회 또는 생성
-        let relation = await tx.relation.findUnique({
-          where: {
-            userId_characterId: {
-              userId: firebaseUserId,
-              characterId: chat.characterId
-            }
-          }
-        });
-
-        if (!relation) {
-          // 관계가 없으면 새로 생성
-          relation = await tx.relation.create({
-            data: {
-              userId: firebaseUserId,
-              characterId: chat.characterId,
-              score: 0,
-              stage: 0,
-              mood: 'neutral',
-              totalMessages: 0,
-              specialEvents: 0,
-              lastEventAt: new Date()
-            }
-          });
-          console.log('✅ 새 관계 생성됨:', relation.id);
-        }
-
-        // 호감도 업데이트
-        const favorabilityUpdate = await favorabilityEngine.processMessage(
-          firebaseUserId,
-          chat.characterId,
-          content.trim(),
-          chat.character.personality
-        );
-
-        // 관계 정보 업데이트
-        await tx.relation.update({
-          where: { id: relation.id },
-          data: {
-            totalMessages: { increment: 1 },
-            lastEventAt: new Date(),
-            // 호감도 엔진 결과 반영
-            score: favorabilityUpdate.score || relation.score,
-            stage: favorabilityUpdate.stage || relation.stage,
-            mood: favorabilityUpdate.mood || relation.mood
-          }
-        });
-
-        return favorabilityUpdate;
-      });
-
-      favorabilityResult = relationResult;
+      // favorabilityEngine.processMessage()가 모든 DB 업데이트를 처리함
+      favorabilityResult = await favorabilityEngine.processMessage(
+        firebaseUserId,
+        chat.characterId,
+        content.trim(),
+        chat.character.personality
+      );
+      
       console.log('💖 Favorability updated:', favorabilityResult);
     } catch (error) {
       console.error('❌ Error updating favorability:', error);
