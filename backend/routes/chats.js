@@ -214,19 +214,59 @@ router.post('/:chatId/messages', async (req, res) => {
       }
     });
 
-    // 호감도 시스템 처리
+    // 호감도 시스템 처리 (통합된 관계 시스템 사용)
     let favorabilityResult = null;
     try {
-      favorabilityResult = await favorabilityEngine.processMessage(
+      // 기존 관계 조회 또는 생성
+      let relation = await prisma.relation.findUnique({
+        where: {
+          userId_characterId: {
+            userId: firebaseUserId,
+            characterId: chat.characterId
+          }
+        }
+      });
+
+      if (!relation) {
+        // 관계가 없으면 새로 생성
+        relation = await prisma.relation.create({
+          data: {
+            userId: firebaseUserId,
+            characterId: chat.characterId,
+            score: 0,
+            stage: 0,
+            mood: 'neutral',
+            totalMessages: 0,
+            specialEvents: 0,
+            lastEventAt: new Date()
+          }
+        });
+        console.log('✅ 새 관계 생성됨:', relation.id);
+      }
+
+      // 호감도 업데이트 로직 (favorabilityEngine 사용)
+      const favorabilityUpdate = await favorabilityEngine.processMessage(
         firebaseUserId,
         chat.characterId,
         content.trim(),
         chat.character.personality
       );
+
+      // 관계 테이블에 추가 정보 업데이트
+      await prisma.relation.update({
+        where: { id: relation.id },
+        data: {
+          totalMessages: { increment: 1 },
+          lastEventAt: new Date()
+        }
+      });
+
+      favorabilityResult = favorabilityUpdate;
       console.log('💖 Favorability updated:', favorabilityResult);
     } catch (error) {
       console.error('❌ Error updating favorability:', error);
       // 호감도 업데이트 실패해도 채팅은 계속 진행
+      favorabilityResult = null;
     }
 
     res.json({

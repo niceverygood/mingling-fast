@@ -70,13 +70,25 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
-  // 호감도 정보 불러오기
+  // 호감도 정보 불러오기 (개선된 버전)
   const fetchRelationInfo = async (characterId) => {
     try {
+      console.log('🔄 관계 정보 불러오기 시도:', characterId);
       const relationData = await getRelationInfo(characterId);
-      setRelationInfo(relationData);
+      console.log('✅ 관계 정보 불러오기 성공:', relationData);
+      
+      if (relationData && relationData.data) {
+        setRelationInfo(relationData.data);
+      } else {
+        // 기본값 설정
+        setRelationInfo({
+          score: 0,
+          stage: 0,
+          stageChanged: false
+        });
+      }
     } catch (error) {
-      console.error('Error fetching relation info:', error);
+      console.error('❌ 관계 정보 불러오기 실패:', error);
       // 기본값 설정
       setRelationInfo({
         score: 0,
@@ -201,6 +213,13 @@ const ChatPage = () => {
             setFavorabilityNotification(null);
           }, 3000);
         }
+      }
+      
+      // 메시지 전송 후 관계 정보 다시 불러오기 (동기화 보장)
+      if (chatInfo?.character?.id) {
+        setTimeout(() => {
+          fetchRelationInfo(chatInfo.character.id);
+        }, 1000);
       }
       
       // 임시 사용자 메시지 제거하고 실제 메시지들로 교체
