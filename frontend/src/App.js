@@ -19,6 +19,7 @@ import TestFavorability from './pages/TestFavorability';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import BottomNavigation from './components/BottomNavigation';
 import './App.css';
+import RelationshipPage from './pages/RelationshipPage';
 
 function AppContent() {
   const { loading } = useAuth();
@@ -68,18 +69,15 @@ function AppWithNavigation() {
     <div className="App">
       <div className="app-content">
         <Routes>
-          <Route path="/" element={<ChatListPage />} />
-          <Route path="/chats" element={<ChatListPage />} />
+          <Route path="/" element={<ForYouPage />} />
           <Route path="/for-you" element={<ForYouPage />} />
+          <Route path="/chats" element={<ChatListPage />} />
+          <Route path="/chat/:chatId" element={<ChatPage />} />
+          <Route path="/relationship/:characterId" element={<RelationshipPage />} />
           <Route path="/my" element={<MyPage />} />
           <Route path="/character-creation" element={<CharacterCreation />} />
           <Route path="/character/:id" element={<CharacterDetail />} />
           <Route path="/character/:id/edit" element={<CharacterEdit />} />
-          <Route path="/chat/:chatId" element={<ChatPage />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/persona-creation" element={<PersonaCreation />} />
-          <Route path="/persona/:id" element={<PersonaDetail />} />
-          <Route path="/persona/:id/edit" element={<PersonaEdit />} />
           <Route path="/persona-management" element={<PersonaManagement />} />
           <Route path="/persona-selection" element={<PersonaSelection />} />
           <Route path="/heart-shop" element={<HeartShop />} />

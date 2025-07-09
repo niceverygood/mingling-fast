@@ -5,7 +5,7 @@ import { heartsAPI, chatsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/Avatar';
 import FavorabilityGauge, { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
-import { getRelationInfo } from '../services/favorabilityAPI';
+import { getRelationInfo } from '../services/relationshipAPI';
 import { goToHeartShopWithAlert } from '../utils/webview';
 
 const ChatPage = () => {
@@ -313,13 +313,23 @@ const ChatPage = () => {
       {/* Favorability Section */}
       {relationInfo && (
         <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <FavorabilityGauge 
-            score={relationInfo.score}
-            stage={relationInfo.stage}
-            showDetails={false}
-            size="small"
-            animated={true}
-          />
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <FavorabilityGauge 
+                score={relationInfo.score}
+                stage={relationInfo.stage}
+                showDetails={false}
+                size="small"
+                animated={true}
+              />
+            </div>
+            <button
+              onClick={() => navigate(`/relationship/${chatInfo?.character?.id}`)}
+              className="ml-3 px-3 py-1.5 text-xs text-pink-600 hover:text-pink-800 border border-pink-300 hover:border-pink-400 bg-pink-50 hover:bg-pink-100 rounded-md transition-all duration-200"
+            >
+              관계 관리
+            </button>
+          </div>
         </div>
       )}
 

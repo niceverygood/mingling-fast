@@ -160,7 +160,11 @@ model Relation {
   id          String   @id @default(cuid())
   score       Int      @default(0) // 0-1000 호감도 점수
   stage       Int      @default(0) // 0-6 단계 (S0-S6)
+  mood        String   @default("neutral") // 현재 감정 상태
   lastDecayAt DateTime @default(now()) // 마지막 감쇠 적용 시간
+  lastEventAt DateTime @default(now()) // 마지막 이벤트 발생 시간
+  totalMessages Int    @default(0) // 총 메시지 수
+  specialEvents Int    @default(0) // 특별 이벤트 수
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -170,6 +174,8 @@ model Relation {
   characterId String
   character   Character @relation(fields: [characterId], references: [id])
   eventLogs   RelationEventLog[]
+  memories    RelationMemory[]
+  achievements RelationAchievement[]
 
   @@unique([userId, characterId])
   @@map("relations")
@@ -181,6 +187,7 @@ model RelationEventLog {
   deltaScore  Int      // 점수 변화량 (+/-)
   description String?  @db.Text // 이벤트 설명
   messageId   String?  // 관련 메시지 ID (채팅 이벤트의 경우)
+  metadata    String?  @db.Text // 추가 메타데이터 (JSON 형태)
   createdAt   DateTime @default(now())
 
   // Relations
@@ -188,4 +195,41 @@ model RelationEventLog {
   relation    Relation @relation(fields: [relationId], references: [id])
 
   @@map("relation_event_logs")
+}
+
+// 관계 추억 시스템
+model RelationMemory {
+  id          String   @id @default(cuid())
+  title       String   // 추억 제목
+  description String   @db.Text // 추억 설명
+  memoryType  String   // 'first_meet', 'special_chat', 'milestone', 'confession', 'date' 등
+  importance  Int      @default(1) // 중요도 (1-5)
+  isHighlight Boolean  @default(false) // 특별한 추억인지
+  messageId   String?  // 관련 메시지 ID
+  metadata    String?  @db.Text // 추가 메타데이터 (JSON 형태)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  relationId  String
+  relation    Relation @relation(fields: [relationId], references: [id])
+
+  @@map("relation_memories")
+}
+
+// 관계 성취 시스템
+model RelationAchievement {
+  id            String   @id @default(cuid())
+  achievementId String   // 성취 ID ('first_meet', 'friend_level', 'lover_level' 등)
+  title         String   // 성취 제목
+  description   String   // 성취 설명
+  icon          String   // 성취 아이콘 (이모지)
+  category      String   // 성취 카테고리 ('milestone', 'activity', 'special')
+  unlockedAt    DateTime @default(now()) // 달성 시간
+  
+  // Relations
+  relationId    String
+  relation      Relation @relation(fields: [relationId], references: [id])
+
+  @@unique([relationId, achievementId])
+  @@map("relation_achievements")
 } 

@@ -17,7 +17,7 @@ import LoginModal from '../components/LoginModal';
 import Avatar from '../components/Avatar';
 import { goToHeartShop } from '../utils/webview';
 import FavorabilityGauge from '../components/FavorabilityGauge';
-import { getAllRelations } from '../services/favorabilityAPI';
+import { getAllRelations } from '../services/relationshipAPI';
 
 const MyPage = () => {
   const { isLoggedIn, user: authUser } = useAuth();
@@ -839,16 +839,27 @@ const MyPage = () => {
                       <div className="text-xs text-gray-500">
                         마지막 업데이트: {new Date(relation.updatedAt).toLocaleDateString('ko-KR')}
                       </div>
-                      <button
-                        onClick={() => {
-                          // 해당 캐릭터와의 채팅으로 이동
-                          navigate(`/chats?character=${relation.character.id}`);
-                        }}
-                        className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 rounded-md transition-all duration-200"
-                      >
-                        <ChatBubbleLeftRightIcon className="w-4 h-4" />
-                        <span>대화하기</span>
-                      </button>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            navigate(`/relationship/${relation.character.id}`);
+                          }}
+                          className="flex items-center space-x-1 px-3 py-1.5 text-sm text-pink-600 hover:text-pink-800 border border-pink-300 hover:border-pink-400 bg-pink-50 hover:bg-pink-100 rounded-md transition-all duration-200"
+                        >
+                          <HeartIcon className="w-4 h-4" />
+                          <span>관계 관리</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            // 해당 캐릭터와의 채팅으로 이동
+                            navigate(`/chats?character=${relation.character.id}`);
+                          }}
+                          className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 rounded-md transition-all duration-200"
+                        >
+                          <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                          <span>대화하기</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
