@@ -564,9 +564,10 @@ const MyPage = () => {
                 </span>
                 <span className="text-sm text-gray-500">🍃 Lv.</span>
               </div>
-              <p className="text-sm text-gray-400">
-                Google 가입 • {user?.hearts || 150}개의 하트
-              </p>
+              <div className="text-sm text-gray-400">
+                <p>Google 가입</p>
+                <p>{user?.hearts || 150}개의 하트 보유</p>
+              </div>
             </div>
           </div>
           <button onClick={handleSettings} className="p-2">
