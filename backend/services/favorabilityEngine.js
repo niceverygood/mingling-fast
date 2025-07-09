@@ -194,16 +194,27 @@ async function updateFavorability(userId, characterId, deltaScore, eventType, de
       }
     });
 
-    // 단계 변경 이벤트 반환
+    // 단계 변경 이벤트 반환 (상세 정보 포함)
     const stageChanged = shouldChange;
     const result = {
-      relation: updatedRelation,
+      relation: {
+        ...updatedRelation,
+        // 정확한 점수와 단계 정보 보장
+        score: newScore,
+        stage: finalStage
+      },
       oldStage,
       newStage: finalStage,
       stageChanged,
       deltaScore,
       stageInfo: STAGES[finalStage],
-      score: newScore // 실제 점수 포함
+      score: newScore, // 실제 점수 포함
+      // 다음 단계 정보 추가
+      nextStageInfo: finalStage < 6 ? {
+        nextStage: finalStage + 1,
+        nextStageMin: STAGES[finalStage + 1]?.min || 1000,
+        pointsNeeded: Math.max(0, (STAGES[finalStage + 1]?.min || 1000) - newScore)
+      } : null
     };
 
     if (stageChanged) {

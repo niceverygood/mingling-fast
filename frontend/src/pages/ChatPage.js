@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, HeartIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { heartsAPI, chatsAPI } from '../services/api';
@@ -29,6 +29,32 @@ const ChatPage = () => {
   // 호감도 관련 상태
   const [relationInfo, setRelationInfo] = useState(null);
   const [favorabilityNotification, setFavorabilityNotification] = useState(null);
+  
+  // 다음 단계까지 남은 점수 계산 (실시간 업데이트)
+  const nextStageInfo = useMemo(() => {
+    if (!relationInfo) return null;
+    
+    const stageThresholds = {
+      0: { next: 150, label: '친구 😊' },
+      1: { next: 300, label: '썸 전야 😄' },
+      2: { next: 500, label: '연인 💕' },
+      3: { next: 700, label: '진지한 관계 💖' },
+      4: { next: 850, label: '약혼 💍' },
+      5: { next: 930, label: '결혼 👑' }
+    };
+    
+    const currentStage = relationInfo.stage;
+    if (currentStage >= 6) return null; // 최대 단계
+    
+    const nextThreshold = stageThresholds[currentStage];
+    const pointsNeeded = nextThreshold.next - relationInfo.score;
+    
+    return {
+      nextStageLabel: nextThreshold.label,
+      pointsNeeded: Math.max(0, pointsNeeded),
+      progressPercentage: ((relationInfo.score / 1000) * 100).toFixed(1)
+    };
+  }, [relationInfo]);
   
   // 스크롤 자동 이동을 위한 ref
   const messagesEndRef = useRef(null);
@@ -222,10 +248,19 @@ const ChatPage = () => {
         
         console.log('🔄 호감도 변화 데이터:', favorabilityData);
         
-        // 호감도 정보 즉시 업데이트
+        // 호감도 정보 즉시 업데이트 (강제 리렌더링)
         if (favorabilityData.relation) {
-          setRelationInfo(favorabilityData.relation);
-          console.log('✅ 관계 정보 업데이트됨:', favorabilityData.relation);
+          console.log('🔄 이전 관계 정보:', relationInfo);
+          console.log('🔄 새로운 관계 정보:', favorabilityData.relation);
+          
+          // 새로운 객체로 상태 업데이트 (React 리렌더링 보장)
+          setRelationInfo(prevInfo => ({
+            ...favorabilityData.relation,
+            // 타임스탬프 추가로 강제 업데이트
+            _lastUpdated: Date.now()
+          }));
+          
+          console.log('✅ 관계 정보 즉시 업데이트 완료');
         }
         
         // 변화 알림 표시
@@ -425,7 +460,7 @@ const ChatPage = () => {
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-600">전체 진행률</span>
               <span className="text-xs font-medium text-gray-700">
-                {((relationInfo.score / 1000) * 100).toFixed(1)}%
+                {nextStageInfo?.progressPercentage || '0.0'}%
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -450,26 +485,14 @@ const ChatPage = () => {
               />
             </div>
             
-            {/* 다음 단계 정보 */}
-            {relationInfo.stage < 6 && (
+            {/* 다음 단계 정보 (실시간 업데이트) */}
+            {nextStageInfo && (
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500">
-                  다음 단계: {
-                    relationInfo.stage === 0 ? '친구 😊' :
-                    relationInfo.stage === 1 ? '썸 전야 😄' :
-                    relationInfo.stage === 2 ? '연인 💕' :
-                    relationInfo.stage === 3 ? '진지한 관계 💖' :
-                    relationInfo.stage === 4 ? '약혼 💍' :
-                    relationInfo.stage === 5 ? '결혼 👑' : ''
-                  }
+                  다음 단계: {nextStageInfo.nextStageLabel}
                 </span>
-                <span className="text-xs text-gray-500">
-                  {(relationInfo.stage === 0 ? 150 : 
-                    relationInfo.stage === 1 ? 300 : 
-                    relationInfo.stage === 2 ? 500 : 
-                    relationInfo.stage === 3 ? 700 : 
-                    relationInfo.stage === 4 ? 850 : 
-                    relationInfo.stage === 5 ? 930 : 1000) - relationInfo.score}점 남음
+                <span className="text-xs text-gray-500 font-medium">
+                  {nextStageInfo.pointsNeeded}점 남음
                 </span>
               </div>
             )}
