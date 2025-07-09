@@ -400,4 +400,4 @@ export const debugAPI = {
 };
 
 // 기본 axios 인스턴스와 설정 내보내기
-export { api as default, API_CONFIG, API_ENDPOINTS }; 
+export { api as default, API_CONFIG, API_ENDPOINTS, apiCall }; 
