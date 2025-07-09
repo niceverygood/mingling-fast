@@ -134,8 +134,9 @@ model HeartTransaction {
   amount      Int      // positive for charge, negative for spend
   type        String   // 'charge', 'spend', 'gift', 'purchase'
   description String?
+  balance     Int?     // 트랜잭션 후 잔액
   
-  // 결제 관련 필드들
+  // 웹 결제 관련 필드들 (포트원)
   impUid      String?  @unique // 포트원 결제 고유 ID
   merchantUid String?  // 주문번호
   status      String   @default("pending") // 'pending', 'verified', 'completed', 'failed', 'refunded'
@@ -144,6 +145,11 @@ model HeartTransaction {
   paidAt      DateTime? // 결제 완료 시간
   completedAt DateTime? // 하트 지급 완료 시간
   refundedAt  DateTime? // 환불 처리 시간
+  
+  // 인앱결제 관련 필드들
+  transactionId String? // 인앱결제 트랜잭션 ID
+  productId     String? // 인앱결제 상품 ID
+  purchaseDate  DateTime? // 인앱결제 구매 시간
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt @default(now())

@@ -7,7 +7,7 @@ import Avatar from '../components/Avatar';
 import FavorabilityGauge, { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
 import TypingAnimation from '../components/TypingAnimation';
 import { getRelationInfo } from '../services/relationshipAPI';
-import { goToHeartShopWithAlert } from '../utils/webview';
+import { goToHeartShopWithAlert, openHeartShop, isInApp, listenForHeartUpdates } from '../utils/webview';
 import { usePopup } from '../context/PopupContext';
 
 const ChatPage = () => {
@@ -112,6 +112,18 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
+  // 네이티브 앱에서 하트 업데이트 리스너
+  useEffect(() => {
+    if (isInApp()) {
+      const removeListener = listenForHeartUpdates((newHearts) => {
+        console.log('📱 네이티브에서 하트 업데이트 수신:', newHearts);
+        setHearts(newHearts);
+      });
+      
+      return removeListener;
+    }
+  }, []);
+
   // 감정 관련 함수 제거됨
 
   // 호감도 정보 불러오기 (개선된 버전)
@@ -202,10 +214,16 @@ const ChatPage = () => {
     
     // 하트가 부족한 경우
     if (hearts < 1) {
-      showInsufficientHearts(hearts, {
-        onConfirm: () => navigate('/heart-shop'),
-        onCancel: () => {}
-      });
+      if (isInApp()) {
+        // 네이티브 앱에서는 네이티브 하트샵 열기
+        openHeartShop(hearts);
+      } else {
+        // 웹에서는 기존 팝업 방식 유지
+        showInsufficientHearts(hearts, {
+          onConfirm: () => navigate('/heart-shop'),
+          onCancel: () => {}
+        });
+      }
       return;
     }
 
@@ -353,10 +371,16 @@ const ChatPage = () => {
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempUserMessage.id));
       
       if (error.response?.data?.error === 'Insufficient hearts') {
-        showInsufficientHearts(hearts, {
-          onConfirm: () => navigate('/heart-shop'),
-          onCancel: () => {}
-        });
+        if (isInApp()) {
+          // 네이티브 앱에서는 네이티브 하트샵 열기
+          openHeartShop(hearts);
+        } else {
+          // 웹에서는 기존 팝업 방식 유지
+          showInsufficientHearts(hearts, {
+            onConfirm: () => navigate('/heart-shop'),
+            onCancel: () => {}
+          });
+        }
       } else {
         showError('메시지 전송에 실패했습니다.');
       }
@@ -604,10 +628,10 @@ const ChatPage = () => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && !heartLoading && hearts >= 1 && !isGeneratingResponse && handleSendMessage()}
-            onClick={() => hearts < 1 && showInsufficientHearts(hearts, {
+            onClick={() => hearts < 1 && (isInApp() ? openHeartShop(hearts) : showInsufficientHearts(hearts, {
               onConfirm: () => navigate('/heart-shop'),
               onCancel: () => {}
-            })}
+            }))}
             placeholder={hearts < 1 ? "하트가 부족합니다. 하트를 충전해주세요!" : "메시지를 입력하세요... (1 하트 소모)"}
             disabled={hearts < 1 || heartLoading || isGeneratingResponse}
             className={`flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 text-sm ${
