@@ -16,6 +16,8 @@ import HeartShop from './pages/HeartShop/HeartShop';
 import ChatListPage from './pages/ChatListPage';
 import TestWebView from './pages/TestWebView';
 import TestFavorability from './pages/TestFavorability';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import BottomNavigation from './components/BottomNavigation';
 import './App.css';
@@ -57,7 +59,9 @@ function AppWithNavigation() {
     '/heart-shop',
     '/persona-management',
     '/persona-selection',
-    '/test-webview'
+    '/test-webview',
+    '/privacy-policy',
+    '/terms-of-service'
   ];
 
   // 현재 경로가 하단 네비게이션을 숨겨야 하는 페이지인지 확인
@@ -81,6 +85,8 @@ function AppWithNavigation() {
           <Route path="/persona-management" element={<PersonaManagement />} />
           <Route path="/persona-selection" element={<PersonaSelection />} />
           <Route path="/heart-shop" element={<HeartShop />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/test-webview" element={<TestWebView />} />
           <Route path="/test-favorability" element={<TestFavorability />} />
         </Routes>

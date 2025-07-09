@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const LoginModal = ({ isOpen, onClose, title, subtitle }) => {
   const { loginWithGoogle, login } = useAuth();
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -99,7 +101,17 @@ const LoginModal = ({ isOpen, onClose, title, subtitle }) => {
 
           {/* Terms */}
           <p className="text-xs text-gray-500 text-center mt-4 leading-relaxed">
-            로그인 시 서비스 이용약관 및 <span className="underline">개인정보취급방침</span>에 동의한 것으로 간주됩니다.
+            로그인 시 <span 
+              onClick={() => navigate('/terms-of-service')}
+              className="underline cursor-pointer hover:text-gray-700"
+            >
+              서비스 이용약관
+            </span> 및 <span 
+              onClick={() => navigate('/privacy-policy')}
+              className="underline cursor-pointer hover:text-gray-700"
+            >
+              개인정보취급방침
+            </span>에 동의한 것으로 간주됩니다.
           </p>
 
           {/* Guest Continue */}

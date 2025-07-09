@@ -1,10 +1,12 @@
 import React from 'react';
 import { XMarkIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { isWebView } from '../../utils/webview';
 
 const Settings = ({ onClose }) => {
   const { logout, isLoggedIn } = useAuth();
+  const navigate = useNavigate();
 
   const handleServiceTerms = () => {
     // WebView 환경 감지
@@ -18,8 +20,8 @@ const Settings = ({ onClose }) => {
         }));
       }
     } else {
-      // 일반 브라우저에서는 새 창으로 열기
-      window.open('https://minglingchat.com/terms', '_blank', 'noopener,noreferrer');
+      // 일반 브라우저에서는 내부 페이지로 이동
+      navigate('/terms-of-service');
     }
   };
 
@@ -35,8 +37,8 @@ const Settings = ({ onClose }) => {
         }));
       }
     } else {
-      // 일반 브라우저에서는 새 창으로 열기
-      window.open('https://minglingchat.com/privacy', '_blank', 'noopener,noreferrer');
+      // 일반 브라우저에서는 내부 페이지로 이동
+      navigate('/privacy-policy');
     }
   };
 
