@@ -151,7 +151,7 @@ const ChatListPage: React.FC = () => {
             새로운 AI 친구와 대화를 시작해보세요
           </p>
           <button
-            onClick={() => navigate('/characters')}
+            onClick={() => navigate('/for-you')}
             className="bg-pink-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-pink-600 transition-colors"
           >
             친구 찾기
