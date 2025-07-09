@@ -8,7 +8,6 @@ import FavorabilityGauge, { FavorabilityChangeNotification } from '../components
 import { getRelationInfo } from '../services/relationshipAPI';
 import { goToHeartShopWithAlert } from '../utils/webview';
 import { usePopup } from '../context/PopupContext';
-import { EmotionalFeedbackSystem } from '../components/EmotionalFeedback';
 
 const ChatPage = () => {
   const { chatId } = useParams();
@@ -30,14 +29,6 @@ const ChatPage = () => {
   // 호감도 관련 상태
   const [relationInfo, setRelationInfo] = useState(null);
   const [favorabilityNotification, setFavorabilityNotification] = useState(null);
-  
-  // 감정 피드백 시스템 상태
-  const [isTyping, setIsTyping] = useState(false);
-  const [currentEmotion, setCurrentEmotion] = useState('neutral');
-  const [emotionIntensity, setEmotionIntensity] = useState(50);
-  const [showMessageSent, setShowMessageSent] = useState(false);
-  const [showMessageReceived, setShowMessageReceived] = useState(false);
-  const [isFirstMeeting, setIsFirstMeeting] = useState(false);
   
   // 스크롤 자동 이동을 위한 ref
   const messagesEndRef = useRef(null);
@@ -83,36 +74,7 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
-  // 감정 업데이트 함수 (메시지 내용 기반)
-  const updateEmotionBasedOnMessage = (messageContent) => {
-    const content = messageContent.toLowerCase();
-    
-    // 긍정적인 단어들
-    const positiveWords = ['좋아', '사랑', '행복', '기쁘', '웃음', '최고', '감사', '고마워', '멋져', '예뻐'];
-    const excitedWords = ['와', '우와', '대박', '진짜', '완전', '너무', '정말', '엄청'];
-    const sadWords = ['슬프', '우울', '힘들', '아프', '괜찮', '미안', '죄송'];
-    const curiousWords = ['왜', '어떻게', '뭐', '무엇', '궁금', '어디', '언제'];
-    
-    let emotion = 'neutral';
-    let intensity = 50;
-    
-    if (positiveWords.some(word => content.includes(word))) {
-      emotion = 'happy';
-      intensity = 75;
-    } else if (excitedWords.some(word => content.includes(word))) {
-      emotion = 'excited';
-      intensity = 80;
-    } else if (sadWords.some(word => content.includes(word))) {
-      emotion = 'sad';
-      intensity = 60;
-    } else if (curiousWords.some(word => content.includes(word))) {
-      emotion = 'curious';
-      intensity = 65;
-    }
-    
-    setCurrentEmotion(emotion);
-    setEmotionIntensity(intensity);
-  };
+  // 감정 관련 함수 제거됨
 
   // 호감도 정보 불러오기 (개선된 버전)
   const fetchRelationInfo = async (characterId) => {
@@ -148,9 +110,9 @@ const ChatPage = () => {
       fetchRelationInfo(chatInfo.character.id);
       
       // 첫 만남 감지 (메시지가 없거나 1개 이하인 경우)
-      if (messages.length <= 1) {
-        setIsFirstMeeting(true);
-      }
+      // if (messages.length <= 1) { // 첫 만남 애니메이션 제거
+      //   setIsFirstMeeting(true);
+      // }
     }
   }, [chatInfo, messages.length]);
 
@@ -216,8 +178,8 @@ const ChatPage = () => {
     setNewMessage('');
     
     // 메시지 전송 효과 표시
-    setShowMessageSent(true);
-    setTimeout(() => setShowMessageSent(false), 2000);
+    // setShowMessageSent(true); // 메시지 전송 효과 제거
+    // setTimeout(() => setShowMessageSent(false), 2000); // 메시지 전송 효과 제거
     
     // 입력 필드에 포커스 유지 (약간의 딜레이 후 실행)
     setTimeout(() => {
@@ -238,12 +200,11 @@ const ChatPage = () => {
     setHeartLoading(true);
     setIsGeneratingResponse(true);
     
-    // AI 타이핑 애니메이션 시작
-    setTimeout(() => {
-      setIsTyping(true);
-      // 감정 상태 업데이트 (메시지 내용에 따라)
-      updateEmotionBasedOnMessage(userMessageContent);
-    }, 500);
+    // AI 타이핑 애니메이션 시작 (감정 관련 제거)
+    // setTimeout(() => {
+    //   setIsTyping(true); 
+    //   updateEmotionBasedOnMessage(userMessageContent);
+    // }, 500);
 
     try {
       // 하트 차감
@@ -286,9 +247,9 @@ const ChatPage = () => {
       }
       
       // 타이핑 애니메이션 종료 및 메시지 수신 효과 표시
-      setIsTyping(false);
-      setShowMessageReceived(true);
-      setTimeout(() => setShowMessageReceived(false), 2000);
+      // setIsTyping(false); // 감정 관련 UI 제거
+      // setShowMessageReceived(true); // 메시지 수신 효과 제거
+      // setTimeout(() => setShowMessageReceived(false), 2000); // 메시지 수신 효과 제거
       
       // 임시 사용자 메시지 제거하고 실제 메시지들로 교체
       setMessages(prevMessages => {
@@ -313,7 +274,7 @@ const ChatPage = () => {
       console.error('Error sending message:', error);
       
       // 타이핑 애니메이션 종료
-      setIsTyping(false);
+      // setIsTyping(false); // 감정 관련 UI 제거
       
       // 에러 발생 시 임시 사용자 메시지 제거
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempUserMessage.id));
@@ -504,48 +465,7 @@ const ChatPage = () => {
       )}
 
       {/* Emotion Status Section */}
-      {chatInfo?.character && (
-        <div className="px-4 py-3 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl">{
-                currentEmotion === 'happy' ? '😊' :
-                currentEmotion === 'excited' ? '🤗' :
-                currentEmotion === 'sad' ? '😢' :
-                currentEmotion === 'shy' ? '😳' :
-                currentEmotion === 'curious' ? '🤔' : '😐'
-              }</div>
-              <div>
-                <div className="text-sm font-medium text-gray-700">
-                  {chatInfo.character.name}의 감정
-                </div>
-                <div className="text-xs text-gray-500">
-                  {currentEmotion === 'happy' ? '기분이 좋아 보여요!' :
-                   currentEmotion === 'excited' ? '설레고 있는 것 같아요!' :
-                   currentEmotion === 'sad' ? '조금 슬퍼 보여요' :
-                   currentEmotion === 'shy' ? '조금 부끄러워해요' :
-                   currentEmotion === 'curious' ? '궁금해하는 것 같아요' : '평온한 상태예요'}
-                </div>
-              </div>
-            </div>
-            <div className="text-xs text-gray-500">
-              {emotionIntensity}%
-            </div>
-          </div>
-          <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
-            <div 
-              className={`h-1 rounded-full transition-all duration-300 ${
-                currentEmotion === 'happy' ? 'bg-yellow-400' :
-                currentEmotion === 'excited' ? 'bg-pink-400' :
-                currentEmotion === 'sad' ? 'bg-blue-400' :
-                currentEmotion === 'shy' ? 'bg-red-400' :
-                currentEmotion === 'curious' ? 'bg-purple-400' : 'bg-gray-400'
-              }`}
-              style={{ width: `${emotionIntensity}%` }}
-            />
-          </div>
-        </div>
-      )}
+      {/* 감정 관련 UI 제거 */}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-4">
@@ -616,17 +536,7 @@ const ChatPage = () => {
       </div>
       
       {/* Emotional Feedback System */}
-      <EmotionalFeedbackSystem
-        isTyping={isTyping}
-        emotion={currentEmotion}
-        emotionIntensity={emotionIntensity}
-        characterName={chatInfo?.character?.name || '캐릭터'}
-        characterAvatar={chatInfo?.character?.avatarUrl}
-        isFirstMeeting={isFirstMeeting}
-        onFirstMeetingComplete={() => setIsFirstMeeting(false)}
-        showMessageSent={showMessageSent}
-        showMessageReceived={showMessageReceived}
-      />
+      {/* 감정 관련 UI 제거 */}
       
       {/* Favorability Change Notification */}
       {favorabilityNotification && (
