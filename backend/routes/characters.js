@@ -79,17 +79,10 @@ router.get('/recommended', async (req, res) => {
   try {
     const firebaseUserId = req.headers['x-user-id'];
     
-    // 공개 캐릭터 중에서 현재 사용자가 만든 것은 제외
+    // 공개 캐릭터 모두 포함 (자신이 만든 것도 포함)
     const whereClause = {
       isPublic: true
     };
-    
-    // 로그인한 사용자인 경우 자신의 캐릭터는 제외
-    if (firebaseUserId) {
-      whereClause.userId = {
-        not: firebaseUserId
-      };
-    }
 
     const characters = await prisma.character.findMany({
       where: whereClause,
@@ -102,21 +95,30 @@ router.get('/recommended', async (req, res) => {
         personality: true,
         firstImpression: true,
         basicSetting: true,
+        userId: true,
         user: {
           select: {
             username: true
           }
         }
       },
-      take: 10,
-      orderBy: {
-        createdAt: 'desc'
-      }
+      take: 20,
+      orderBy: [
+        // 자신이 만든 캐릭터를 우선적으로 표시
+        ...(firebaseUserId 
+          ? [{ userId: { equals: firebaseUserId } }] 
+          : []),
+        { createdAt: 'desc' }
+      ]
     });
 
-    // 더미 데이터 제거 - 실제 데이터만 반환
+    // 캐릭터에 소유자 정보 추가
+    const charactersWithOwnership = characters.map(character => ({
+      ...character,
+      isOwner: character.userId === firebaseUserId
+    }));
 
-    res.json(characters);
+    res.json(charactersWithOwnership);
   } catch (error) {
     console.error('Error fetching recommended characters:', error);
     res.status(500).json({ error: 'Failed to fetch recommended characters' });

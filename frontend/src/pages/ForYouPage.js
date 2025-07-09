@@ -12,6 +12,7 @@ const ForYouPage = () => {
   const [characters, setCharacters] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showPersonaSelection, setShowPersonaSelection] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -25,17 +26,25 @@ const ForYouPage = () => {
 
   const fetchRecommendedCharacters = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const response = await charactersAPI.getRecommended();
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setCharacters(response.data);
+        if (response.data.length > 0) {
+          setCurrentIndex(0);
+        }
       } else {
         console.error('Received non-array response:', response.data);
         setCharacters([]);
+        setError('캐릭터 데이터를 불러올 수 없습니다.');
       }
     } catch (error) {
       console.error('Error fetching recommended characters:', error);
       setCharacters([]);
+      setError(error.response?.data?.error || '캐릭터를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -192,16 +201,46 @@ const ForYouPage = () => {
   }
 
   // 로그인한 경우 기존 코드
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-black">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>추천 캐릭터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-black">
+        <div className="text-white text-center">
+          <div className="text-red-500 text-6xl mb-4">😞</div>
+          <p className="mb-4">{error}</p>
+          <button 
+            onClick={fetchRecommendedCharacters}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (characters.length === 0) {
     return (
       <div className="flex justify-center items-center h-screen bg-black">
         <div className="text-white text-center">
-          <p className="mb-4">추천할 캐릭터가 없습니다.</p>
+          <div className="text-gray-400 text-8xl mb-4">🎭</div>
+          <p className="mb-4">아직 추천할 캐릭터가 없습니다.</p>
+          <p className="text-gray-400 text-sm mb-6">새로운 캐릭터를 만들어보세요!</p>
           <button 
             onClick={fetchRecommendedCharacters}
-            className="bg-white text-black px-4 py-2 rounded-full"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full"
           >
-            다시 시도
+            새로고침
           </button>
         </div>
       </div>
@@ -246,9 +285,19 @@ const ForYouPage = () => {
             fallbackType="emoji"
           />
           <div>
-            <h2 className="text-white text-lg font-bold">{currentCharacter.name}</h2>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-white text-lg font-bold">{currentCharacter.name}</h2>
+              {currentCharacter.isOwner && (
+                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                  내 캐릭터
+                </span>
+              )}
+            </div>
             <p className="text-white text-sm opacity-80">
               {currentCharacter.age}세 | {currentCharacter.description}
+            </p>
+            <p className="text-white text-xs opacity-60">
+              by {currentCharacter.user?.username || '익명'}
             </p>
           </div>
         </div>
