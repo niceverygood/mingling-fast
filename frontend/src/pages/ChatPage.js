@@ -312,23 +312,100 @@ const ChatPage = () => {
 
       {/* Favorability Section */}
       {relationInfo && (
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <FavorabilityGauge 
-                score={relationInfo.score}
-                stage={relationInfo.stage}
-                showDetails={false}
-                size="small"
-                animated={true}
-              />
+        <div className="p-4 bg-gradient-to-r from-pink-50 to-purple-50 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="text-2xl">
+                {relationInfo.stage === 0 && '👋'}
+                {relationInfo.stage === 1 && '😊'}
+                {relationInfo.stage === 2 && '😄'}
+                {relationInfo.stage === 3 && '💕'}
+                {relationInfo.stage === 4 && '💖'}
+                {relationInfo.stage === 5 && '💍'}
+                {relationInfo.stage === 6 && '👑'}
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-gray-800">
+                  {relationInfo.stage === 0 && '아는 사람'}
+                  {relationInfo.stage === 1 && '친구'}
+                  {relationInfo.stage === 2 && '썸 전야'}
+                  {relationInfo.stage === 3 && '연인'}
+                  {relationInfo.stage === 4 && '진지한 관계'}
+                  {relationInfo.stage === 5 && '약혼'}
+                  {relationInfo.stage === 6 && '결혼'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {relationInfo.stage === 0 && '서로를 알아가는 중'}
+                  {relationInfo.stage === 1 && '편안한 친구 사이'}
+                  {relationInfo.stage === 2 && '특별한 감정이 싹트는 중'}
+                  {relationInfo.stage === 3 && '서로 사랑하는 연인'}
+                  {relationInfo.stage === 4 && '깊은 사랑으로 이어진'}
+                  {relationInfo.stage === 5 && '결혼을 약속한 사이'}
+                  {relationInfo.stage === 6 && '영원한 사랑을 맹세한'}
+                </div>
+              </div>
             </div>
             <button
               onClick={() => navigate(`/relationship/${chatInfo?.character?.id}`)}
-              className="ml-3 px-3 py-1.5 text-xs text-pink-600 hover:text-pink-800 border border-pink-300 hover:border-pink-400 bg-pink-50 hover:bg-pink-100 rounded-md transition-all duration-200"
+              className="px-3 py-1.5 text-xs text-pink-600 hover:text-pink-800 border border-pink-300 hover:border-pink-400 bg-pink-50 hover:bg-pink-100 rounded-md transition-all duration-200"
             >
               관계 관리
             </button>
+          </div>
+          
+          {/* 진행률 바 */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-600">전체 진행률</span>
+              <span className="text-xs font-medium text-gray-700">
+                {((relationInfo.score / 1000) * 100).toFixed(1)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="h-2 rounded-full transition-all duration-1000 ease-out"
+                style={{ 
+                  width: `${(relationInfo.score / 1000) * 100}%`,
+                  background: `linear-gradient(to right, 
+                    ${relationInfo.stage === 0 ? '#9CA3AF' : 
+                      relationInfo.stage === 1 ? '#60A5FA' : 
+                      relationInfo.stage === 2 ? '#34D399' : 
+                      relationInfo.stage === 3 ? '#F472B6' : 
+                      relationInfo.stage === 4 ? '#A78BFA' : 
+                      relationInfo.stage === 5 ? '#FB7185' : '#FBBF24'}, 
+                    ${relationInfo.stage === 0 ? '#6B7280' : 
+                      relationInfo.stage === 1 ? '#3B82F6' : 
+                      relationInfo.stage === 2 ? '#10B981' : 
+                      relationInfo.stage === 3 ? '#EC4899' : 
+                      relationInfo.stage === 4 ? '#8B5CF6' : 
+                      relationInfo.stage === 5 ? '#F43F5E' : '#F59E0B'})`
+                }}
+              />
+            </div>
+            
+            {/* 다음 단계 정보 */}
+            {relationInfo.stage < 6 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500">
+                  다음 단계: {
+                    relationInfo.stage === 0 ? '친구 😊' :
+                    relationInfo.stage === 1 ? '썸 전야 😄' :
+                    relationInfo.stage === 2 ? '연인 💕' :
+                    relationInfo.stage === 3 ? '진지한 관계 💖' :
+                    relationInfo.stage === 4 ? '약혼 💍' :
+                    relationInfo.stage === 5 ? '결혼 👑' : ''
+                  }
+                </span>
+                <span className="text-xs text-gray-500">
+                  {(relationInfo.stage === 0 ? 150 : 
+                    relationInfo.stage === 1 ? 300 : 
+                    relationInfo.stage === 2 ? 500 : 
+                    relationInfo.stage === 3 ? 700 : 
+                    relationInfo.stage === 4 ? 850 : 
+                    relationInfo.stage === 5 ? 930 : 1000) - relationInfo.score}점 남음
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

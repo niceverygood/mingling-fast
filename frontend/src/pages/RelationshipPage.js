@@ -19,6 +19,7 @@ import {
 } from '@heroicons/react/24/solid';
 import Avatar from '../components/Avatar';
 import FavorabilityGauge from '../components/FavorabilityGauge';
+import RelationshipStageIndicator from '../components/RelationshipStageIndicator';
 import { charactersAPI } from '../services/api';
 import { 
   getRelationInfo, 
@@ -227,15 +228,15 @@ const RelationshipPage = () => {
       <div className="p-4">
         {activeTab === 'status' && (
           <div className="space-y-6">
-            {/* Favorability Gauge */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-medium mb-3">호감도 현황</h3>
-              <FavorabilityGauge 
+            {/* Relationship Stage Indicator */}
+            <div className="bg-white rounded-lg shadow-sm border p-4">
+              <RelationshipStageIndicator 
                 score={relationInfo.score}
                 stage={relationInfo.stage}
                 showDetails={true}
-                size="large"
-                animated={true}
+                size="normal"
+                showAdvice={true}
+                showAllStages={false}
               />
             </div>
 
@@ -259,27 +260,17 @@ const RelationshipPage = () => {
               </div>
             </div>
 
-            {/* Next Milestone */}
-            <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-4">
-              <h3 className="font-medium mb-3">다음 단계까지</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>진행률</span>
-                  <span>{relationInfo.progressInStage}/{relationInfo.maxProgressInStage}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-pink-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(relationInfo.progressInStage / relationInfo.maxProgressInStage) * 100}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-gray-500 text-center">
-                  {relationInfo.stage < 6 ? 
-                    `${getStageInfo(relationInfo.stage + 1).title} 단계까지 ${relationInfo.maxProgressInStage - relationInfo.progressInStage}점 남았어요` :
-                    '최고 단계에 도달했어요! 🎉'
-                  }
-                </p>
-              </div>
+            {/* All Stages Overview */}
+            <div className="bg-white rounded-lg shadow-sm border p-4">
+              <h3 className="font-medium mb-3">관계 발전 로드맵</h3>
+              <RelationshipStageIndicator 
+                score={relationInfo.score}
+                stage={relationInfo.stage}
+                showDetails={false}
+                size="small"
+                showAdvice={false}
+                showAllStages={true}
+              />
             </div>
 
             {/* Quick Actions */}
