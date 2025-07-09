@@ -5,6 +5,7 @@ import { heartsAPI, chatsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/Avatar';
 import FavorabilityGauge, { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
+import TypingAnimation from '../components/TypingAnimation';
 import { getRelationInfo } from '../services/relationshipAPI';
 import { goToHeartShopWithAlert } from '../utils/webview';
 import { usePopup } from '../context/PopupContext';
@@ -25,6 +26,10 @@ const ChatPage = () => {
   const [heartLoading, setHeartLoading] = useState(false);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [hasInitiallyScrolled, setHasInitiallyScrolled] = useState(false);
+  
+  // 타이핑 애니메이션 관련 상태
+  const [typingMessage, setTypingMessage] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
   
   // 호감도 관련 상태
   const [relationInfo, setRelationInfo] = useState(null);
@@ -78,6 +83,13 @@ const ChatPage = () => {
       scrollToBottom();
     }
   }, [isGeneratingResponse]);
+
+  // 타이핑 애니메이션 시작 시 스크롤
+  useEffect(() => {
+    if (isTyping) {
+      scrollToBottom();
+    }
+  }, [isTyping]);
 
   // 즉시 스크롤 (애니메이션 없음) - 초기 로딩 시 사용
   const scrollToBottomInstant = () => {
@@ -294,11 +306,6 @@ const ChatPage = () => {
         }, 500);
       }
       
-      // 타이핑 애니메이션 종료 및 메시지 수신 효과 표시
-      // setIsTyping(false); // 감정 관련 UI 제거
-      // setShowMessageReceived(true); // 메시지 수신 효과 제거
-      // setTimeout(() => setShowMessageReceived(false), 2000); // 메시지 수신 효과 제거
-      
       // 임시 사용자 메시지 제거하고 실제 메시지들로 교체
       setMessages(prevMessages => {
         // 임시 메시지 제거
@@ -307,7 +314,24 @@ const ChatPage = () => {
         // 응답이 배열인지 확인하고 새 메시지들 추가
         const messagesData = messageResponse.data.messages || messageResponse.data;
         if (Array.isArray(messagesData)) {
-          return [...filteredMessages, ...messagesData];
+          // 사용자 메시지는 즉시 표시하고, AI 응답은 타이핑 애니메이션 적용
+          const userMessage = messagesData.find(msg => msg.isFromUser);
+          const aiMessage = messagesData.find(msg => !msg.isFromUser);
+          
+          if (userMessage) {
+            // 사용자 메시지 즉시 추가
+            const newMessages = [...filteredMessages, userMessage];
+            
+            // AI 응답이 있으면 타이핑 애니메이션 시작
+            if (aiMessage) {
+              setTypingMessage(aiMessage);
+              setIsTyping(true);
+            }
+            
+            return newMessages;
+          } else {
+            return [...filteredMessages, ...messagesData];
+          }
         } else {
           console.error('Received non-array response for new messages:', messagesData);
           // 단일 메시지인 경우를 대비하여 배열로 감싸서 추가
@@ -322,7 +346,8 @@ const ChatPage = () => {
       console.error('Error sending message:', error);
       
       // 타이핑 애니메이션 종료
-      // setIsTyping(false); // 감정 관련 UI 제거
+      setIsTyping(false);
+      setTypingMessage(null);
       
       // 에러 발생 시 임시 사용자 메시지 제거
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempUserMessage.id));
@@ -350,6 +375,15 @@ const ChatPage = () => {
 
   const handleBack = () => {
     navigate('/chats');
+  };
+
+  // 타이핑 애니메이션 완료 처리
+  const handleTypingComplete = () => {
+    if (typingMessage) {
+      setMessages(prevMessages => [...prevMessages, typingMessage]);
+      setTypingMessage(null);
+      setIsTyping(false);
+    }
   };
 
   // 로딩 인디케이터 컴포넌트
@@ -528,8 +562,34 @@ const ChatPage = () => {
           </div>
         ))}
         
+        {/* 타이핑 애니메이션 표시 */}
+        {isTyping && typingMessage && (
+          <div key={`typing-${typingMessage.id}`}>
+            <div className="flex justify-start mb-1">
+              <div className="max-w-xs lg:max-w-md px-4 py-3 rounded-2xl bg-gray-100 text-gray-900">
+                <p className="text-sm leading-relaxed text-left">
+                  <TypingAnimation
+                    text={typingMessage.content}
+                    speed={30}
+                    onComplete={handleTypingComplete}
+                  />
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-start">
+              <p className="text-xs text-gray-400 px-2">
+                오전 {new Date(typingMessage.createdAt).toLocaleTimeString('ko-KR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true
+                })}
+              </p>
+            </div>
+          </div>
+        )}
+        
         {/* 응답 생성 중일 때 로딩 인디케이터 표시 */}
-        {isGeneratingResponse && <LoadingIndicator />}
+        {isGeneratingResponse && !isTyping && <LoadingIndicator />}
         
         {/* 스크롤 자동 이동을 위한 빈 div */}
         <div ref={messagesEndRef} />
