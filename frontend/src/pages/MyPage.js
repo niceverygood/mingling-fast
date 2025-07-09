@@ -18,6 +18,7 @@ import Avatar from '../components/Avatar';
 import { goToHeartShop } from '../utils/webview';
 import FavorabilityGauge from '../components/FavorabilityGauge';
 import { getAllRelations } from '../services/relationshipAPI';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 const MyPage = () => {
   const { isLoggedIn, user: authUser } = useAuth();
@@ -41,6 +42,13 @@ const MyPage = () => {
   const [relations, setRelations] = useState([]);
   // eslint-disable-next-line no-unused-vars  
   const navigate = useNavigate();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [characterToDelete, setCharacterToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [showPersonaDeleteModal, setShowPersonaDeleteModal] = useState(false);
+  const [personaToDelete, setPersonaToDelete] = useState(null);
+  const [personaDeleteLoading, setPersonaDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn && authUser) {
@@ -304,61 +312,129 @@ const MyPage = () => {
     setShowSettings(true);
   };
 
-  const handleCharacterDelete = async (character) => {
-    const confirmDelete = window.confirm(
-      `정말로 "${character.name}" 캐릭터를 삭제하시겠습니까?\n\n` +
-      `⚠️ 주의: 이 캐릭터와의 대화 기록이 있는 경우 캐릭터는 비활성화되며, ` +
-      `대화 기록이 없는 경우 완전히 삭제됩니다.`
-    );
+  const handleCharacterDelete = (character) => {
+    setCharacterToDelete(character);
+    setShowDeleteModal(true);
+  };
 
-    if (!confirmDelete) return;
+  const handleConfirmDelete = async () => {
+    if (!characterToDelete) return;
 
+    setDeleteLoading(true);
+    
     try {
-      const response = await charactersAPI.delete(character.id);
+      console.log('🗑️ 캐릭터 삭제 시작:', characterToDelete.name);
       
-      if (response.data.type === 'deactivated') {
-        alert('캐릭터가 비활성화되었습니다. (기존 대화 기록이 있어 완전 삭제되지 않았습니다)');
-      } else {
-        alert('캐릭터가 완전히 삭제되었습니다.');
+      const response = await charactersAPI.delete(characterToDelete.id);
+      
+      console.log('✅ 캐릭터 삭제 완료:', response.data);
+      
+      // 성공 메시지
+      const deletedChats = response.data.deletedData?.chats || 0;
+      const deletedRelations = response.data.deletedData?.relations || 0;
+      
+      let successMessage = `"${characterToDelete.name}" 캐릭터가 완전히 삭제되었습니다.`;
+      
+      if (deletedChats > 0 || deletedRelations > 0) {
+        successMessage += `\n\n삭제된 데이터:`;
+        if (deletedChats > 0) successMessage += `\n• 대화 기록 ${deletedChats}개`;
+        if (deletedRelations > 0) successMessage += `\n• 관계 데이터 ${deletedRelations}개`;
       }
       
-      fetchMyCharacters(); // 캐릭터 목록 새로고침
+      alert(successMessage);
+      
+      // 목록 새로고침
+      fetchMyCharacters();
+      fetchRelations(); // 관계 목록도 새로고침
+      
+      // 모달 닫기
+      setShowDeleteModal(false);
+      setCharacterToDelete(null);
+      
     } catch (error) {
-      console.error('Error deleting character:', error);
+      console.error('❌ 캐릭터 삭제 실패:', error);
+      
+      let errorMessage = '캐릭터 삭제에 실패했습니다.';
+      
       if (error.response?.status === 403) {
-        alert('자신이 만든 캐릭터만 삭제할 수 있습니다.');
-      } else {
-        alert('캐릭터 삭제에 실패했습니다. 다시 시도해주세요.');
+        errorMessage = '자신이 만든 캐릭터만 삭제할 수 있습니다.';
+      } else if (error.response?.status === 404) {
+        errorMessage = '캐릭터를 찾을 수 없습니다.';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
       }
+      
+      alert(errorMessage);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
-  const handlePersonaDelete = async (persona) => {
-    const confirmDelete = window.confirm(
-      `정말로 "${persona.name}" 페르소나를 삭제하시겠습니까?\n\n` +
-      `⚠️ 주의: 이 페르소나와 연결된 대화 기록이 있는 경우 페르소나는 비활성화되며, ` +
-      `대화 기록이 없는 경우 완전히 삭제됩니다.`
-    );
+  const handleCloseDeleteModal = () => {
+    if (!deleteLoading) {
+      setShowDeleteModal(false);
+      setCharacterToDelete(null);
+    }
+  };
 
-    if (!confirmDelete) return;
+  const handlePersonaDelete = (persona) => {
+    setPersonaToDelete(persona);
+    setShowPersonaDeleteModal(true);
+  };
 
+  const handleConfirmPersonaDelete = async () => {
+    if (!personaToDelete) return;
+
+    setPersonaDeleteLoading(true);
+    
     try {
-      const response = await personasAPI.delete(persona.id);
+      console.log('🗑️ 페르소나 삭제 시작:', personaToDelete.name);
       
-      if (response.data.type === 'deactivated') {
-        alert('페르소나가 비활성화되었습니다. (기존 대화 기록이 있어 완전 삭제되지 않았습니다)');
-      } else {
-        alert('페르소나가 완전히 삭제되었습니다.');
+      const response = await personasAPI.delete(personaToDelete.id);
+      
+      console.log('✅ 페르소나 삭제 완료:', response.data);
+      
+      // 성공 메시지
+      const deletedChats = response.data.deletedData?.chats || 0;
+      
+      let successMessage = `"${personaToDelete.name}" 페르소나가 완전히 삭제되었습니다.`;
+      
+      if (deletedChats > 0) {
+        successMessage += `\n\n삭제된 데이터:\n• 대화 기록 ${deletedChats}개`;
       }
       
-      fetchMyPersonas(); // 페르소나 목록 새로고침
+      alert(successMessage);
+      
+      // 목록 새로고침
+      fetchMyPersonas();
+      
+      // 모달 닫기
+      setShowPersonaDeleteModal(false);
+      setPersonaToDelete(null);
+      
     } catch (error) {
-      console.error('Error deleting persona:', error);
+      console.error('❌ 페르소나 삭제 실패:', error);
+      
+      let errorMessage = '페르소나 삭제에 실패했습니다.';
+      
       if (error.response?.status === 403) {
-        alert('자신이 만든 페르소나만 삭제할 수 있습니다.');
-      } else {
-        alert('페르소나 삭제에 실패했습니다. 다시 시도해주세요.');
+        errorMessage = '자신이 만든 페르소나만 삭제할 수 있습니다.';
+      } else if (error.response?.status === 404) {
+        errorMessage = '페르소나를 찾을 수 없습니다.';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
       }
+      
+      alert(errorMessage);
+    } finally {
+      setPersonaDeleteLoading(false);
+    }
+  };
+
+  const handleClosePersonaDeleteModal = () => {
+    if (!personaDeleteLoading) {
+      setShowPersonaDeleteModal(false);
+      setPersonaToDelete(null);
     }
   };
 
@@ -958,6 +1034,24 @@ const MyPage = () => {
           characterName={selectedCharacterForChat.name}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        character={characterToDelete}
+        loading={deleteLoading}
+      />
+
+      {/* Persona Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={showPersonaDeleteModal}
+        onClose={handleClosePersonaDeleteModal}
+        onConfirm={handleConfirmPersonaDelete}
+        character={personaToDelete}
+        loading={personaDeleteLoading}
+      />
     </div>
   );
 };

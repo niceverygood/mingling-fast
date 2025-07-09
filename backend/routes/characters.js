@@ -451,4 +451,165 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/characters/:id - 캐릭터 삭제
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const firebaseUserId = req.headers['x-user-id'];
+    
+    if (!firebaseUserId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+
+    console.log(`🗑️ 캐릭터 삭제 시작: ${id} by user ${firebaseUserId}`);
+
+    // 캐릭터 존재 및 소유권 확인
+    const character = await prisma.character.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        userId: true,
+        avatarUrl: true,
+        _count: {
+          select: {
+            chats: true,
+            relations: true
+          }
+        }
+      }
+    });
+
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    if (character.userId !== firebaseUserId) {
+      return res.status(403).json({ error: 'You can only delete your own characters' });
+    }
+
+    // 관련 데이터가 있는지 확인
+    const hasRelatedData = character._count.chats > 0 || character._count.relations > 0;
+    
+    console.log(`📊 캐릭터 관련 데이터:`, {
+      chats: character._count.chats,
+      relations: character._count.relations,
+      hasRelatedData
+    });
+
+    // S3에서 이미지 삭제를 위한 함수 import
+    const { deleteFileFromS3 } = require('../config/s3');
+
+    // 트랜잭션으로 모든 데이터 삭제
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. 관계 관련 데이터 삭제
+      if (character._count.relations > 0) {
+        // 관계 성취 삭제
+        await tx.relationAchievement.deleteMany({
+          where: {
+            relation: {
+              characterId: id
+            }
+          }
+        });
+
+        // 관계 추억 삭제
+        await tx.relationMemory.deleteMany({
+          where: {
+            relation: {
+              characterId: id
+            }
+          }
+        });
+
+        // 관계 이벤트 로그 삭제
+        await tx.relationEventLog.deleteMany({
+          where: {
+            relation: {
+              characterId: id
+            }
+          }
+        });
+
+        // 관계 삭제
+        await tx.relation.deleteMany({
+          where: { characterId: id }
+        });
+      }
+
+      // 2. 채팅 관련 데이터 삭제
+      if (character._count.chats > 0) {
+        // 메시지 삭제
+        await tx.message.deleteMany({
+          where: {
+            chat: {
+              characterId: id
+            }
+          }
+        });
+
+        // 채팅 삭제
+        await tx.chat.deleteMany({
+          where: { characterId: id }
+        });
+      }
+
+      // 3. 캐릭터 삭제
+      await tx.character.delete({
+        where: { id }
+      });
+
+      return { 
+        type: 'deleted',
+        message: '캐릭터가 완전히 삭제되었습니다.',
+        deletedData: {
+          chats: character._count.chats,
+          relations: character._count.relations
+        }
+      };
+    });
+
+    // 4. S3에서 이미지 삭제 (트랜잭션 외부에서 실행)
+    if (character.avatarUrl) {
+      try {
+        await deleteFileFromS3(character.avatarUrl);
+        console.log(`🖼️ S3 이미지 삭제 완료: ${character.avatarUrl}`);
+      } catch (s3Error) {
+        console.error('⚠️ S3 이미지 삭제 실패 (무시하고 계속):', s3Error);
+        // S3 삭제 실패는 치명적이지 않으므로 무시
+      }
+    }
+
+    console.log(`✅ 캐릭터 삭제 완료:`, {
+      characterId: id,
+      characterName: character.name,
+      deletedData: result.deletedData
+    });
+
+    res.json({
+      success: true,
+      data: {
+        id,
+        name: character.name,
+        ...result
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting character:', error);
+    
+    let errorMessage = 'Failed to delete character';
+    if (error.code === 'P2003') {
+      errorMessage = 'Cannot delete character due to existing dependencies';
+    } else if (error.code === 'P2025') {
+      errorMessage = 'Character not found';
+    }
+    
+    res.status(500).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router; 
