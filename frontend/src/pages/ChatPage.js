@@ -7,12 +7,16 @@ import Avatar from '../components/Avatar';
 import FavorabilityGauge, { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
 import { getRelationInfo } from '../services/relationshipAPI';
 import { goToHeartShopWithAlert } from '../utils/webview';
+import { usePopup } from '../context/PopupContext';
 
 const ChatPage = () => {
   const { chatId } = useParams();
   const navigate = useNavigate();
   // eslint-disable-next-line no-unused-vars
   const { isLoggedIn, user: authUser } = useAuth();
+  
+  // 커스텀 팝업 훅
+  const { showInsufficientHearts, showError } = usePopup();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [chatInfo, setChatInfo] = useState(null);
@@ -153,7 +157,10 @@ const ChatPage = () => {
     
     // 하트가 부족한 경우
     if (hearts < 1) {
-      goToHeartShopWithAlert(navigate);
+      showInsufficientHearts(hearts, {
+        onConfirm: () => navigate('/heart-shop'),
+        onCancel: () => {}
+      });
       return;
     }
 
@@ -248,9 +255,12 @@ const ChatPage = () => {
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempUserMessage.id));
       
       if (error.response?.data?.error === 'Insufficient hearts') {
-        goToHeartShopWithAlert(navigate);
+        showInsufficientHearts(hearts, {
+          onConfirm: () => navigate('/heart-shop'),
+          onCancel: () => {}
+        });
       } else {
-        alert('메시지 전송에 실패했습니다.');
+        showError('메시지 전송에 실패했습니다.');
       }
     } finally {
       setHeartLoading(false);
@@ -470,7 +480,10 @@ const ChatPage = () => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && !heartLoading && hearts >= 1 && !isGeneratingResponse && handleSendMessage()}
-            onClick={() => hearts < 1 && goToHeartShopWithAlert(navigate)}
+            onClick={() => hearts < 1 && showInsufficientHearts(hearts, {
+              onConfirm: () => navigate('/heart-shop'),
+              onCancel: () => {}
+            })}
             placeholder={hearts < 1 ? "하트가 부족합니다. 하트를 충전해주세요!" : "메시지를 입력하세요... (1 하트 소모)"}
             disabled={hearts < 1 || heartLoading || isGeneratingResponse}
             className={`flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 text-sm ${

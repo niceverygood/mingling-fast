@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
 import { getPaymentService } from '../../services/payment';
+import { usePopup } from '../../context/PopupContext';
 
 const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   const [selectedPack, setSelectedPack] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
+  
+  // 커스텀 팝업 훅
+  const { showPaymentSuccess, showError } = usePopup();
 
   console.log('💖 HeartShop 컴포넌트 렌더링:', { currentHearts, onPurchase: !!onPurchase });
 
@@ -140,15 +144,16 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
             });
           }
 
-          // 성공 팝업 표시 (개선된 메시지)
-          alert(`${result.popup.title}\n${result.popup.message}\n${result.popup.subtitle}`);
+          // 성공 팝업 표시 (커스텀 팝업 사용)
+          showPaymentSuccess(result.hearts.addedHearts, result.hearts.newBalance, {
+            onConfirm: () => {
+              setIsProcessing(false);
+              setSelectedPack(null);
+              onClose();
+            }
+          });
 
-          // 잠시 후 모달 닫기
-          setTimeout(() => {
-            setIsProcessing(false);
-            setSelectedPack(null);
-            onClose();
-          }, 2000);
+          // 커스텀 팝업에서 확인 버튼 클릭 시 처리됨
         } else {
           throw new Error(result.message || '하트 구매에 실패했습니다.');
         }
@@ -171,7 +176,7 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
         errorMessage = '결제 처리 중 오류가 발생했습니다.';
       }
 
-      alert(errorMessage);
+      showError(errorMessage);
     }
   };
 

@@ -4,8 +4,12 @@ import { charactersAPI } from '../../services/api';
 import CategorySelection from './CategorySelection';
 import HashtagSelection from './HashtagSelection';
 import ImageUpload from '../../components/ImageUpload';
+import { usePopup } from '../../context/PopupContext';
 
 const CharacterEdit = ({ characterId, onClose, onUpdate }) => {
+  // 커스텀 팝업 훅
+  const { showError, showAlert } = usePopup();
+  
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -58,7 +62,7 @@ const CharacterEdit = ({ characterId, onClose, onUpdate }) => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching character:', error);
-      alert('캐릭터 정보를 불러오는데 실패했습니다.');
+      showError('캐릭터 정보를 불러오는데 실패했습니다.');
       onClose();
     }
   };
@@ -120,17 +124,17 @@ const CharacterEdit = ({ characterId, onClose, onUpdate }) => {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert('캐릭터 이름을 입력해주세요.');
+      showAlert('캐릭터 이름을 입력해주세요.', '입력 오류');
       return;
     }
 
     if (!formData.avatarUrl) {
-      alert('프로필 이미지를 선택해주세요.');
+      showAlert('프로필 이미지를 선택해주세요.', '입력 오류');
       return;
     }
 
     if (!formData.characterType) {
-      alert('캐릭터 카테고리를 선택해주세요.');
+      showAlert('캐릭터 카테고리를 선택해주세요.', '입력 오류');
       return;
     }
 
@@ -147,7 +151,7 @@ const CharacterEdit = ({ characterId, onClose, onUpdate }) => {
       onClose();
     } catch (error) {
       console.error('Error updating character:', error);
-      alert('캐릭터 수정에 실패했습니다.');
+      showError('캐릭터 수정에 실패했습니다.');
     } finally {
       setSaving(false);
     }

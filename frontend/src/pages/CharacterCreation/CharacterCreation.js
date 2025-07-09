@@ -4,8 +4,12 @@ import { charactersAPI } from '../../services/api';
 import CategorySelection from './CategorySelection';
 import HashtagSelection from './HashtagSelection';
 import ImageUpload from '../../components/ImageUpload';
+import { usePopup } from '../../context/PopupContext';
 
 const CharacterCreation = ({ onClose, onComplete }) => {
+  // 커스텀 팝업 훅
+  const { showError, showAlert } = usePopup();
+  
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -88,17 +92,17 @@ const CharacterCreation = ({ onClose, onComplete }) => {
     
     // 필수 필드 검증 강화
     if (!formData.name.trim()) {
-      alert('캐릭터 이름을 입력해주세요.');
+      showAlert('캐릭터 이름을 입력해주세요.', '입력 오류');
       return;
     }
 
     if (!formData.avatarUrl || formData.avatarUrl.trim() === '') {
-      alert('프로필 이미지를 선택해주세요.');
+      showAlert('프로필 이미지를 선택해주세요.', '입력 오류');
       return;
     }
 
     if (!formData.characterType) {
-      alert('캐릭터 카테고리를 선택해주세요.');
+      showAlert('캐릭터 카테고리를 선택해주세요.', '입력 오류');
       return;
     }
 
@@ -112,7 +116,7 @@ const CharacterCreation = ({ onClose, onComplete }) => {
       console.log('👤 사용자 인증 정보:', { userId, userEmail });
       
       if (!userId || !userEmail) {
-        alert('로그인 정보가 없습니다. 다시 로그인해주세요.');
+        showError('로그인 정보가 없습니다. 다시 로그인해주세요.');
         setLoading(false);
         return;
       }
@@ -187,7 +191,7 @@ const CharacterCreation = ({ onClose, onComplete }) => {
         errorMessage = error.message;
       }
       
-      alert(errorMessage);
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }

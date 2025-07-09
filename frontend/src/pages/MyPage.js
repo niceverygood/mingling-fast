@@ -19,9 +19,13 @@ import { goToHeartShop } from '../utils/webview';
 import FavorabilityGauge from '../components/FavorabilityGauge';
 import { getAllRelations } from '../services/relationshipAPI';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import { usePopup } from '../context/PopupContext';
 
 const MyPage = () => {
   const { isLoggedIn, user: authUser } = useAuth();
+  
+  // 커스텀 팝업 훅
+  const { showCharacterSuccess, showPersonaSuccess, showPaymentSuccess, showError } = usePopup();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('characters');
   const [myCharacters, setMyCharacters] = useState([]);
@@ -206,12 +210,7 @@ const MyPage = () => {
       // 4. 하트샵 모달 닫기
       setShowHeartShop(false);
       
-      // 5. 성공 메시지 표시 (개선된 메시지)
-      const successMessage = purchaseData.popup ? 
-        `${purchaseData.popup.title}\n${purchaseData.popup.message}\n${purchaseData.popup.subtitle}` :
-        `${purchaseData.addedHearts}개의 하트가 성공적으로 충전되었습니다!\n현재 하트: ${purchaseData.newBalance}개`;
-      
-      alert(successMessage);
+      // 5. 성공 메시지는 이미 HeartShop 컴포넌트에서 커스텀 팝업으로 처리됨
       
       console.log('✅ MyPage 하트 업데이트 완료:', {
         UI업데이트: '완료',
@@ -222,7 +221,7 @@ const MyPage = () => {
       
     } catch (error) {
       console.error('❌ MyPage 하트 구매 처리 실패:', error);
-      alert('하트 구매 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+      showError('하트 구매 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
       
       // 에러 발생 시 서버에서 최신 하트 잔액 재조회
       try {
@@ -241,7 +240,7 @@ const MyPage = () => {
   const handleCharacterCreationComplete = (newCharacter) => {
     setShowCharacterCreation(false);
     fetchMyCharacters(); // 캐릭터 목록 새로고침
-    alert(`${newCharacter.name} 캐릭터가 성공적으로 생성되었습니다!`);
+    showCharacterSuccess(newCharacter.name);
   };
 
   const handleCharacterCreationClose = () => {
@@ -268,13 +267,17 @@ const MyPage = () => {
     fetchMyCharacters(); // 캐릭터 목록 새로고침
     setShowCharacterEdit(false);
     setSelectedCharacter(null);
-    alert(`${updatedCharacter.name} 캐릭터가 성공적으로 수정되었습니다!`);
+    showCharacterSuccess(updatedCharacter.name, '캐릭터 수정 완료! ✨', {
+      message: `"${updatedCharacter.name}" 캐릭터가 성공적으로 수정되었습니다!`
+    });
   };
 
   const handlePersonaCreationComplete = (newPersona) => {
     setShowPersonaCreation(false);
     fetchMyPersonas(); // 페르소나 목록 새로고침
-    alert(`${newPersona.name} 페르소나가 성공적으로 생성되었습니다!`);
+    showPersonaSuccess(newPersona.name, '페르소나 생성 완료! ✨', {
+      message: `"${newPersona.name}" 페르소나가 성공적으로 생성되었습니다!`
+    });
   };
 
   const handlePersonaCreationClose = () => {
@@ -305,7 +308,9 @@ const MyPage = () => {
     fetchMyPersonas(); // 페르소나 목록 새로고침
     setShowPersonaEdit(false);
     setSelectedPersona(null);
-    alert(`${updatedPersona.name} 페르소나가 성공적으로 수정되었습니다!`);
+    showPersonaSuccess(updatedPersona.name, '페르소나 수정 완료! ✨', {
+      message: `"${updatedPersona.name}" 페르소나가 성공적으로 수정되었습니다!`
+    });
   };
 
   const handleSettings = () => {

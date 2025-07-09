@@ -19,6 +19,7 @@ import TestFavorability from './pages/TestFavorability';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PopupProvider } from './context/PopupContext';
 import BottomNavigation from './components/BottomNavigation';
 import './App.css';
 import RelationshipPage from './pages/RelationshipPage';
@@ -99,7 +100,9 @@ function AppWithNavigation() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <PopupProvider>
+        <AppContent />
+      </PopupProvider>
     </AuthProvider>
   );
 }
