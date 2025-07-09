@@ -29,27 +29,17 @@ const ForYouPage = () => {
       setLoading(true);
       setError(null);
       
-      const response = await charactersAPI.getRecommended();
-      // 응답이 배열인지 확인
-      if (Array.isArray(response.data)) {
-        setCharacters(response.data);
-        if (response.data.length > 0) {
-          setCurrentIndex(0);
-        }
-      } else {
-        console.error('Received non-array response:', response.data);
-        setCharacters([]);
-        setError('캐릭터 데이터를 불러올 수 없습니다.');
-      }
-    } catch (error) {
-      console.error('Error fetching recommended characters:', error);
-      
-      // 인증 문제로 에러 발생 시 게스트 모드로 재시도
-      if (error.response?.status === 500 || error.response?.status === 401) {
-        try {
-          console.log('🔄 게스트 모드로 재시도 중...');
-          // 인증 헤더 없이 직접 API 호출
-          const guestResponse = await fetch('https://api.minglingchat.com/api/characters/recommended');
+      // 먼저 게스트 모드로 직접 시도 (인증 헤더 없음)
+      console.log('🔄 게스트 모드로 캐릭터 로딩 시도...');
+      try {
+        const guestResponse = await fetch('https://api.minglingchat.com/api/characters/recommended', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (guestResponse.ok) {
           const guestData = await guestResponse.json();
           
           if (Array.isArray(guestData)) {
@@ -57,16 +47,33 @@ const ForYouPage = () => {
             if (guestData.length > 0) {
               setCurrentIndex(0);
             }
-            console.log('✅ 게스트 모드로 캐릭터 로딩 성공');
+            console.log('✅ 게스트 모드로 캐릭터 로딩 성공:', guestData.length, '개');
             return;
           }
-        } catch (guestError) {
-          console.error('게스트 모드 재시도도 실패:', guestError);
         }
+      } catch (guestError) {
+        console.error('게스트 모드 시도 실패:', guestError);
       }
       
+      // 게스트 모드 실패 시 기존 API 시도
+      console.log('🔄 인증 API 시도...');
+      const response = await charactersAPI.getRecommended();
+      
+      if (Array.isArray(response.data)) {
+        setCharacters(response.data);
+        if (response.data.length > 0) {
+          setCurrentIndex(0);
+        }
+        console.log('✅ 인증 API로 캐릭터 로딩 성공:', response.data.length, '개');
+      } else {
+        console.error('Received non-array response:', response.data);
+        setCharacters([]);
+        setError('캐릭터 데이터를 불러올 수 없습니다.');
+      }
+    } catch (error) {
+      console.error('Error fetching recommended characters:', error);
       setCharacters([]);
-      setError(error.response?.data?.error || '캐릭터를 불러오는 중 오류가 발생했습니다.');
+      setError('캐릭터를 불러오는 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
     } finally {
       setLoading(false);
     }
