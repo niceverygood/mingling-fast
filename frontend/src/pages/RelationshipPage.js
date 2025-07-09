@@ -86,9 +86,9 @@ const RelationshipPage = () => {
   const stageInfo = getStageInfo(relationInfo.stage);
 
   return (
-    <div className="max-w-md mx-auto bg-white min-h-screen">
+    <div className="max-w-md mx-auto bg-white h-screen flex flex-col">
       {/* Header */}
-      <div className="relative bg-gradient-to-r from-pink-500 to-purple-600 text-white">
+      <div className="relative bg-gradient-to-r from-pink-500 to-purple-600 text-white flex-shrink-0">
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}
@@ -125,37 +125,39 @@ const RelationshipPage = () => {
         </div>
       </div>
 
-      {/* 현재 상태 내용 */}
-      <div className="p-4">
-        <div className="space-y-6">
-          {/* Relationship Stage Indicator */}
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <RelationshipStageIndicator 
-              score={relationInfo.score}
-              stage={relationInfo.stage}
-              showDetails={true}
-              size="normal"
-              showAdvice={true}
-              showAllStages={false}
-            />
-          </div>
+      {/* 스크롤 가능한 내용 영역 */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4 pb-24">
+          <div className="space-y-6">
+            {/* Relationship Stage Indicator */}
+            <div className="bg-white rounded-lg shadow-sm border p-4">
+              <RelationshipStageIndicator 
+                score={relationInfo.score}
+                stage={relationInfo.stage}
+                showDetails={true}
+                size="normal"
+                showAdvice={true}
+                showAllStages={false}
+              />
+            </div>
 
-          {/* Current Mood */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-medium mb-3">현재 기분</h3>
-            <div className="flex items-center space-x-3">
-              <div className="text-4xl">{getMoodEmoji(mood)}</div>
-              <div>
-                <p className="font-medium capitalize">{mood}</p>
-                <p className="text-sm text-gray-500">
-                  {mood === 'happy' && '기분이 좋아 보여요!'}
-                  {mood === 'excited' && '설레고 있는 것 같아요!'}
-                  {mood === 'loving' && '사랑이 넘쳐 보여요!'}
-                  {mood === 'neutral' && '평온한 상태예요'}
-                  {mood === 'friendly' && '친근한 분위기예요'}
-                  {mood === 'devoted' && '깊은 애정을 느끼고 있어요'}
-                  {mood === 'blissful' && '행복에 가득 차 있어요'}
-                </p>
+            {/* Current Mood */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="font-medium mb-3">현재 기분</h3>
+              <div className="flex items-center space-x-3">
+                <div className="text-4xl">{getMoodEmoji(mood)}</div>
+                <div>
+                  <p className="font-medium capitalize">{mood}</p>
+                  <p className="text-sm text-gray-500">
+                    {mood === 'happy' && '기분이 좋아 보여요!'}
+                    {mood === 'excited' && '설레고 있는 것 같아요!'}
+                    {mood === 'loving' && '사랑이 넘쳐 보여요!'}
+                    {mood === 'neutral' && '평온한 상태예요'}
+                    {mood === 'friendly' && '친근한 분위기예요'}
+                    {mood === 'devoted' && '깊은 애정을 느끼고 있어요'}
+                    {mood === 'blissful' && '행복에 가득 차 있어요'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
