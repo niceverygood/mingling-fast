@@ -1,0 +1,223 @@
+/**
+ * 백엔드 상수 정의
+ */
+
+// HTTP 상태 코드
+const HTTP_STATUS = {
+  OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
+  INTERNAL_SERVER_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503
+};
+
+// 하트 관련 상수
+const HEART_CONFIG = {
+  DEFAULT_HEARTS: 100,
+  MESSAGE_COST: 1,
+  MAX_HEARTS: 10000,
+  MIN_PURCHASE: 1,
+  MAX_PURCHASE: 1000
+};
+
+// 파일 업로드 설정
+const UPLOAD_CONFIG = {
+  MAX_FILE_SIZE: 2 * 1024 * 1024, // 2MB
+  ALLOWED_MIME_TYPES: [
+    'image/jpeg',
+    'image/png', 
+    'image/gif',
+    'image/webp'
+  ],
+  ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+};
+
+// 데이터베이스 필드 제한
+const FIELD_LIMITS = {
+  CHARACTER_NAME: 15,
+  PERSONA_NAME: 15,
+  AGE: 15,
+  JOB: 15,
+  LIKES_DISLIKES: 50,
+  FIRST_IMPRESSION: 300,
+  BASIC_SETTING: 700,
+  BASIC_INFO: 500,
+  HABITS: 500,
+  DESCRIPTION: 1000,
+  MAX_WEAPONS: 10,
+  MAX_HASHTAGS: 20
+};
+
+// 페이지네이션 설정
+const PAGINATION = {
+  DEFAULT_LIMIT: 10,
+  MAX_LIMIT: 100,
+  MIN_LIMIT: 1
+};
+
+// 캐시 설정 (초 단위)
+const CACHE_TTL = {
+  USER_PROFILE: 300,      // 5분
+  CHARACTER_LIST: 180,    // 3분
+  HEART_BALANCE: 60,      // 1분
+  CHAT_HISTORY: 120,      // 2분
+  SYSTEM_STATS: 600       // 10분
+};
+
+// 에러 메시지 키
+const ERROR_CODES = {
+  // 인증 관련
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  
+  // 사용자 관련
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  USER_ALREADY_EXISTS: 'USER_ALREADY_EXISTS',
+  
+  // 하트 관련
+  INSUFFICIENT_HEARTS: 'INSUFFICIENT_HEARTS',
+  INVALID_HEART_AMOUNT: 'INVALID_HEART_AMOUNT',
+  
+  // 파일 관련
+  FILE_NOT_FOUND: 'FILE_NOT_FOUND',
+  FILE_TOO_LARGE: 'FILE_TOO_LARGE',
+  INVALID_FILE_TYPE: 'INVALID_FILE_TYPE',
+  
+  // 데이터 검증 관련
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  REQUIRED_FIELD_MISSING: 'REQUIRED_FIELD_MISSING',
+  FIELD_TOO_LONG: 'FIELD_TOO_LONG',
+  
+  // 외부 서비스 관련
+  OPENAI_ERROR: 'OPENAI_ERROR',
+  PAYMENT_ERROR: 'PAYMENT_ERROR',
+  S3_ERROR: 'S3_ERROR',
+  
+  // 시스템 관련
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  TIMEOUT_ERROR: 'TIMEOUT_ERROR'
+};
+
+// 성공 메시지 키
+const SUCCESS_CODES = {
+  CREATED: 'CREATED',
+  UPDATED: 'UPDATED',
+  DELETED: 'DELETED',
+  PURCHASED: 'PURCHASED',
+  UPLOADED: 'UPLOADED',
+  SENT: 'SENT'
+};
+
+// 데이터베이스 관련 상수
+const DATABASE = {
+  CONNECTION_TIMEOUT: 30000,
+  TRANSACTION_TIMEOUT: 10000,
+  MAX_CONNECTIONS: 50,
+  RETRY_ATTEMPTS: 3
+};
+
+// 외부 API 설정
+const EXTERNAL_API = {
+  OPENAI_TIMEOUT: 30000,
+  OPENAI_MAX_TOKENS: 1000,
+  OPENAI_TEMPERATURE: 0.7,
+  PAYMENT_TIMEOUT: 15000,
+  S3_TIMEOUT: 10000
+};
+
+// 보안 설정
+const SECURITY = {
+  RATE_LIMIT_WINDOW: 60 * 1000,    // 1분
+  RATE_LIMIT_MAX: 100,             // 100 requests per minute
+  SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24시간
+  BCRYPT_ROUNDS: 12
+};
+
+// 로깅 설정
+const LOGGING = {
+  LOG_LEVEL: process.env.NODE_ENV === 'production' ? 'error' : 'debug',
+  LOG_FORMAT: 'combined',
+  LOG_RETENTION_DAYS: 30
+};
+
+// 비즈니스 로직 상수
+const BUSINESS_RULES = {
+  MIN_CHAT_INTERVAL: 1000,         // 1초
+  MAX_MESSAGE_LENGTH: 2000,
+  MAX_CHARACTERS_PER_USER: 50,
+  MAX_PERSONAS_PER_USER: 10,
+  MAX_CHATS_PER_USER: 1000,
+  DEFAULT_FAVORABILITY: 50
+};
+
+// 환경 변수 키
+const ENV_KEYS = {
+  PORT: 'PORT',
+  NODE_ENV: 'NODE_ENV',
+  DATABASE_URL: 'DATABASE_URL',
+  AWS_ACCESS_KEY_ID: 'AWS_ACCESS_KEY_ID',
+  AWS_SECRET_ACCESS_KEY: 'AWS_SECRET_ACCESS_KEY',
+  AWS_S3_BUCKET_NAME: 'AWS_S3_BUCKET_NAME',
+  OPENAI_API_KEY: 'OPENAI_API_KEY',
+  IMP_SECRET: 'IMP_SECRET',
+  ALLOWED_ORIGINS: 'ALLOWED_ORIGINS'
+};
+
+// 파일 타입 매핑
+const FILE_TYPES = {
+  IMAGE: 'image',
+  VIDEO: 'video',
+  DOCUMENT: 'document',
+  AUDIO: 'audio'
+};
+
+// 메시지 타입
+const MESSAGE_TYPES = {
+  TEXT: 'text',
+  IMAGE: 'image',
+  SYSTEM: 'system'
+};
+
+// 캐릭터 상태
+const CHARACTER_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  BANNED: 'banned'
+};
+
+// 결제 상태
+const PAYMENT_STATUS = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled'
+};
+
+module.exports = {
+  HTTP_STATUS,
+  HEART_CONFIG,
+  UPLOAD_CONFIG,
+  FIELD_LIMITS,
+  PAGINATION,
+  CACHE_TTL,
+  ERROR_CODES,
+  SUCCESS_CODES,
+  DATABASE,
+  EXTERNAL_API,
+  SECURITY,
+  LOGGING,
+  BUSINESS_RULES,
+  ENV_KEYS,
+  FILE_TYPES,
+  MESSAGE_TYPES,
+  CHARACTER_STATUS,
+  PAYMENT_STATUS
+}; 
