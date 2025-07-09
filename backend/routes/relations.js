@@ -10,6 +10,9 @@ router.get('/', async (req, res) => {
   try {
     const firebaseUserId = req.headers['x-user-id'] || 'test-user-123';
     
+    console.log('🔍 Relations API - 사용자 ID:', firebaseUserId);
+    console.log('🔍 Relations API - 모든 헤더:', req.headers);
+    
     const relations = await prisma.relation.findMany({
       where: { userId: firebaseUserId },
       include: {
@@ -69,6 +72,10 @@ router.get('/:characterId', async (req, res) => {
   try {
     const { characterId } = req.params;
     const firebaseUserId = req.headers['x-user-id'] || 'test-user-123';
+    
+    console.log('🔍 Relations API - 캐릭터 ID:', characterId);
+    console.log('🔍 Relations API - 사용자 ID:', firebaseUserId);
+    console.log('🔍 Relations API - 모든 헤더:', req.headers);
 
     const relation = await prisma.relation.findUnique({
       where: {
