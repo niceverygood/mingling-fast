@@ -5,7 +5,7 @@ export const GOOGLE_CONFIG = {
   
   // Android 클라이언트 ID (Google Cloud Console에서 생성)
   // SHA-1 인증서와 패키지명으로 생성한 Android OAuth 클라이언트 ID
-  ANDROID_CLIENT_ID: '869338406740-your-android-client-id.apps.googleusercontent.com',
+  ANDROID_CLIENT_ID: '586136070474-7jcu351246ng0eqglf7smp05gtf5jbap.apps.googleusercontent.com',
   
   // iOS 클라이언트 ID (필요시 추가)
   IOS_CLIENT_ID: '869338406740-your-ios-client-id.apps.googleusercontent.com',
