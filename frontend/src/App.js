@@ -18,6 +18,7 @@ import TestWebView from './pages/TestWebView';
 import TestFavorability from './pages/TestFavorability';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
+import Login from './components/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PopupProvider } from './context/PopupContext';
 import BottomNavigation from './components/BottomNavigation';
@@ -25,7 +26,7 @@ import './App.css';
 import RelationshipPage from './pages/RelationshipPage';
 
 function AppContent() {
-  const { loading } = useAuth();
+  const { loading, isLoggedIn } = useAuth();
 
   // Firebase 인증 상태 확인 중일 때 로딩 화면
   if (loading) {
@@ -37,6 +38,11 @@ function AppContent() {
         </div>
       </div>
     );
+  }
+
+  // 로그인되지 않은 상태일 때 로그인 화면 표시
+  if (!isLoggedIn) {
+    return <Login />;
   }
 
   return (
