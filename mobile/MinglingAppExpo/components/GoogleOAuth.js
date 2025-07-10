@@ -1,97 +1,131 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
+import {
+  GoogleSignin,
+  GoogleSigninButton,
+  isErrorWithCode,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { GOOGLE_CONFIG } from '../config/googleAuth';
-
-// WebBrowser 결과 완료 처리
-WebBrowser.maybeCompleteAuthSession();
 
 const GoogleOAuth = ({ onLoginSuccess, onLoginError }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(false);
 
-  // OAuth 요청 설정
-  const discovery = {
-    authorizationEndpoint: 'https://accounts.google.com/oauth/v2/auth',
-    tokenEndpoint: 'https://oauth2.googleapis.com/token',
-    revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+  // Google Sign-In 초기 설정
+  useEffect(() => {
+    configureGoogleSignIn();
+    checkIfSignedIn();
+  }, []);
+
+  const configureGoogleSignIn = () => {
+    try {
+      GoogleSignin.configure({
+        webClientId: GOOGLE_CONFIG.WEB_CLIENT_ID,
+        androidClientId: GOOGLE_CONFIG.ANDROID_CLIENT_ID,
+        iosClientId: GOOGLE_CONFIG.IOS_CLIENT_ID,
+        scopes: GOOGLE_CONFIG.SCOPES,
+        offlineAccess: true,
+        hostedDomain: '',
+        accountName: '',
+        loginHint: '',
+        forceCodeForRefreshToken: true,
+        profileImageSize: 120,
+      });
+      setIsConfigured(true);
+      console.log('✅ Google Sign-In 설정 완료');
+    } catch (error) {
+      console.error('❌ Google Sign-In 설정 실패:', error);
+      setIsConfigured(false);
+    }
   };
 
-  // OAuth 설정
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: GOOGLE_CONFIG.WEB_CLIENT_ID,
-      scopes: GOOGLE_CONFIG.SCOPES,
-      redirectUri: AuthSession.makeRedirectUri({
-        scheme: 'com.anonymous.MinglingAppExpo',
-        path: 'auth'
-      }),
-      responseType: AuthSession.ResponseType.Code,
-      additionalParameters: {
-        access_type: 'offline',
-        prompt: 'select_account',
-      },
-      extraParams: {
-        access_type: 'offline',
-        prompt: 'select_account',
-      },
-    },
-    discovery
-  );
-
-  // OAuth 응답 처리
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { code } = response.params;
-      if (code) {
-        handleGoogleLogin(code);
+  // 이미 로그인된 사용자 확인
+  const checkIfSignedIn = async () => {
+    try {
+      const isSignedIn = await GoogleSignin.isSignedIn();
+      if (isSignedIn) {
+        const currentUser = await GoogleSignin.getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          console.log('👤 기존 로그인 사용자:', currentUser.user.email);
+          if (onLoginSuccess) {
+            onLoginSuccess(currentUser);
+          }
+        }
       }
-    } else if (response?.type === 'error') {
-      console.error('OAuth Error:', response.error);
-      if (onLoginError) {
-        onLoginError(response.error);
-      }
+    } catch (error) {
+      console.error('❌ 로그인 상태 확인 실패:', error);
     }
-  }, [response]);
+  };
 
-  // 구글 로그인 처리
-  const handleGoogleLogin = async (code) => {
+  // 네이티브 Google 로그인
+  const handleGoogleLogin = async () => {
+    if (!isConfigured) {
+      Alert.alert('오류', 'Google Sign-In이 초기화되지 않았습니다.');
+      return;
+    }
+
     setLoading(true);
     
     try {
-      console.log('🔐 Google OAuth Code 받음:', code);
+      console.log('🔐 Google 네이티브 로그인 시작');
       
-      // 1. 코드를 사용하여 토큰 교환
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          code: code,
-          client_id: GOOGLE_CONFIG.WEB_CLIENT_ID,
-          client_secret: '', // 네이티브 앱에서는 클라이언트 시크릿 없음
-          redirect_uri: AuthSession.makeRedirectUri({
-            scheme: 'com.anonymous.MinglingAppExpo',
-            path: 'auth'
-          }),
-          grant_type: 'authorization_code',
-        }),
+      // 1. Google Play Services 사용 가능 확인
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
       });
 
-      const tokenData = await tokenResponse.json();
-      console.log('🎟️ 토큰 응답:', tokenData);
+      // 2. Google 로그인 시도
+      const userInfo = await GoogleSignin.signIn();
+      console.log('🎉 Google 로그인 성공:', userInfo.user.email);
 
-      if (tokenData.access_token) {
-        // 2. 액세스 토큰으로 사용자 정보 가져오기
-        await fetchUserInfo(tokenData.access_token, tokenData.id_token);
-      } else {
-        throw new Error('토큰 획득 실패');
+      // 3. 토큰 가져오기
+      const { accessToken, idToken } = await GoogleSignin.getTokens();
+      console.log('🎟️ 토큰 획득 성공');
+
+      // 4. 사용자 정보 구성
+      const googleUser = {
+        id: userInfo.user.id,
+        email: userInfo.user.email,
+        name: userInfo.user.name,
+        picture: userInfo.user.photo,
+        familyName: userInfo.user.familyName,
+        givenName: userInfo.user.givenName,
+        accessToken: accessToken,
+        idToken: idToken,
+      };
+
+      setUser(userInfo);
+      
+      if (onLoginSuccess) {
+        onLoginSuccess(googleUser);
       }
+      
+      Alert.alert('로그인 성공', `안녕하세요, ${userInfo.user.name}님!`);
+      
     } catch (error) {
       console.error('❌ Google 로그인 실패:', error);
-      Alert.alert('로그인 오류', error.message);
+      
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.SIGN_IN_CANCELLED:
+            console.log('🚫 사용자가 로그인을 취소했습니다.');
+            break;
+          case statusCodes.IN_PROGRESS:
+            console.log('⏳ 로그인이 진행 중입니다.');
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            Alert.alert('오류', 'Google Play Services가 필요합니다.');
+            break;
+          default:
+            Alert.alert('로그인 오류', '알 수 없는 오류가 발생했습니다.');
+        }
+      } else {
+        Alert.alert('오류', '로그인 중 오류가 발생했습니다.');
+      }
+      
       if (onLoginError) {
         onLoginError(error);
       }
@@ -100,63 +134,26 @@ const GoogleOAuth = ({ onLoginSuccess, onLoginError }) => {
     }
   };
 
-  // 사용자 정보 가져오기
-  const fetchUserInfo = async (accessToken, idToken) => {
-    try {
-      const userResponse = await fetch(
-        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      const userData = await userResponse.json();
-      console.log('👤 사용자 정보:', userData);
-
-      const user = {
-        id: userData.id,
-        email: userData.email,
-        name: userData.name,
-        picture: userData.picture,
-        accessToken: accessToken,
-        idToken: idToken,
-      };
-
-      setUser(user);
-      
-      if (onLoginSuccess) {
-        onLoginSuccess(user);
-      }
-    } catch (error) {
-      console.error('❌ 사용자 정보 가져오기 실패:', error);
-      throw error;
-    }
-  };
-
   // 로그아웃
-  const handleLogout = () => {
-    setUser(null);
-    Alert.alert('로그아웃', '로그아웃되었습니다.');
-  };
-
-  // 로그인 버튼 클릭
-  const handleLogin = () => {
-    if (!request) {
-      Alert.alert('오류', '로그인을 준비 중입니다. 잠시 후 다시 시도해주세요.');
-      return;
+  const handleLogout = async () => {
+    try {
+      await GoogleSignin.revokeAccess();
+      await GoogleSignin.signOut();
+      setUser(null);
+      console.log('🚪 로그아웃 완료');
+      Alert.alert('로그아웃', '로그아웃되었습니다.');
+    } catch (error) {
+      console.error('❌ 로그아웃 실패:', error);
+      Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
     }
-    
-    promptAsync();
   };
 
   if (user) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>로그인 성공!</Text>
-        <Text style={styles.userInfo}>이름: {user.name}</Text>
-        <Text style={styles.userInfo}>이메일: {user.email}</Text>
+        <Text style={styles.userInfo}>이름: {user.user.name}</Text>
+        <Text style={styles.userInfo}>이메일: {user.user.email}</Text>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>로그아웃</Text>
         </TouchableOpacity>
@@ -167,20 +164,39 @@ const GoogleOAuth = ({ onLoginSuccess, onLoginError }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>밍글링 로그인</Text>
-      <Text style={styles.subtitle}>Google 계정으로 로그인해주세요</Text>
+      <Text style={styles.subtitle}>네이티브 Google 로그인을 사용해보세요</Text>
+      
+      <View style={styles.nativeNotice}>
+        <Text style={styles.nativeNoticeText}>✅ 완전 네이티브 구현</Text>
+        <Text style={styles.nativeNoticeSubtext}>Google 웹뷰 제한 문제 해결!</Text>
+      </View>
+      
+      <GoogleSigninButton
+        style={styles.googleButton}
+        size={GoogleSigninButton.Size.Wide}
+        color={GoogleSigninButton.Color.Dark}
+        onPress={handleGoogleLogin}
+        disabled={loading || !isConfigured}
+      />
       
       <TouchableOpacity
-        style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-        onPress={handleLogin}
-        disabled={loading || !request}
+        style={[styles.customButton, (loading || !isConfigured) && styles.customButtonDisabled]}
+        onPress={handleGoogleLogin}
+        disabled={loading || !isConfigured}
       >
-        <Text style={styles.loginButtonText}>
-          {loading ? '로그인 중...' : '🔐 Google로 로그인'}
+        <Text style={styles.customButtonText}>
+          {loading ? '로그인 중...' : '🚀 네이티브 Google 로그인'}
         </Text>
       </TouchableOpacity>
       
       <Text style={styles.infoText}>
-        네이티브 Google OAuth를 사용하여 안전하게 로그인합니다.
+        {isConfigured 
+          ? '네이티브 Google Sign-In SDK를 사용하여 안전하게 로그인합니다.' 
+          : '초기화 중... 잠시만 기다려주세요.'}
+      </Text>
+      
+      <Text style={styles.successText}>
+        ✨ 웹뷰 제한 문제 완전 해결!
       </Text>
     </View>
   );
@@ -192,10 +208,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#333',
@@ -206,18 +222,43 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
   },
-  loginButton: {
+  nativeNotice: {
+    backgroundColor: '#e8f5e8',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  nativeNoticeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+    textAlign: 'center',
+  },
+  nativeNoticeSubtext: {
+    fontSize: 14,
+    color: '#2e7d32',
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  googleButton: {
+    width: 250,
+    height: 50,
+    marginBottom: 15,
+  },
+  customButton: {
     backgroundColor: '#4285F4',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 15,
     borderRadius: 8,
     marginBottom: 20,
-    minWidth: 200,
+    minWidth: 250,
   },
-  loginButtonDisabled: {
+  customButtonDisabled: {
     backgroundColor: '#ccc',
   },
-  loginButtonText: {
+  customButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
@@ -245,7 +286,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: 15,
+  },
+  successText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginTop: 10,
+    fontWeight: 'bold',
   },
 });
 

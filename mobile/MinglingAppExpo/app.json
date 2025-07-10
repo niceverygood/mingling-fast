@@ -30,7 +30,8 @@
     },
     "plugins": [
       "expo-web-browser",
-      "expo-auth-session"
+      "expo-auth-session",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {
