@@ -4,6 +4,136 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+// 네이티브 앱용 간단한 로그인
+router.post('/native-login', async (req, res) => {
+  try {
+    const { deviceId, email, name } = req.body;
+    
+    console.log('📱 네이티브 앱 로그인 요청:', { deviceId, email, name });
+    
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Device ID is required'
+      });
+    }
+
+    // 디바이스 ID 기반으로 사용자 찾기 또는 생성
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: deviceId },
+          { email: email }
+        ]
+      }
+    });
+
+    if (!user && email) {
+      // 새 사용자 생성
+      const username = name || email?.split('@')[0] || `user_${Date.now()}`;
+      
+      user = await prisma.user.create({
+        data: {
+          id: deviceId,
+          email: email || `${deviceId}@app.mingling`,
+          username: username,
+          hearts: 150 // 기본 하트
+        }
+      });
+      
+      console.log('✅ 새 네이티브 사용자 생성:', user);
+    } else if (!user) {
+      // 이메일 없이 디바이스 ID만 있는 경우
+      user = await prisma.user.create({
+        data: {
+          id: deviceId,
+          email: `${deviceId}@app.mingling`,
+          username: `guest_${Date.now()}`,
+          hearts: 150
+        }
+      });
+      
+      console.log('✅ 게스트 사용자 생성:', user);
+    }
+
+    // 간단한 토큰 생성 (실제로는 JWT 사용 권장)
+    const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64');
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        hearts: user.hearts,
+        createdAt: user.createdAt
+      },
+      token: token
+    });
+
+  } catch (error) {
+    console.error('❌ 네이티브 로그인 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: '로그인 처리 중 오류가 발생했습니다.'
+    });
+  }
+});
+
+// 토큰 검증
+router.post('/verify-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: 'Token is required'
+      });
+    }
+
+    // 간단한 토큰 디코딩
+    const decoded = Buffer.from(token, 'base64').toString();
+    const [userId] = decoded.split(':');
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token'
+      });
+    }
+
+    // 사용자 존재 확인
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        hearts: user.hearts
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ 토큰 검증 실패:', error);
+    res.status(401).json({
+      success: false,
+      error: 'Invalid token'
+    });
+  }
+});
+
 // 로그아웃
 router.post('/logout', async (req, res) => {
   try {
