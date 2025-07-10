@@ -73,22 +73,34 @@ export const AuthProvider = ({ children }) => {
       try {
         const isWebView = window.ReactNativeWebView !== undefined || 
                          navigator.userAgent.includes('WebView') ||
-                         navigator.userAgent.includes('wv');
+                         navigator.userAgent.includes('wv') ||
+                         navigator.userAgent.includes('MinglingAppExpo');
+        
+        console.log('🔍 환경 감지:', {
+          isWebView,
+          userAgent: navigator.userAgent,
+          hasReactNativeWebView: window.ReactNativeWebView !== undefined,
+          currentURL: window.location.href
+        });
         
         if (isWebView) {
-          console.log('WebView 환경에서 redirect 결과 확인 중...');
+          console.log('📱 WebView 환경에서 redirect 결과 확인 중...');
           const result = await handleRedirectResult();
+          console.log('🔄 Redirect 결과:', result);
+          
           if (result.success && result.user) {
-            console.log('Redirect 로그인 성공:', result.user);
+            console.log('✅ Redirect 로그인 성공:', result.user);
             setIsLoggedIn(true);
             setUser(result.user);
             // Firebase 사용자 ID를 axios 헤더에 설정
             axios.defaults.headers.common['X-User-ID'] = result.user.uid;
             axios.defaults.headers.common['X-User-Email'] = result.user.email;
+          } else if (result.error) {
+            console.error('❌ Redirect 로그인 실패:', result.error);
           }
         }
       } catch (error) {
-        console.error('Redirect 결과 처리 오류:', error);
+        console.error('💥 Redirect 결과 처리 오류:', error);
       }
     };
 

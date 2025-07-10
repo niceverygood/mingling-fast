@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, getRedirectResult } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, getRedirectResult } from "firebase/auth";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -21,21 +21,33 @@ const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-// Google Sign In
+// Google Sign In - WebView 환경 지원
 export const signInWithGoogle = async () => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    return {
-      success: true,
-      user: {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        provider: 'google'
-      }
-    };
+    // WebView 환경에서는 redirect 방식 사용
+    const isWebView = window.navigator.userAgent.includes('WebView') || 
+                      window.navigator.userAgent.includes('wv') ||
+                      window.ReactNativeWebView !== undefined;
+    
+    if (isWebView) {
+      // WebView 환경에서는 redirect 사용
+      await signInWithRedirect(auth, googleProvider);
+      return { success: true, message: 'Redirecting to Google login...' };
+    } else {
+      // 일반 웹 환경에서는 popup 사용
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      return {
+        success: true,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          provider: 'google'
+        }
+      };
+    }
   } catch (error) {
     console.error('Google sign in error:', error);
     return {
