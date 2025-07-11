@@ -190,9 +190,32 @@ const ChatListPage: React.FC = () => {
                   <h3 className="font-medium text-gray-900 truncate">
                     {chat.character?.name || 'Unknown Character'}
                   </h3>
-                  <span className="text-xs text-gray-500 flex-shrink-0">
-                    {formatTimeAgo(chat.updatedAt || chat.createdAt)}
-                  </span>
+                  {/* 페르소나 정보 표시 */}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    {chat.persona ? (
+                      <>
+                        <span className="text-xs text-gray-500 truncate max-w-[80px]">
+                          {chat.persona.name}
+                        </span>
+                        <Avatar
+                          src={chat.persona.avatarUrl}
+                          alt={chat.persona.name}
+                          name={chat.persona.name}
+                          size="sm"
+                          className="w-6 h-6"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs text-gray-500">
+                          기본
+                        </span>
+                        <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                          <span className="text-xs text-gray-500">👤</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <p className="text-sm text-gray-600 truncate">
@@ -201,9 +224,18 @@ const ChatListPage: React.FC = () => {
                 
                 {chat.unreadCount && chat.unreadCount > 0 && (
                   <div className="flex items-center justify-between mt-2">
-                    <div></div>
+                    <span className="text-xs text-gray-400">
+                      {formatTimeAgo(chat.updatedAt || chat.createdAt)}
+                    </span>
                     <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full">
                       {chat.unreadCount}
+                    </span>
+                  </div>
+                )}
+                {!chat.unreadCount && (
+                  <div className="mt-1">
+                    <span className="text-xs text-gray-400">
+                      {formatTimeAgo(chat.updatedAt || chat.createdAt)}
                     </span>
                   </div>
                 )}

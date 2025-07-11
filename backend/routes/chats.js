@@ -63,6 +63,13 @@ router.get('/', async (req, res) => {
             avatarUrl: true
           }
         },
+        persona: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true
+          }
+        },
         messages: {
           take: 1,
           orderBy: {

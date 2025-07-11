@@ -5,9 +5,16 @@ export interface Character {
   status?: string;
 }
 
+export interface Persona {
+  id?: number;
+  name: string;
+  avatarUrl?: string;
+}
+
 export interface Chat {
   id: number;
   character?: Character;
+  persona?: Persona;
   lastMessage?: string;
   lastMessageAt?: string;
   unreadCount?: number;
