@@ -79,6 +79,11 @@ router.get('/recommended', async (req, res) => {
   try {
     const firebaseUserId = req.headers['x-user-id'];
     
+    console.log('🔍 추천 캐릭터 요청:', { 
+      userId: firebaseUserId,
+      timestamp: new Date().toISOString()
+    });
+    
     // 공개 캐릭터 모두 포함 (자신이 만든 것도 포함)
     const whereClause = {
       isPublic: true
@@ -95,14 +100,24 @@ router.get('/recommended', async (req, res) => {
         personality: true,
         firstImpression: true,
         basicSetting: true,
+        characterType: true,
+        gender: true,
+        background: true,
+        mbti: true,
+        height: true,
+        likes: true,
+        dislikes: true,
+        hashtags: true,
+        hashtagCode: true,
         userId: true,
+        createdAt: true,
         user: {
           select: {
             username: true
           }
         }
       },
-      take: 20,
+      take: 50, // 더 많은 캐릭터 로드
       orderBy: [
         // 자신이 만든 캐릭터를 우선적으로 표시
         ...(firebaseUserId 
@@ -112,18 +127,80 @@ router.get('/recommended', async (req, res) => {
       ]
     });
 
-    // 캐릭터에 소유자 정보 추가
-    const charactersWithOwnership = characters.map(character => ({
-      ...character,
-      isOwner: character.userId === firebaseUserId
-    }));
+    // 캐릭터 데이터 후처리 및 최적화
+    const optimizedCharacters = characters.map(character => {
+      // 소유자 정보 추가
+      const isOwner = character.userId === firebaseUserId;
+      
+      // 이미지 URL 최적화 (S3 URL 처리)
+      let optimizedAvatarUrl = character.avatarUrl;
+      if (optimizedAvatarUrl && !optimizedAvatarUrl.startsWith('http')) {
+        optimizedAvatarUrl = `https://mingling-uploads.s3.ap-northeast-2.amazonaws.com/${optimizedAvatarUrl}`;
+      }
+      
+      // 첫인상 데이터 우선순위 처리
+      let displayFirstImpression = character.firstImpression;
+      if (!displayFirstImpression) {
+        // firstImpression이 없으면 다른 필드로 대체
+        displayFirstImpression = character.description || character.personality || character.basicSetting;
+      }
+      
+      // 성격 정보 최적화
+      let displayPersonality = character.personality;
+      if (!displayPersonality && character.mbti) {
+        displayPersonality = character.mbti;
+      }
+      
+      return {
+        id: character.id,
+        name: character.name,
+        description: character.description,
+        avatarUrl: optimizedAvatarUrl,
+        age: character.age,
+        personality: displayPersonality,
+        firstImpression: displayFirstImpression,
+        basicSetting: character.basicSetting,
+        characterType: character.characterType,
+        gender: character.gender,
+        background: character.background,
+        mbti: character.mbti,
+        height: character.height,
+        likes: character.likes,
+        dislikes: character.dislikes,
+        hashtags: character.hashtags,
+        hashtagCode: character.hashtagCode,
+        isOwner,
+        createdAt: character.createdAt,
+        user: character.user
+      };
+    });
 
-    res.json(charactersWithOwnership);
+    // 캐릭터 순서 최적화 (다양성 보장)
+    const shuffledCharacters = shuffleArray(optimizedCharacters);
+    
+    console.log('✅ 추천 캐릭터 응답:', { 
+      totalCharacters: shuffledCharacters.length,
+      userCharacters: shuffledCharacters.filter(c => c.isOwner).length,
+      publicCharacters: shuffledCharacters.filter(c => !c.isOwner).length,
+      hasFirstImpressions: shuffledCharacters.filter(c => c.firstImpression).length
+    });
+
+    res.json(shuffledCharacters);
   } catch (error) {
-    console.error('Error fetching recommended characters:', error);
+    console.error('❌ 추천 캐릭터 조회 실패:', error);
     res.status(500).json({ error: 'Failed to fetch recommended characters' });
   }
 });
+
+// 배열 셔플 유틸리티 함수
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 // POST /api/characters - 새 캐릭터 생성 (최적화된 버전)
 router.post('/', async (req, res) => {

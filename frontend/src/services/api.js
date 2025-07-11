@@ -211,10 +211,137 @@ const apiCall = async (method, url, data = null, options = {}) => {
 
 // Characters API (최적화됨)
 export const charactersAPI = {
-  getAll: () => apiCall('get', API_ENDPOINTS.CHARACTERS.BASE, null, { timeout: 15000 }),
-  getMy: () => apiCall('get', API_ENDPOINTS.CHARACTERS.MY, null, { timeout: 10000 }),
-  getRecommended: () => apiCall('get', API_ENDPOINTS.CHARACTERS.RECOMMENDED, null, { timeout: 15000 }),
-  getById: (id) => apiCall('get', API_ENDPOINTS.CHARACTERS.BY_ID(id), null, { timeout: 10000 }),
+  // 추천 캐릭터 조회 (For You 페이지용) - 최적화
+  getRecommended: async () => {
+    try {
+      console.log('🔍 추천 캐릭터 API 호출 시작');
+      
+      const response = await api.get('/characters/recommended');
+      
+      console.log('✅ 추천 캐릭터 API 응답:', {
+        count: response.data?.length || 0,
+        hasData: Array.isArray(response.data)
+      });
+      
+      // 데이터 검증 및 후처리
+      if (!Array.isArray(response.data)) {
+        console.error('❌ 추천 캐릭터 응답 형식 오류:', response.data);
+        return { data: [] };
+      }
+      
+      // 캐릭터 데이터 최적화
+      const optimizedCharacters = response.data.map(character => ({
+        ...character,
+        // 기본값 설정
+        firstImpression: character.firstImpression || character.description || '새로운 AI 캐릭터입니다.',
+        personality: character.personality || '친근한',
+        description: character.description || '대화를 나누고 싶은 캐릭터',
+        // 이미지 URL 검증
+        avatarUrl: character.avatarUrl && character.avatarUrl.startsWith('http') 
+          ? character.avatarUrl 
+          : character.avatarUrl 
+            ? `https://mingling-uploads.s3.ap-northeast-2.amazonaws.com/${character.avatarUrl}`
+            : null
+      }));
+      
+      return { data: optimizedCharacters };
+    } catch (error) {
+      console.error('❌ 추천 캐릭터 조회 실패:', error);
+      
+      // 네트워크 에러나 서버 에러 시 빈 배열 반환
+      if (error.response?.status >= 500 || !error.response) {
+        console.log('🔄 서버 에러로 인한 빈 배열 반환');
+        return { data: [] };
+      }
+      
+      throw error;
+    }
+  },
+
+  // 내 캐릭터 목록 조회 - 최적화
+  getMy: async () => {
+    try {
+      console.log('👤 내 캐릭터 API 호출');
+      
+      const response = await api.get('/characters/my');
+      
+      if (!Array.isArray(response.data)) {
+        console.error('❌ 내 캐릭터 응답 형식 오류:', response.data);
+        return { data: [] };
+      }
+      
+      // 이미지 URL 최적화
+      const optimizedCharacters = response.data.map(character => ({
+        ...character,
+        avatarUrl: character.avatarUrl && character.avatarUrl.startsWith('http') 
+          ? character.avatarUrl 
+          : character.avatarUrl 
+            ? `https://mingling-uploads.s3.ap-northeast-2.amazonaws.com/${character.avatarUrl}`
+            : null
+      }));
+      
+      console.log('✅ 내 캐릭터 조회 성공:', optimizedCharacters.length, '개');
+      return { data: optimizedCharacters };
+    } catch (error) {
+      console.error('❌ 내 캐릭터 조회 실패:', error);
+      return { data: [] };
+    }
+  },
+
+  // 모든 캐릭터 조회 - 최적화
+  getAll: async () => {
+    try {
+      console.log('🌐 모든 캐릭터 API 호출');
+      
+      const response = await api.get('/characters');
+      
+      if (!Array.isArray(response.data)) {
+        console.error('❌ 모든 캐릭터 응답 형식 오류:', response.data);
+        return { data: [] };
+      }
+      
+      // 이미지 URL 최적화
+      const optimizedCharacters = response.data.map(character => ({
+        ...character,
+        avatarUrl: character.avatarUrl && character.avatarUrl.startsWith('http') 
+          ? character.avatarUrl 
+          : character.avatarUrl 
+            ? `https://mingling-uploads.s3.ap-northeast-2.amazonaws.com/${character.avatarUrl}`
+            : null
+      }));
+      
+      console.log('✅ 모든 캐릭터 조회 성공:', optimizedCharacters.length, '개');
+      return { data: optimizedCharacters };
+    } catch (error) {
+      console.error('❌ 모든 캐릭터 조회 실패:', error);
+      return { data: [] };
+    }
+  },
+
+  // 특정 캐릭터 조회 - 최적화
+  getById: async (id) => {
+    try {
+      console.log('🔍 캐릭터 상세 조회:', id);
+      
+      const response = await api.get(`/characters/${id}`);
+      
+      // 이미지 URL 최적화
+      const character = {
+        ...response.data,
+        avatarUrl: response.data.avatarUrl && response.data.avatarUrl.startsWith('http') 
+          ? response.data.avatarUrl 
+          : response.data.avatarUrl 
+            ? `https://mingling-uploads.s3.ap-northeast-2.amazonaws.com/${response.data.avatarUrl}`
+            : null
+      };
+      
+      console.log('✅ 캐릭터 상세 조회 성공:', character.name);
+      return { data: character };
+    } catch (error) {
+      console.error('❌ 캐릭터 상세 조회 실패:', error);
+      throw error;
+    }
+  },
   
   // 캐릭터 생성 (최적화됨)
   create: async (characterData) => {
