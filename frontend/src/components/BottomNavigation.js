@@ -29,8 +29,11 @@ const BottomNavigation = () => {
   ];
 
   const isActive = (path) => {
+    if (path === '/for-you') {
+      return location.pathname === '/' || location.pathname === '/for-you';
+    }
     if (path === '/chats') {
-      return location.pathname === '/' || location.pathname === '/chats';
+      return location.pathname === '/chats';
     }
     return location.pathname === path;
   };
