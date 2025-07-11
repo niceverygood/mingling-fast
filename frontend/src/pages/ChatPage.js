@@ -472,22 +472,25 @@ const ChatPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-white">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500 text-lg">채팅을 불러오는 중...</p>
+      <div className="max-w-md mx-auto bg-white min-h-screen">
+        <div className="flex justify-center items-center h-screen bg-white">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-500 text-lg">채팅을 불러오는 중...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="flex flex-col h-screen bg-white overflow-hidden touch-pan-y"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="max-w-md mx-auto bg-white min-h-screen">
+      <div 
+        ref={containerRef}
+        className="flex flex-col h-screen bg-white overflow-hidden touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
       {/* Header - 모바일 최적화 */}
       <div className="flex-shrink-0 bg-white border-b border-gray-100 shadow-sm safe-area-top">
         <div className="flex items-center justify-between px-4 py-4">
@@ -746,6 +749,7 @@ const ChatPage = () => {
           />
         </div>
       )}
+      </div>
     </div>
   );
 };
