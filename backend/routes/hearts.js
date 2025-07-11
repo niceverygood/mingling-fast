@@ -289,4 +289,94 @@ router.get('/sync', authenticateUser, async (req, res) => {
   }
 });
 
+// 하트 복구 (메시지 전송 실패 시)
+router.post('/refund', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { amount, description } = req.body;
+    
+    console.log('💎 하트 복구 요청:', { userId, amount, description });
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid amount'
+      });
+    }
+    
+    // 사용자 조회
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { hearts: true }
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+    
+    console.log('🔄 하트 복구 처리:', {
+      userId,
+      currentHearts: user.hearts,
+      refundAmount: amount,
+      reason: description
+    });
+    
+    // 하트 복구 처리
+    const result = await prisma.$transaction(async (tx) => {
+      // 하트 추가
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          hearts: {
+            increment: amount
+          }
+        },
+        select: { hearts: true }
+      });
+      
+      // 하트 복구 기록 생성
+      const heartTransaction = await tx.heartTransaction.create({
+        data: {
+          userId: userId,
+          amount: amount,
+          type: 'refund',
+          description: description || 'Message send failure refund',
+          balance: updatedUser.hearts
+        }
+      });
+      
+      return {
+        user: updatedUser,
+        transaction: heartTransaction
+      };
+    });
+    
+    console.log('✅ 하트 복구 완료:', {
+      userId,
+      refundedAmount: amount,
+      newBalance: result.user.hearts,
+      transactionId: result.transaction.id
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        hearts: result.user.hearts,
+        refunded: amount,
+        transactionId: result.transaction.id
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ 하트 복구 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
 module.exports = router; 

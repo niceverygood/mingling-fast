@@ -495,6 +495,22 @@ export const heartsAPI = {
       safeLog('error', '❌ 하트 소모 실패', { amount, description, error: error.message });
       throw error;
     }
+  },
+  
+  // 하트 복구 (메시지 전송 실패 시)
+  refund: async (amount, description) => {
+    console.log('💎 하트 복구 API 호출:', { amount, description });
+    try {
+      const response = await apiCall('post', API_ENDPOINTS.HEARTS.REFUND, { amount, description }, {
+        retries: 2,
+        timeout: 10000
+      });
+      console.log('✅ 하트 복구 API 성공:', response.data);
+      return response;
+    } catch (error) {
+      console.error('❌ 하트 복구 API 실패:', error);
+      throw error;
+    }
   }
 };
 

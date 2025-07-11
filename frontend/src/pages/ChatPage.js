@@ -277,10 +277,6 @@ const ChatPage = () => {
     // 입력창 즉시 비우기 (전송 후 언어 변환 방지)
     setNewMessage('');
     
-    // 메시지 전송 효과 표시
-    // setShowMessageSent(true); // 메시지 전송 효과 제거
-    // setTimeout(() => setShowMessageSent(false), 2000); // 메시지 전송 효과 제거
-    
     // 입력 필드에 포커스 유지 (약간의 딜레이 후 실행)
     setTimeout(() => {
       if (inputRef.current) {
@@ -299,22 +295,77 @@ const ChatPage = () => {
     setMessages(prevMessages => [...prevMessages, tempUserMessage]);
     setHeartLoading(true);
     setIsGeneratingResponse(true);
-    
-    // AI 타이핑 애니메이션 시작 (감정 관련 제거)
-    // setTimeout(() => {
-    //   setIsTyping(true); 
-    //   updateEmotionBasedOnMessage(userMessageContent);
-    // }, 500);
 
     try {
-      // 하트 차감
-      const heartResponse = await heartsAPI.spend(1, '채팅 메시지 전송');
-      setHearts(heartResponse.data.hearts); // 업데이트된 하트 수 반영
+      console.log('💎 하트 차감 시작... 현재 하트:', hearts);
+      
+      // 하트 차감 (재시도 로직 포함)
+      let heartResponse;
+      let heartError = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔄 하트 차감 시도 ${attempt}/3`);
+          heartResponse = await heartsAPI.spend(1, '채팅 메시지 전송');
+          console.log('✅ 하트 차감 성공:', heartResponse.data);
+          break;
+        } catch (error) {
+          console.error(`❌ 하트 차감 시도 ${attempt} 실패:`, error);
+          heartError = error;
+          
+          if (attempt < 3) {
+            console.log('⏳ 0.5초 후 재시도...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+      
+      if (!heartResponse) {
+        throw new Error(`하트 차감 실패: ${heartError?.message || '알 수 없는 오류'}`);
+      }
+      
+      // 하트 잔액 업데이트
+      setHearts(heartResponse.data.hearts);
+      console.log('💎 하트 차감 완료. 새 잔액:', heartResponse.data.hearts);
 
-      // 메시지 전송 (백엔드에서 사용자 메시지 + AI 응답 모두 받아옴)
-      const messageResponse = await chatsAPI.sendMessage(chatId, {
-        content: userMessageContent
-      });
+      console.log('📨 메시지 전송 시작...');
+      
+      // 메시지 전송 (재시도 로직 포함)
+      let messageResponse;
+      let messageError = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔄 메시지 전송 시도 ${attempt}/3`);
+          messageResponse = await chatsAPI.sendMessage(chatId, {
+            content: userMessageContent
+          });
+          console.log('✅ 메시지 전송 성공:', messageResponse.data);
+          break;
+        } catch (error) {
+          console.error(`❌ 메시지 전송 시도 ${attempt} 실패:`, error);
+          messageError = error;
+          
+          if (attempt < 3) {
+            console.log('⏳ 1초 후 재시도...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+      
+      if (!messageResponse) {
+        // 메시지 전송 실패 시 하트 복구 시도
+        console.log('🔄 메시지 전송 실패로 인한 하트 복구 시도...');
+        try {
+          await heartsAPI.refund(1, '메시지 전송 실패로 인한 복구');
+          setHearts(prev => prev + 1);
+          console.log('✅ 하트 복구 완료');
+        } catch (refundError) {
+          console.error('❌ 하트 복구 실패:', refundError);
+        }
+        
+        throw new Error(`메시지 전송 실패: ${messageError?.message || '서버 연결 오류'}`);
+      }
       
       // 호감도 변화 처리
       if (messageResponse.data.favorability) {
@@ -405,7 +456,7 @@ const ChatPage = () => {
       });
 
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ 메시지 전송 전체 실패:', error);
       
       // 타이핑 애니메이션 종료
       setIsTyping(false);
@@ -414,20 +465,31 @@ const ChatPage = () => {
       // 에러 발생 시 임시 사용자 메시지 제거
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempUserMessage.id));
       
-      if (error.response?.data?.error === 'Insufficient hearts') {
+      // 구체적인 에러 메시지 표시
+      let errorMessage = '메시지 전송에 실패했습니다.';
+      
+      if (error.message.includes('하트 차감')) {
+        errorMessage = '하트 차감 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (error.message.includes('서버 연결')) {
+        errorMessage = '서버 연결에 문제가 있습니다. 네트워크 상태를 확인해주세요.';
+      } else if (error.message.includes('Insufficient hearts')) {
+        errorMessage = '하트가 부족합니다.';
         if (isInApp()) {
-          // 네이티브 앱에서는 네이티브 하트샵 열기
           openHeartShop(hearts);
         } else {
-          // 웹에서는 기존 팝업 방식 유지
           showInsufficientHearts(hearts, {
             onConfirm: () => navigate('/heart-shop'),
             onCancel: () => {}
           });
         }
-      } else {
-        showError('메시지 전송에 실패했습니다.');
+        return; // 하트 부족의 경우 에러 팝업 표시하지 않음
+      } else if (error.response?.status >= 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (error.response?.status === 401) {
+        errorMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
       }
+      
+      showError(errorMessage);
     } finally {
       setHeartLoading(false);
       setIsGeneratingResponse(false);
