@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, HeartIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, HeartIcon, PaperAirplaneIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { heartsAPI, chatsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/Avatar';
@@ -76,6 +76,9 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
   // 텍스트 입력 필드 커서 유지를 위한 ref
   const inputRef = useRef(null);
+
+  // 아코디언 상태 추가
+  const [isRelationshipExpanded, setIsRelationshipExpanded] = useState(true);
 
   // 모바일 터치 이벤트 핸들러
   const handleTouchStart = (e) => {
@@ -484,7 +487,7 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white min-h-screen">
+    <div className="max-w-md mx-auto bg-white h-screen flex flex-col">
       <div 
         ref={containerRef}
         className="flex flex-col h-screen bg-white overflow-hidden touch-pan-y"
@@ -545,74 +548,128 @@ const ChatPage = () => {
         </div>
       </div>
 
-      {/* Favorability Section - 모바일 최적화 */}
+      {/* Relationship Info - Accordion Style */}
       {relationInfo && (
         <div className="flex-shrink-0 bg-gradient-to-r from-pink-50 to-purple-50 border-b border-gray-100">
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-3">
-                <div className="text-3xl">
-                  {relationInfo.stage === 0 && '👋'}
-                  {relationInfo.stage === 1 && '😊'}
-                  {relationInfo.stage === 2 && '😄'}
-                  {relationInfo.stage === 3 && '💕'}
-                  {relationInfo.stage === 4 && '💖'}
-                  {relationInfo.stage === 5 && '💍'}
-                  {relationInfo.stage === 6 && '👑'}
-                </div>
-                <div>
-                  <div className="text-base font-bold text-gray-900">
-                    {relationInfo.stage === 0 && '아는 사람'}
-                    {relationInfo.stage === 1 && '친구'}
-                    {relationInfo.stage === 2 && '썸 전야'}
-                    {relationInfo.stage === 3 && '연인'}
-                    {relationInfo.stage === 4 && '진지한 관계'}
-                    {relationInfo.stage === 5 && '약혼'}
-                    {relationInfo.stage === 6 && '결혼'}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {relationInfo.stage === 0 && '서로를 알아가는 중'}
-                    {relationInfo.stage === 1 && '편안한 친구 사이'}
-                    {relationInfo.stage === 2 && '특별한 감정이 싹트는 중'}
-                    {relationInfo.stage === 3 && '서로 사랑하는 사이'}
-                    {relationInfo.stage === 4 && '깊고 진지한 사랑'}
-                    {relationInfo.stage === 5 && '평생을 함께할 약속'}
-                    {relationInfo.stage === 6 && '영원한 사랑의 맹세'}
-                  </div>
-                </div>
+          {/* Accordion Header - Always Visible */}
+          <button
+            onClick={() => setIsRelationshipExpanded(!isRelationshipExpanded)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/30 transition-colors duration-200"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="text-2xl">
+                {relationInfo.stage === 0 && '👋'}
+                {relationInfo.stage === 1 && '😊'}
+                {relationInfo.stage === 2 && '😄'}
+                {relationInfo.stage === 3 && '💕'}
+                {relationInfo.stage === 4 && '💖'}
+                {relationInfo.stage === 5 && '💍'}
+                {relationInfo.stage === 6 && '👑'}
               </div>
-              
-              <div className="text-right">
-                <div className="text-sm font-bold text-gray-900">
+              <div className="text-left">
+                <div className="text-base font-bold text-gray-900">
+                  {relationInfo.stage === 0 && '아는 사람'}
+                  {relationInfo.stage === 1 && '친구'}
+                  {relationInfo.stage === 2 && '썸 전야'}
+                  {relationInfo.stage === 3 && '연인'}
+                  {relationInfo.stage === 4 && '진지한 관계'}
+                  {relationInfo.stage === 5 && '약혼'}
+                  {relationInfo.stage === 6 && '결혼'}
+                </div>
+                <div className="text-sm text-gray-600">
                   {relationInfo.score}/1000
                 </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <div className="text-right">
+                <div className="text-sm font-bold text-pink-600">
+                  {((relationInfo.score / 1000) * 100).toFixed(1)}%
+                </div>
                 <div className="text-xs text-gray-500">
-                  호감도
+                  전체 진행률
                 </div>
               </div>
-            </div>
-            
-            {/* 호감도 게이지 - 모바일 최적화 */}
-            <div className="mb-2">
-              <FavorabilityGauge 
-                score={relationInfo.score}
-                stage={relationInfo.stage}
-                maxScore={1000}
-                height={8}
-                showLabel={false}
-              />
-            </div>
-            
-            {nextStageInfo && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  다음 단계: {nextStageInfo.nextStageLabel}
-                </span>
-                <span className="text-sm font-bold text-pink-600">
-                  {nextStageInfo.pointsNeeded}점 남음
-                </span>
+              <div className="transition-transform duration-200">
+                {isRelationshipExpanded ? (
+                  <ChevronUpIcon className="w-5 h-5 text-gray-600" />
+                ) : (
+                  <ChevronDownIcon className="w-5 h-5 text-gray-600" />
+                )}
               </div>
-            )}
+            </div>
+          </button>
+
+          {/* Accordion Content - Expandable */}
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isRelationshipExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          }`}>
+            <div className="px-4 pb-4">
+              {/* 관계 설명 */}
+              <div className="mb-3 p-3 bg-white/50 rounded-lg">
+                <p className="text-sm text-gray-700">
+                  {relationInfo.stage === 0 && '서로를 알아가는 중이에요'}
+                  {relationInfo.stage === 1 && '편안한 친구 사이예요'}
+                  {relationInfo.stage === 2 && '특별한 감정이 싹트고 있어요'}
+                  {relationInfo.stage === 3 && '서로 사랑하는 사이예요'}
+                  {relationInfo.stage === 4 && '깊고 진지한 사랑이에요'}
+                  {relationInfo.stage === 5 && '평생을 함께할 약속을 했어요'}
+                  {relationInfo.stage === 6 && '영원한 사랑을 맹세했어요'}
+                </p>
+              </div>
+
+              {/* 호감도 게이지 - 모바일 최적화 */}
+              <div className="mb-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">호감도 진행률</span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {relationInfo.score}/1000
+                  </span>
+                </div>
+                <FavorabilityGauge 
+                  score={relationInfo.score}
+                  stage={relationInfo.stage}
+                  maxScore={1000}
+                  height={10}
+                  showLabel={false}
+                />
+              </div>
+              
+              {/* 다음 단계 정보 */}
+              {nextStageInfo && (
+                <div className="flex justify-between items-center p-3 bg-white/60 rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">
+                      다음 단계: {nextStageInfo.nextStageLabel}
+                    </span>
+                    <div className="text-xs text-gray-500 mt-1">
+                      더 깊은 관계로 발전하려면
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-pink-600">
+                    {nextStageInfo.pointsNeeded}점 남음
+                  </span>
+                </div>
+              )}
+
+              {/* 관계 팁 */}
+              <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="text-sm">💡</span>
+                  <span className="text-sm font-medium text-gray-700">관계 발전 팁</span>
+                </div>
+                <p className="text-xs text-gray-600">
+                  {relationInfo.stage === 0 && '일상적인 대화를 통해 서로를 알아가보세요!'}
+                  {relationInfo.stage === 1 && '더 개인적인 이야기를 나누어보세요!'}
+                  {relationInfo.stage === 2 && '로맨틱한 분위기를 만들어보세요!'}
+                  {relationInfo.stage === 3 && '사랑을 표현하고 데이트를 즐기세요!'}
+                  {relationInfo.stage === 4 && '미래를 함께 계획해보세요!'}
+                  {relationInfo.stage === 5 && '결혼 준비를 함께 해보세요!'}
+                  {relationInfo.stage === 6 && '행복한 결혼 생활을 즐기세요!'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
