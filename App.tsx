@@ -79,7 +79,7 @@ function App(): React.JSX.Element {
       )}
       
       <WebView
-        source={{ uri: 'https://minglingchat.com' }}
+        source={{ uri: 'https://www.minglingchat.com' }}
         style={styles.webview}
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}

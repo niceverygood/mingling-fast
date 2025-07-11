@@ -394,6 +394,212 @@ router.post('/verify', async (req, res) => {
   }
 });
 
+// 네이티브 인앱결제 검증 API
+router.post('/verify-native', async (req, res) => {
+  console.log('📱 ===== 네이티브 인앱결제 검증 시작 =====');
+  console.log('📋 요청 정보:', {
+    timestamp: new Date().toISOString(),
+    body: req.body,
+    headers: {
+      'x-user-id': req.headers['x-user-id'],
+      'x-user-email': req.headers['x-user-email'],
+      'origin': req.headers.origin,
+      'user-agent': req.headers['user-agent']
+    }
+  });
+
+  try {
+    const { 
+      productId, 
+      transactionId, 
+      purchaseToken, 
+      receipt, 
+      platform, 
+      purchaseState, 
+      transactionDate, 
+      heartAmount, 
+      amount 
+    } = req.body;
+    
+    const userId = req.headers['x-user-id'];
+    const userEmail = req.headers['x-user-email'];
+    
+    console.log('📝 검증 파라미터:', {
+      productId,
+      transactionId,
+      purchaseToken: purchaseToken ? '존재함' : '없음',
+      receipt: receipt ? '존재함' : '없음',
+      platform,
+      purchaseState,
+      transactionDate,
+      heartAmount,
+      amount,
+      userId,
+      userEmail
+    });
+
+    // 1단계: 필수 파라미터 검증
+    if (!productId || !transactionId || !userId) {
+      console.error('❌ 1단계 실패: 필수 파라미터 누락');
+      return res.status(400).json({ 
+        success: false, 
+        error: '필수 파라미터 누락',
+        details: { productId: !!productId, transactionId: !!transactionId, userId: !!userId }
+      });
+    }
+    console.log('✅ 1단계 성공: 필수 파라미터 검증 완료');
+
+    // 2단계: 중복 거래 확인
+    console.log('🔍 2단계: 중복 거래 확인 중...');
+    const existingTransaction = await prisma.heartTransaction.findFirst({
+      where: {
+        OR: [
+          { nativeTransactionId: transactionId },
+          { nativeProductId: productId, userId: userId, status: 'completed' }
+        ]
+      }
+    });
+    
+    if (existingTransaction) {
+      console.log('⚠️ 중복 거래 발견:', {
+        transactionId: existingTransaction.id,
+        nativeTransactionId: existingTransaction.nativeTransactionId,
+        status: existingTransaction.status
+      });
+      
+      // 이미 완료된 거래인 경우 성공 응답
+      if (existingTransaction.status === 'completed') {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { hearts: true }
+        });
+        
+        return res.json({
+          success: true,
+          message: '이미 처리된 거래입니다',
+          hearts_added: existingTransaction.heartAmount,
+          newBalance: user?.hearts || 0,
+          transaction_id: existingTransaction.id,
+          processed_by: 'duplicate_check'
+        });
+      }
+    }
+    console.log('✅ 2단계 성공: 중복 거래 확인 완료');
+
+    // 3단계: 사용자 정보 조회 또는 생성
+    console.log('👤 3단계: 사용자 정보 처리 중...');
+    let user;
+    
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!user) {
+        console.log('👤 사용자 자동 생성 중...', { userId, userEmail });
+        
+        const safeEmail = userEmail || `${userId}@native.mingling`;
+        const safeUsername = userEmail?.split('@')[0] || `user_${userId.substring(0, 8)}`;
+        
+        user = await prisma.user.upsert({
+          where: { id: userId },
+          update: {},
+          create: {
+            id: userId,
+            email: safeEmail,
+            username: safeUsername,
+            hearts: 150
+          }
+        });
+        
+        console.log('✅ 사용자 자동 생성 완료:', { id: user.id, hearts: user.hearts });
+      } else {
+        console.log('✅ 기존 사용자 발견:', { userId, hearts: user.hearts });
+      }
+    } catch (createError) {
+      console.error('❌ 사용자 처리 실패:', createError);
+      throw new Error('사용자 정보 처리 실패');
+    }
+
+    // 4단계: 하트 충전 및 거래 기록 생성
+    console.log('🔄 4단계: 하트 충전 트랜잭션 시작...');
+    const result = await prisma.$transaction(async (tx) => {
+      // 하트 충전
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          hearts: {
+            increment: heartAmount
+          }
+        }
+      });
+
+      // 거래 기록 생성
+      const heartTransaction = await tx.heartTransaction.create({
+        data: {
+          userId: userId,
+          amount: amount,
+          heartAmount: heartAmount,
+          status: 'completed',
+          type: 'native_purchase',
+          paymentMethod: platform === 'android' ? 'google_play' : 'app_store',
+          paidAt: new Date(transactionDate || new Date()),
+          nativeTransactionId: transactionId,
+          nativeProductId: productId,
+          nativePurchaseToken: purchaseToken,
+          nativeReceipt: receipt,
+          nativePlatform: platform,
+          nativePurchaseState: purchaseState?.toString()
+        }
+      });
+
+      return {
+        transaction: heartTransaction,
+        previousBalance: user.hearts,
+        newBalance: updatedUser.hearts,
+        hearts_added: heartAmount
+      };
+    });
+
+    console.log('✅ 네이티브 인앱결제 처리 완료:', {
+      transactionId: result.transaction.id,
+      nativeTransactionId: transactionId,
+      productId: productId,
+      hearts: result.hearts_added,
+      previousBalance: result.previousBalance,
+      newBalance: result.newBalance,
+      platform: platform
+    });
+
+    return res.json({
+      success: true,
+      message: '네이티브 인앱결제 검증 및 하트 충전 완료',
+      hearts_added: result.hearts_added,
+      newBalance: result.newBalance,
+      previousBalance: result.previousBalance,
+      transaction_id: result.transaction.id,
+      native_transaction_id: transactionId,
+      product_id: productId,
+      platform: platform,
+      processed_by: 'native_iap'
+    });
+
+  } catch (error) {
+    console.error('❌ 네이티브 인앱결제 검증 실패:', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    
+    return res.status(500).json({ 
+      success: false, 
+      error: '네이티브 인앱결제 검증 중 오류가 발생했습니다',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // 하트 충전 처리 (성공 코드 방식)
 router.post('/charge-hearts', async (req, res) => {
   console.log('💖 하트 충전 처리 시작 (KG이니시스 방식)');

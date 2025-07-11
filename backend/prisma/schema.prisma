@@ -146,10 +146,18 @@ model HeartTransaction {
   completedAt DateTime? // 하트 지급 완료 시간
   refundedAt  DateTime? // 환불 처리 시간
   
-  // 인앱결제 관련 필드들
+  // 인앱결제 관련 필드들 (기존)
   transactionId String? // 인앱결제 트랜잭션 ID
   productId     String? // 인앱결제 상품 ID
   purchaseDate  DateTime? // 인앱결제 구매 시간
+  
+  // 네이티브 인앱결제 관련 필드들 (새로 추가)
+  nativeTransactionId String? // 네이티브 인앱결제 트랜잭션 ID
+  nativeProductId     String? // 네이티브 인앱결제 상품 ID
+  nativePurchaseToken String? // 네이티브 인앱결제 토큰 (Android)
+  nativeReceipt       String? @db.Text // 네이티브 인앱결제 영수증 (iOS)
+  nativePlatform      String? // 네이티브 플랫폼 (android/ios)
+  nativePurchaseState String? // 네이티브 구매 상태
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt @default(now())
