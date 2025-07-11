@@ -68,6 +68,41 @@ export const AuthProvider = ({ children }) => {
       return; // 개발 환경에서는 Firebase 인증 건너뛰기
     }
 
+    // 프로덕션 환경에서 게스트 모드 처리
+    const handleGuestMode = () => {
+      // localStorage에서 기존 게스트 사용자 확인
+      let guestUserId = localStorage.getItem('guestUserId');
+      let guestUserEmail = localStorage.getItem('guestUserEmail');
+      
+      if (!guestUserId) {
+        // 새 게스트 사용자 생성
+        guestUserId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        guestUserEmail = `${guestUserId}@guest.minglingchat.com`;
+        
+        localStorage.setItem('guestUserId', guestUserId);
+        localStorage.setItem('guestUserEmail', guestUserEmail);
+        localStorage.setItem('userType', 'guest');
+      }
+      
+      const guestUser = {
+        uid: guestUserId,
+        email: guestUserEmail,
+        displayName: '게스트 사용자',
+        photoURL: null,
+        provider: 'guest'
+      };
+      
+      console.log('👤 게스트 모드 활성화:', guestUser);
+      setIsLoggedIn(true);
+      setUser(guestUser);
+      
+      // axios 헤더 설정
+      axios.defaults.headers.common['X-User-ID'] = guestUser.uid;
+      axios.defaults.headers.common['X-User-Email'] = guestUser.email;
+      
+      return guestUser;
+    };
+
     // WebView 환경에서 redirect 결과 처리
     const checkRedirectResult = async () => {
       try {
@@ -97,10 +132,14 @@ export const AuthProvider = ({ children }) => {
             axios.defaults.headers.common['X-User-Email'] = result.user.email;
           } else if (result.error) {
             console.error('❌ Redirect 로그인 실패:', result.error);
+            // WebView에서 로그인 실패 시 게스트 모드
+            handleGuestMode();
           }
         }
       } catch (error) {
         console.error('💥 Redirect 결과 처리 오류:', error);
+        // 에러 시 게스트 모드
+        handleGuestMode();
       }
     };
 
@@ -120,6 +159,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('userEmail', firebaseUser.email);
         localStorage.setItem('userId', firebaseUser.uid);
         localStorage.setItem('userName', firebaseUser.displayName || firebaseUser.email.split('@')[0]);
+        localStorage.setItem('userType', 'google');
         
         console.log('💾 사용자 정보 localStorage에 저장:', {
           email: firebaseUser.email,
@@ -133,24 +173,13 @@ export const AuthProvider = ({ children }) => {
         // Firebase 사용자 ID를 axios 헤더에 설정
         axios.defaults.headers.common['X-User-ID'] = firebaseUser.uid;
         axios.defaults.headers.common['X-User-Email'] = firebaseUser.email;
-      } else if (process.env.NODE_ENV !== 'development') {
-        // 프로덕션 환경에서만 로그아웃 처리
-        setIsLoggedIn(false);
-        setUser(null);
-        
-        // localStorage에서 사용자 정보 제거
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('userName');
-        
-        // 로그아웃 시 헤더 제거
-        delete axios.defaults.headers.common['X-User-ID'];
-        delete axios.defaults.headers.common['X-User-Email'];
+      } else {
+        // Firebase 로그인이 없으면 게스트 모드 활성화
+        console.log('🚫 Firebase 로그인 없음 - 게스트 모드 활성화');
+        handleGuestMode();
       }
       
-      if (process.env.NODE_ENV !== 'development') {
-        setLoading(false);
-      }
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -181,14 +210,55 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      const result = await signOutUser();
-      if (result.success) {
-        setIsLoggedIn(false);
-        setUser(null);
-        return { success: true };
-      } else {
-        return { success: false, error: result.error };
+      const userType = localStorage.getItem('userType');
+      
+      if (userType === 'google') {
+        // Google 사용자인 경우 Firebase 로그아웃
+        const result = await signOutUser();
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
       }
+      
+      // 모든 사용자 정보 제거
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userType');
+      localStorage.removeItem('guestUserId');
+      localStorage.removeItem('guestUserEmail');
+      
+      // axios 헤더 제거
+      delete axios.defaults.headers.common['X-User-ID'];
+      delete axios.defaults.headers.common['X-User-Email'];
+      
+      // 새로운 게스트 사용자 생성
+      const newGuestUserId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const newGuestUserEmail = `${newGuestUserId}@guest.minglingchat.com`;
+      
+      localStorage.setItem('guestUserId', newGuestUserId);
+      localStorage.setItem('guestUserEmail', newGuestUserEmail);
+      localStorage.setItem('userType', 'guest');
+      
+      const newGuestUser = {
+        uid: newGuestUserId,
+        email: newGuestUserEmail,
+        displayName: '게스트 사용자',
+        photoURL: null,
+        provider: 'guest'
+      };
+      
+      console.log('🔄 로그아웃 후 새 게스트 모드:', newGuestUser);
+      
+      // 새 게스트 사용자로 설정
+      setIsLoggedIn(true);
+      setUser(newGuestUser);
+      
+      // axios 헤더 재설정
+      axios.defaults.headers.common['X-User-ID'] = newGuestUser.uid;
+      axios.defaults.headers.common['X-User-Email'] = newGuestUser.email;
+      
+      return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
       return { success: false, error: error.message };
