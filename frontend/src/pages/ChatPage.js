@@ -35,6 +35,17 @@ const ChatPage = () => {
   const [relationInfo, setRelationInfo] = useState(null);
   const [favorabilityNotification, setFavorabilityNotification] = useState(null);
   
+  // 모바일 터치 최적화 상태
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [touchEndY, setTouchEndY] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [buttonPressed, setButtonPressed] = useState(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  
+  // 모바일 최적화를 위한 ref
+  const containerRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  
   // 다음 단계까지 남은 점수 계산 (실시간 업데이트)
   const nextStageInfo = useMemo(() => {
     if (!relationInfo) return null;
@@ -65,6 +76,35 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
   // 텍스트 입력 필드 커서 유지를 위한 ref
   const inputRef = useRef(null);
+
+  // 모바일 터치 이벤트 핸들러
+  const handleTouchStart = (e) => {
+    setTouchStartY(e.touches[0].clientY);
+    setIsScrolling(true);
+  };
+
+  const handleTouchEnd = (e) => {
+    setTouchEndY(e.changedTouches[0].clientY);
+    setIsScrolling(false);
+  };
+
+  // 터치 피드백 핸들러
+  const handleButtonPress = (buttonId) => {
+    setButtonPressed(buttonId);
+    setTimeout(() => setButtonPressed(null), 150);
+  };
+
+  // 중복 터치 방지 핸들러
+  const handleSendWithPreventDuplication = async () => {
+    if (sendingMessage) return;
+    setSendingMessage(true);
+    
+    try {
+      await handleSendMessage();
+    } finally {
+      setTimeout(() => setSendingMessage(false), 500);
+    }
+  };
 
   // 최초 메시지 로딩 완료 시에만 스크롤 실행 (메시지 변경에 반응하지 않음)
   useEffect(() => {
@@ -214,6 +254,7 @@ const ChatPage = () => {
     
     // 하트가 부족한 경우
     if (hearts < 1) {
+      handleButtonPress('heart-insufficient');
       if (isInApp()) {
         // 네이티브 앱에서는 네이티브 하트샵 열기
         openHeartShop(hearts);
@@ -398,7 +439,8 @@ const ChatPage = () => {
   };
 
   const handleBack = () => {
-    navigate('/chats');
+    handleButtonPress('back');
+    setTimeout(() => navigate('/chats'), 150);
   };
 
   // 타이핑 애니메이션 완료 처리
@@ -412,14 +454,15 @@ const ChatPage = () => {
 
   // 로딩 인디케이터 컴포넌트
   const LoadingIndicator = () => (
-    <div className="flex justify-start mb-1">
-      <div className="max-w-xs lg:max-w-md px-4 py-3 rounded-2xl bg-gray-100 text-gray-900">
-        <div className="flex items-center space-x-1">
+    <div className="flex justify-start mb-4">
+      <div className="max-w-xs px-4 py-3 rounded-3xl bg-gray-100 text-gray-900 backdrop-blur-sm">
+        <div className="flex items-center space-x-2">
           <div className="flex space-x-1">
             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
           </div>
+          <span className="text-xs text-gray-500">입력 중...</span>
         </div>
       </div>
     </div>
@@ -429,127 +472,140 @@ const ChatPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p className="text-gray-500">채팅을 불러오는 중...</p>
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500 text-lg">채팅을 불러오는 중...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={handleBack}
-            className="p-2 hover:bg-gray-100 rounded-full"
-          >
-            <ArrowLeftIcon className="w-6 h-6 text-gray-600" />
-          </button>
+    <div 
+      ref={containerRef}
+      className="flex flex-col h-screen bg-white overflow-hidden touch-pan-y"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Header - 모바일 최적화 */}
+      <div className="flex-shrink-0 bg-white border-b border-gray-100 shadow-sm safe-area-top">
+        <div className="flex items-center justify-between px-4 py-4">
           <div className="flex items-center space-x-3">
-            <Avatar 
-              src={chatInfo?.character?.avatarUrl}
-              alt={chatInfo?.character?.name}
-              name={chatInfo?.character?.name}
-              size="lg"
-              fallbackType="emoji"
-              className="w-10 h-10"
-            />
-            <h1 className="text-lg font-semibold">{chatInfo?.character?.name || '채팅'}</h1>
+            <button 
+              onClick={handleBack}
+              className={`p-3 rounded-full transition-all duration-150 active:scale-95 ${
+                buttonPressed === 'back' ? 'bg-gray-200 scale-95' : 'hover:bg-gray-100'
+              }`}
+              style={{ minWidth: '44px', minHeight: '44px' }}
+            >
+              <ArrowLeftIcon className="w-6 h-6 text-gray-700" />
+            </button>
+            
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <Avatar 
+                  src={chatInfo?.character?.avatarUrl}
+                  alt={chatInfo?.character?.name}
+                  name={chatInfo?.character?.name}
+                  size="lg"
+                  fallbackType="emoji"
+                  className="w-12 h-12 border-2 border-gray-200"
+                />
+                {/* 온라인 상태 표시 */}
+                <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">
+                  {chatInfo?.character?.name || '채팅'}
+                </h1>
+                <p className="text-sm text-gray-500">온라인</p>
+              </div>
+            </div>
           </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <HeartIcon className={`w-6 h-6 ${hearts < 1 ? 'text-gray-400' : 'text-red-500'}`} />
-          <span className={`text-sm font-medium ${hearts < 1 ? 'text-gray-400' : 'text-black'}`}>
-            {hearts}
-          </span>
-          {heartLoading && (
-            <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-          )}
+          
+          {/* 하트 표시 - 모바일 최적화 */}
+          <div 
+            className={`flex items-center space-x-2 px-3 py-2 rounded-full transition-all duration-150 ${
+              hearts < 1 ? 'bg-gray-100' : 'bg-red-50'
+            }`}
+            onClick={() => hearts < 1 && handleButtonPress('heart-insufficient')}
+          >
+            <HeartIcon className={`w-5 h-5 ${hearts < 1 ? 'text-gray-400' : 'text-red-500'}`} />
+            <span className={`text-sm font-bold ${hearts < 1 ? 'text-gray-400' : 'text-red-600'}`}>
+              {hearts}
+            </span>
+            {heartLoading && (
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Favorability Section */}
+      {/* Favorability Section - 모바일 최적화 */}
       {relationInfo && (
-        <div className="p-4 bg-gradient-to-r from-pink-50 to-purple-50 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl">
-                {relationInfo.stage === 0 && '👋'}
-                {relationInfo.stage === 1 && '😊'}
-                {relationInfo.stage === 2 && '😄'}
-                {relationInfo.stage === 3 && '💕'}
-                {relationInfo.stage === 4 && '💖'}
-                {relationInfo.stage === 5 && '💍'}
-                {relationInfo.stage === 6 && '👑'}
+        <div className="flex-shrink-0 bg-gradient-to-r from-pink-50 to-purple-50 border-b border-gray-100">
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <div className="text-3xl">
+                  {relationInfo.stage === 0 && '👋'}
+                  {relationInfo.stage === 1 && '😊'}
+                  {relationInfo.stage === 2 && '😄'}
+                  {relationInfo.stage === 3 && '💕'}
+                  {relationInfo.stage === 4 && '💖'}
+                  {relationInfo.stage === 5 && '💍'}
+                  {relationInfo.stage === 6 && '👑'}
+                </div>
+                <div>
+                  <div className="text-base font-bold text-gray-900">
+                    {relationInfo.stage === 0 && '아는 사람'}
+                    {relationInfo.stage === 1 && '친구'}
+                    {relationInfo.stage === 2 && '썸 전야'}
+                    {relationInfo.stage === 3 && '연인'}
+                    {relationInfo.stage === 4 && '진지한 관계'}
+                    {relationInfo.stage === 5 && '약혼'}
+                    {relationInfo.stage === 6 && '결혼'}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {relationInfo.stage === 0 && '서로를 알아가는 중'}
+                    {relationInfo.stage === 1 && '편안한 친구 사이'}
+                    {relationInfo.stage === 2 && '특별한 감정이 싹트는 중'}
+                    {relationInfo.stage === 3 && '서로 사랑하는 사이'}
+                    {relationInfo.stage === 4 && '깊고 진지한 사랑'}
+                    {relationInfo.stage === 5 && '평생을 함께할 약속'}
+                    {relationInfo.stage === 6 && '영원한 사랑의 맹세'}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-800">
-                  {relationInfo.stage === 0 && '아는 사람'}
-                  {relationInfo.stage === 1 && '친구'}
-                  {relationInfo.stage === 2 && '썸 전야'}
-                  {relationInfo.stage === 3 && '연인'}
-                  {relationInfo.stage === 4 && '진지한 관계'}
-                  {relationInfo.stage === 5 && '약혼'}
-                  {relationInfo.stage === 6 && '결혼'}
+              
+              <div className="text-right">
+                <div className="text-sm font-bold text-gray-900">
+                  {relationInfo.score}/1000
                 </div>
                 <div className="text-xs text-gray-500">
-                  {relationInfo.stage === 0 && '서로를 알아가는 중'}
-                  {relationInfo.stage === 1 && '편안한 친구 사이'}
-                  {relationInfo.stage === 2 && '특별한 감정이 싹트는 중'}
-                  {relationInfo.stage === 3 && '서로 사랑하는 연인'}
-                  {relationInfo.stage === 4 && '깊은 사랑으로 이어진'}
-                  {relationInfo.stage === 5 && '결혼을 약속한 사이'}
-                  {relationInfo.stage === 6 && '영원한 사랑을 맹세한'}
+                  호감도
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => navigate(`/relationship/${chatInfo?.character?.id}`)}
-              className="px-3 py-1.5 text-xs text-pink-600 hover:text-pink-800 border border-pink-300 hover:border-pink-400 bg-pink-50 hover:bg-pink-100 rounded-md transition-all duration-200"
-            >
-              관계 관리
-            </button>
-          </div>
-          
-          {/* 진행률 바 */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-600">전체 진행률</span>
-              <span className="text-xs font-medium text-gray-700">
-                {nextStageInfo?.progressPercentage || '0.0'}%
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="h-2 rounded-full transition-all duration-1000 ease-out"
-                style={{ 
-                  width: `${(relationInfo.score / 1000) * 100}%`,
-                  background: `linear-gradient(to right, 
-                    ${relationInfo.stage === 0 ? '#9CA3AF' : 
-                      relationInfo.stage === 1 ? '#60A5FA' : 
-                      relationInfo.stage === 2 ? '#34D399' : 
-                      relationInfo.stage === 3 ? '#F472B6' : 
-                      relationInfo.stage === 4 ? '#A78BFA' : 
-                      relationInfo.stage === 5 ? '#FB7185' : '#FBBF24'}, 
-                    ${relationInfo.stage === 0 ? '#6B7280' : 
-                      relationInfo.stage === 1 ? '#3B82F6' : 
-                      relationInfo.stage === 2 ? '#10B981' : 
-                      relationInfo.stage === 3 ? '#EC4899' : 
-                      relationInfo.stage === 4 ? '#8B5CF6' : 
-                      relationInfo.stage === 5 ? '#F43F5E' : '#F59E0B'})`
-                }}
+            
+            {/* 호감도 게이지 - 모바일 최적화 */}
+            <div className="mb-2">
+              <FavorabilityGauge 
+                score={relationInfo.score}
+                stage={relationInfo.stage}
+                maxScore={1000}
+                height={8}
+                showLabel={false}
               />
             </div>
             
-            {/* 다음 단계 정보 (실시간 업데이트) */}
             {nextStageInfo && (
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">
+                <span className="text-sm text-gray-600">
                   다음 단계: {nextStageInfo.nextStageLabel}
                 </span>
-                <span className="text-xs text-gray-500 font-medium">
+                <span className="text-sm font-bold text-pink-600">
                   {nextStageInfo.pointsNeeded}점 남음
                 </span>
               </div>
@@ -558,40 +614,46 @@ const ChatPage = () => {
         </div>
       )}
 
-      {/* Emotion Status Section */}
-      {/* 감정 관련 UI 제거 */}
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-4">
+      {/* Messages - 모바일 최적화 */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-gray-50"
+        style={{ 
+          scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         {messages.map((message) => (
-          <div key={message.id}>
-            <div className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'} mb-1`}>
-              <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+          <div key={message.id} className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'}`}>
+            <div className="max-w-xs">
+              <div className={`px-4 py-3 rounded-3xl shadow-sm ${
                 message.isFromUser
                   ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-900'
+                  : 'bg-white text-gray-900 border border-gray-200'
               }`}>
-                <p className="text-sm leading-relaxed text-left">{message.content}</p>
+                <p className="text-base leading-relaxed break-words">
+                  {message.content}
+                </p>
               </div>
-            </div>
-            <div className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'}`}>
-              <p className="text-xs text-gray-400 px-2">
-                오전 {new Date(message.createdAt).toLocaleTimeString('ko-KR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                })}
-              </p>
+              <div className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'} mt-1`}>
+                <p className="text-xs text-gray-500 px-2">
+                  {new Date(message.createdAt).toLocaleTimeString('ko-KR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </p>
+              </div>
             </div>
           </div>
         ))}
         
-        {/* 타이핑 애니메이션 표시 */}
+        {/* 타이핑 애니메이션 표시 - 모바일 최적화 */}
         {isTyping && typingMessage && (
-          <div key={`typing-${typingMessage.id}`}>
-            <div className="flex justify-start mb-1">
-              <div className="max-w-xs lg:max-w-md px-4 py-3 rounded-2xl bg-gray-100 text-gray-900">
-                <p className="text-sm leading-relaxed text-left">
+          <div key={`typing-${typingMessage.id}`} className="flex justify-start">
+            <div className="max-w-xs">
+              <div className="px-4 py-3 rounded-3xl bg-white text-gray-900 border border-gray-200 shadow-sm">
+                <p className="text-base leading-relaxed break-words">
                   <TypingAnimation
                     text={typingMessage.content}
                     speed={30}
@@ -599,15 +661,15 @@ const ChatPage = () => {
                   />
                 </p>
               </div>
-            </div>
-            <div className="flex justify-start">
-              <p className="text-xs text-gray-400 px-2">
-                오전 {new Date(typingMessage.createdAt).toLocaleTimeString('ko-KR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                })}
-              </p>
+              <div className="flex justify-start mt-1">
+                <p className="text-xs text-gray-500 px-2">
+                  {new Date(typingMessage.createdAt).toLocaleTimeString('ko-KR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -619,35 +681,53 @@ const ChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input */}
-      <div className="border-t border-gray-200 p-4 bg-white">
-        <div className="flex items-center space-x-3">
-          <input
-            ref={inputRef}
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !heartLoading && hearts >= 1 && !isGeneratingResponse && handleSendMessage()}
-            onClick={() => hearts < 1 && (isInApp() ? openHeartShop(hearts) : showInsufficientHearts(hearts, {
-              onConfirm: () => navigate('/heart-shop'),
-              onCancel: () => {}
-            }))}
-            placeholder={hearts < 1 ? "하트가 부족합니다. 하트를 충전해주세요!" : "메시지를 입력하세요... (1 하트 소모)"}
-            disabled={hearts < 1 || heartLoading || isGeneratingResponse}
-            className={`flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 text-sm ${
-              hearts < 1 || heartLoading || isGeneratingResponse
-                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-pointer' 
-                : 'border-gray-300 focus:ring-blue-500'
-            }`}
-          />
+      {/* Message Input - 모바일 최적화 */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 safe-area-bottom">
+        <div className="flex items-end space-x-3 px-4 py-4">
+          <div className="flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !heartLoading && hearts >= 1 && !isGeneratingResponse && !sendingMessage && handleSendWithPreventDuplication()}
+              onClick={() => hearts < 1 && handleButtonPress('heart-insufficient')}
+              placeholder={hearts < 1 ? "하트가 부족합니다! 충전해주세요 💖" : "메시지를 입력하세요..."}
+              disabled={hearts < 1 || heartLoading || isGeneratingResponse || sendingMessage}
+              className={`w-full px-4 py-3 rounded-3xl text-base transition-all duration-150 ${
+                hearts < 1 || heartLoading || isGeneratingResponse || sendingMessage
+                  ? 'border-2 border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                  : 'border-2 border-gray-300 bg-white text-gray-900 focus:border-pink-500 focus:ring-2 focus:ring-pink-200'
+              }`}
+              style={{
+                minHeight: '44px',
+                fontSize: '16px', // iOS 줌 방지
+                WebkitAppearance: 'none'
+              }}
+            />
+            {hearts < 1 && (
+              <div className="flex items-center justify-center mt-2">
+                <span className="text-sm text-gray-500">💖 1하트 소모</span>
+              </div>
+            )}
+          </div>
+          
           <button
-            onClick={handleSendMessage}
-            disabled={!newMessage.trim() || hearts < 1 || heartLoading || isGeneratingResponse}
-            className="p-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            onClick={handleSendWithPreventDuplication}
+            disabled={!newMessage.trim() || hearts < 1 || heartLoading || isGeneratingResponse || sendingMessage}
+            className={`p-3 rounded-full transition-all duration-150 active:scale-95 ${
+              !newMessage.trim() || hearts < 1 || heartLoading || isGeneratingResponse || sendingMessage
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : buttonPressed === 'send' 
+                  ? 'bg-black text-white scale-95'
+                  : 'bg-black text-white hover:bg-gray-800 shadow-lg'
+            }`}
+            style={{ minWidth: '44px', minHeight: '44px' }}
+            onTouchStart={() => handleButtonPress('send')}
             title={hearts < 1 ? '하트가 부족합니다' : '메시지 전송 (1 하트 소모)'}
           >
-            {heartLoading || isGeneratingResponse ? (
-              <div className="w-5 h-5 border border-white border-t-transparent rounded-full animate-spin"></div>
+            {heartLoading || isGeneratingResponse || sendingMessage ? (
+              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
             ) : (
               <PaperAirplaneIcon className="w-5 h-5" />
             )}
@@ -655,18 +735,16 @@ const ChatPage = () => {
         </div>
       </div>
       
-      {/* Emotional Feedback System */}
-      {/* 감정 관련 UI 제거 */}
-      
-      {/* Favorability Change Notification */}
+      {/* Favorability Change Notification - 모바일 최적화 */}
       {favorabilityNotification && (
-        <FavorabilityChangeNotification
-          deltaScore={favorabilityNotification.deltaScore}
-          oldStage={favorabilityNotification.oldStage}
-          newStage={favorabilityNotification.newStage}
-          stageChanged={favorabilityNotification.stageChanged}
-          onClose={() => setFavorabilityNotification(null)}
-        />
+        <div className="fixed top-24 left-4 right-4 z-50">
+          <FavorabilityChangeNotification 
+            deltaScore={favorabilityNotification.deltaScore}
+            oldStage={favorabilityNotification.oldStage}
+            newStage={favorabilityNotification.newStage}
+            stageChanged={favorabilityNotification.stageChanged}
+          />
+        </div>
       )}
     </div>
   );
