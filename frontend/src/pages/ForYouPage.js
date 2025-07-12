@@ -406,9 +406,31 @@ const ForYouPage = () => {
           )}
         </div>
 
-        {/* Header - Character Profile */}
-        <div className="relative z-30 p-6 pt-12">
-          <div className="flex items-center justify-between mb-2">
+        {/* Navigation Arrows */}
+        {currentIndex > 0 && (
+          <button 
+            onClick={handlePrevious}
+            disabled={isTransitioning}
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-30 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
+          >
+            <ChevronLeftIcon className="w-6 h-6" />
+          </button>
+        )}
+        
+        {currentIndex < characters.length - 1 && (
+          <button 
+            onClick={handleNext}
+            disabled={isTransitioning}
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-30 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
+          >
+            <ChevronRightIcon className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Main Content Flow */}
+        <div className="relative z-10 h-full flex flex-col justify-between p-6 pt-12">
+          {/* Character Profile Header */}
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <Avatar 
                 src={currentCharacter.avatarUrl}
@@ -442,50 +464,25 @@ const ForYouPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Character Introduction Card */}
+          <div className="flex-1 flex items-center justify-center">
+            <CharacterIntroCard 
+              character={currentCharacter} 
+              onStartChat={handleStartChat}
+            />
+          </div>
+
+          {/* Recommendation Timer */}
+          <div className="mt-6">
+            <RecommendationTimer
+              countdown={countdown}
+              onAddCharacter={handleAddCharacter}
+              addingCharacter={addingCharacter}
+              hearts={hearts}
+            />
+          </div>
         </div>
-
-        {/* Navigation Arrows */}
-        {currentIndex > 0 && (
-          <button 
-            onClick={handlePrevious}
-            disabled={isTransitioning}
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
-          >
-            <ChevronLeftIcon className="w-6 h-6" />
-          </button>
-        )}
-        
-        {currentIndex < characters.length - 1 && (
-          <button 
-            onClick={handleNext}
-            disabled={isTransitioning}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
-          >
-            <ChevronRightIcon className="w-6 h-6" />
-          </button>
-        )}
-
-        {/* First Impression Card - Upper Section */}
-        <div className="absolute top-32 left-6 right-6 z-20">
-          <CharacterIntroCard 
-            character={currentCharacter} 
-            onStartChat={handleStartChat}
-          />
-        </div>
-
-        {/* Countdown Timer and Add Character Button */}
-        <div className="absolute bottom-16 left-6 right-6 z-10">
-          <RecommendationTimer
-            countdown={countdown}
-            onAddCharacter={handleAddCharacter}
-            addingCharacter={addingCharacter}
-            hearts={hearts}
-          />
-        </div>
-
-
-
-
 
         {/* Persona Selection Modal */}
         <PersonaSelection
