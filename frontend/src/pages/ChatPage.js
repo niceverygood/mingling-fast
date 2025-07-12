@@ -172,15 +172,28 @@ const ChatPage = () => {
 
   // 호감도 정보 불러오기 (개선된 버전)
   const fetchRelationInfo = async (characterId) => {
+    if (!characterId) {
+      console.warn('⚠️ 캐릭터 ID가 없어 관계 정보를 불러올 수 없습니다.');
+      return;
+    }
+
     try {
       console.log('🔄 관계 정보 불러오기 시도:', characterId);
       const relationData = await getRelationInfo(characterId);
       console.log('✅ 관계 정보 불러오기 성공:', relationData);
       
       if (relationData && relationData.data) {
-        setRelationInfo(relationData.data);
+        // 안전한 데이터 검증
+        const safeRelationData = {
+          score: typeof relationData.data.score === 'number' ? relationData.data.score : 0,
+          stage: typeof relationData.data.stage === 'number' ? relationData.data.stage : 0,
+          stageChanged: Boolean(relationData.data.stageChanged),
+          ...relationData.data
+        };
+        setRelationInfo(safeRelationData);
       } else {
         // 기본값 설정
+        console.log('⚠️ 관계 정보가 없어 기본값으로 설정');
         setRelationInfo({
           score: 0,
           stage: 0,
@@ -189,7 +202,14 @@ const ChatPage = () => {
       }
     } catch (error) {
       console.error('❌ 관계 정보 불러오기 실패:', error);
-      // 기본값 설정
+      // 네트워크 오류와 서버 오류 구분
+      if (error.response?.status >= 500) {
+        console.error('서버 에러로 관계 정보 로딩 실패');
+      } else if (error.code === 'NETWORK_ERROR') {
+        console.error('네트워크 에러로 관계 정보 로딩 실패');
+      }
+      
+      // 기본값 설정 (에러 발생 시에도 UI는 정상 표시)
       setRelationInfo({
         score: 0,
         stage: 0,
@@ -212,41 +232,91 @@ const ChatPage = () => {
 
   const fetchHeartBalance = async () => {
     try {
+      console.log('💎 하트 잔액 조회 시도...');
       const response = await heartsAPI.getBalance();
-      setHearts(response.data.hearts);
+      if (response.data && typeof response.data.hearts === 'number') {
+        setHearts(response.data.hearts);
+        console.log('✅ 하트 잔액 조회 성공:', response.data.hearts);
+      } else {
+        console.warn('⚠️ 하트 잔액 응답 형식 오류:', response.data);
+        // 기본값 유지 (현재 hearts 상태값 그대로)
+      }
     } catch (error) {
-      console.error('Error fetching heart balance:', error);
-      // 실패 시 기본값 유지
+      console.error('❌ 하트 잔액 조회 실패:', error);
+      // 네트워크 오류 시 구분
+      if (error.response?.status >= 500) {
+        console.error('서버 에러로 하트 잔액 조회 실패');
+      } else if (error.code === 'NETWORK_ERROR') {
+        console.error('네트워크 에러로 하트 잔액 조회 실패');
+      }
+      // 실패 시 기본값 유지 (현재 hearts 상태값 그대로)
     }
   };
 
   const fetchChatInfo = async () => {
+    if (!chatId) {
+      console.warn('⚠️ 채팅 ID가 없어 채팅 정보를 불러올 수 없습니다.');
+      return;
+    }
+
     try {
+      console.log('🔄 채팅 정보 불러오기 시도:', chatId);
       // 채팅 목록에서 해당 채팅 정보 찾기
       const response = await chatsAPI.getAll();
       if (Array.isArray(response.data)) {
         const chat = response.data.find(c => c.id === chatId);
-        setChatInfo(chat);
+        if (chat) {
+          setChatInfo(chat);
+          console.log('✅ 채팅 정보 로딩 성공:', chat.character?.name);
+        } else {
+          console.warn('⚠️ 해당 채팅을 찾을 수 없습니다:', chatId);
+          setChatInfo(null);
+        }
       } else {
-        console.error('Received non-array response for chats:', response.data);
+        console.error('❌ 채팅 목록 응답 형식 오류:', response.data);
+        setChatInfo(null);
       }
     } catch (error) {
-      console.error('Error fetching chat info:', error);
+      console.error('❌ 채팅 정보 로딩 실패:', error);
+      // 네트워크 오류 시 사용자에게 알림
+      if (error.response?.status >= 500) {
+        console.error('서버 에러로 채팅 정보 로딩 실패');
+      } else if (error.code === 'NETWORK_ERROR') {
+        console.error('네트워크 에러로 채팅 정보 로딩 실패');
+      }
+      setChatInfo(null);
     }
   };
 
   const fetchMessages = async () => {
+    if (!chatId) {
+      console.warn('⚠️ 채팅 ID가 없어 메시지를 불러올 수 없습니다.');
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log('🔄 메시지 불러오기 시도:', chatId);
       const response = await chatsAPI.getMessages(chatId);
       // 응답이 배열인지 확인
       if (Array.isArray(response.data)) {
         setMessages(response.data);
+        console.log('✅ 메시지 로딩 성공:', response.data.length, '개');
       } else {
-        console.error('Received non-array response for messages:', response.data);
+        console.error('❌ 메시지 응답 형식 오류:', response.data);
         setMessages([]);
       }
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('❌ 메시지 로딩 실패:', error);
+      // 네트워크 오류 시 사용자에게 알림
+      if (error.response?.status >= 500) {
+        console.error('서버 에러로 메시지 로딩 실패');
+      } else if (error.code === 'NETWORK_ERROR') {
+        console.error('네트워크 에러로 메시지 로딩 실패');
+      } else if (error.response?.status === 404) {
+        console.warn('채팅을 찾을 수 없습니다 - 새로운 채팅일 수 있습니다');
+      }
       setMessages([]);
     } finally {
       setLoading(false);

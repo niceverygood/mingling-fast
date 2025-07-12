@@ -65,7 +65,7 @@ const RelationshipModal = ({ isOpen, onClose, relationInfo, characterInfo }) => 
           {/* Character Info */}
           <div className="flex items-center space-x-4 mb-6">
             <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl">
-              {characterInfo?.name?.[0] || '?'}
+              {characterInfo?.name?.[0] || currentStage.emoji || '?'}
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
