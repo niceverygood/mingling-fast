@@ -375,22 +375,6 @@ const ForYouPage = () => {
           </button>
         </div>
 
-        {/* Slide Indicators */}
-        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-10 flex space-x-2">
-          {characters.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => handleSlideSelect(index)}
-              disabled={isTransitioning}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex 
-                  ? 'bg-white scale-125' 
-                  : 'bg-white bg-opacity-50 hover:bg-opacity-75'
-              }`}
-            />
-          ))}
-        </div>
-
         {/* Swipe Hint */}
         {characters.length > 1 && currentIndex === 0 && (
           <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
