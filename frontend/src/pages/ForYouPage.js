@@ -9,6 +9,7 @@ import Avatar from '../components/Avatar';
 import { usePopup } from '../context/PopupContext';
 import CharacterIntroCard from '../components/CharacterIntroCard';
 import RecommendationTimer from '../components/RecommendationTimer';
+import CharacterDetail from './CharacterCreation/CharacterDetail';
 
 const ForYouPage = () => {
   const { isLoggedIn } = useAuth();
@@ -26,6 +27,8 @@ const ForYouPage = () => {
   const [addingCharacter, setAddingCharacter] = useState(false);
   const [refreshInfo, setRefreshInfo] = useState(null);
   const [countdown, setCountdown] = useState({ minutes: 0, seconds: 0 });
+  const [showCharacterDetail, setShowCharacterDetail] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
   
   // 터치/스와이프 관련 상태
   const [touchStartX, setTouchStartX] = useState(0);
@@ -195,6 +198,16 @@ const ForYouPage = () => {
 
   const handleClosePersonaSelection = () => {
     setShowPersonaSelection(false);
+  };
+
+  const handleAvatarClick = () => {
+    setSelectedCharacter(currentCharacter);
+    setShowCharacterDetail(true);
+  };
+
+  const handleCloseCharacterDetail = () => {
+    setShowCharacterDetail(false);
+    setSelectedCharacter(null);
   };
 
   const handlePrevious = () => {
@@ -438,6 +451,7 @@ const ForYouPage = () => {
                 name={currentCharacter.name}
                 size="lg"
                 className="ring-4 ring-white ring-opacity-50"
+                onClick={handleAvatarClick}
               />
               <div>
                 <h1 className="text-white text-xl font-bold">{currentCharacter.name}</h1>
@@ -490,6 +504,13 @@ const ForYouPage = () => {
           onClose={handleClosePersonaSelection}
           characterId={currentCharacter?.id}
           characterName={currentCharacter?.name}
+        />
+
+        {/* Character Detail Modal */}
+        <CharacterDetail
+          isOpen={showCharacterDetail}
+          onClose={handleCloseCharacterDetail}
+          character={selectedCharacter}
         />
       </div>
     </div>

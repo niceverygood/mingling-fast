@@ -6,7 +6,9 @@ const Avatar = ({
   name, 
   size = 'md', 
   className = '', 
-  fallbackType = 'initial' // 'initial', 'icon', 'emoji'
+  fallbackType = 'initial', // 'initial', 'icon', 'emoji'
+  onClick = null, // 클릭 핸들러 추가
+  clickable = false // 클릭 가능 여부
 }) => {
   const sizeClasses = {
     xs: 'w-6 h-6 text-xs',
@@ -82,8 +84,21 @@ const Avatar = ({
     return colors[index];
   };
 
+  const handleClick = (e) => {
+    if (onClick) {
+      e.stopPropagation(); // 부모 요소의 클릭 이벤트 방지
+      onClick();
+    }
+  };
+
+  // 클릭 가능한 스타일 추가
+  const clickableStyles = (clickable || onClick) ? 'cursor-pointer hover:opacity-80 transition-opacity' : '';
+
   return (
-    <div className={`${sizeClasses[size]} bg-gradient-to-br ${getGradientClass(name)} rounded-full flex items-center justify-center overflow-hidden ${className}`}>
+    <div 
+      className={`${sizeClasses[size]} bg-gradient-to-br ${getGradientClass(name)} rounded-full flex items-center justify-center overflow-hidden ${className} ${clickableStyles}`}
+      onClick={handleClick}
+    >
       {src ? (
         <img 
           src={src} 

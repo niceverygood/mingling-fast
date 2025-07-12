@@ -7,6 +7,7 @@ import Avatar from '../components/Avatar';
 import FavorabilityGauge, { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
 import TypingAnimation from '../components/TypingAnimation';
 import RelationshipModal from '../components/RelationshipModal';
+import CharacterDetail from './CharacterCreation/CharacterDetail';
 import { getRelationInfo } from '../services/relationshipAPI';
 import { goToHeartShopWithAlert, openHeartShop, isInApp, listenForHeartUpdates } from '../utils/webview';
 import { usePopup } from '../context/PopupContext';
@@ -80,6 +81,10 @@ const ChatPage = () => {
 
   // 관계 모달 상태 추가
   const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false);
+  
+  // 캐릭터 상세 모달 상태 추가
+  const [showCharacterDetail, setShowCharacterDetail] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
 
   // 모바일 터치 이벤트 핸들러
   const handleTouchStart = (e) => {
@@ -579,6 +584,18 @@ const ChatPage = () => {
     setTimeout(() => navigate('/chats'), 150);
   };
 
+  const handleAvatarClick = () => {
+    if (chatInfo?.character) {
+      setSelectedCharacter(chatInfo.character);
+      setShowCharacterDetail(true);
+    }
+  };
+
+  const handleCloseCharacterDetail = () => {
+    setShowCharacterDetail(false);
+    setSelectedCharacter(null);
+  };
+
   // 타이핑 애니메이션 완료 처리
   const handleTypingComplete = () => {
     if (typingMessage) {
@@ -650,6 +667,7 @@ const ChatPage = () => {
                   size="lg"
                   fallbackType="emoji"
                   className="w-12 h-12 border-2 border-gray-200"
+                  onClick={handleAvatarClick}
                 />
                 {/* 온라인 상태 표시 */}
                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
@@ -868,6 +886,15 @@ const ChatPage = () => {
         relationInfo={relationInfo}
         characterInfo={chatInfo?.character}
       />
+
+      {/* Character Detail Modal */}
+      {showCharacterDetail && selectedCharacter && (
+        <CharacterDetail
+          characterId={selectedCharacter.id}
+          onClose={handleCloseCharacterDetail}
+          onEdit={() => {}} // 편집 기능은 비활성화
+        />
+      )}
       </div>
     </div>
   );

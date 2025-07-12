@@ -6,14 +6,24 @@ import LoginModal from '../components/LoginModal';
 import { chatsAPI } from '../services/api';
 import { Chat, ChatDisplayData } from '../types/chat';
 import Avatar from '../components/Avatar';
+import { TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
+import PersonaSelection from './PersonaCreation/PersonaSelection';
+import CharacterDetail from './CharacterCreation/CharacterDetail';
+import PersonaDetail from './PersonaCreation/PersonaDetail';
 
 const ChatListPage: React.FC = () => {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [showPersonaSelection, setShowPersonaSelection] = useState(false);
+  const [selectedCharacterForChat, setSelectedCharacterForChat] = useState<any>(null);
+  const [showCharacterDetail, setShowCharacterDetail] = useState(false);
+  const [showPersonaDetail, setShowPersonaDetail] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState<any>(null);
+  const [selectedPersona, setSelectedPersona] = useState<any>(null);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -44,6 +54,31 @@ const ChatListPage: React.FC = () => {
 
   const handleChatClick = (chatId: number): void => {
     navigate(`/chat/${chatId}`);
+  };
+
+  const handleCharacterAvatarClick = (character: any) => {
+    setSelectedCharacter(character);
+    setShowCharacterDetail(true);
+  };
+
+  const handlePersonaAvatarClick = (persona: any) => {
+    setSelectedPersona(persona);
+    setShowPersonaDetail(true);
+  };
+
+  const handleCloseCharacterDetail = () => {
+    setShowCharacterDetail(false);
+    setSelectedCharacter(null);
+  };
+
+  const handleClosePersonaDetail = () => {
+    setShowPersonaDetail(false);
+    setSelectedPersona(null);
+  };
+
+  const handleClosePersonaSelection = () => {
+    setShowPersonaSelection(false);
+    setSelectedCharacterForChat(null);
   };
 
   const sortedChats = useMemo(() => {
@@ -178,12 +213,15 @@ const ChatListPage: React.FC = () => {
             className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
           >
             <div className="flex items-center space-x-3">
-              <Avatar
-                src={chat.character?.avatarUrl}
-                alt={chat.character?.name || 'Unknown'}
-                name={chat.character?.name || 'Unknown'}
-                size="md"
-              />
+              <div onClick={() => chat.character && handleCharacterAvatarClick(chat.character)} className="cursor-pointer">
+                <Avatar
+                  src={chat.character?.avatarUrl}
+                  alt={chat.character?.name || 'Unknown'}
+                  name={chat.character?.name || 'Unknown'}
+                  size="md"
+                  onClick={null}
+                />
+              </div>
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
@@ -197,13 +235,16 @@ const ChatListPage: React.FC = () => {
                         <span className="text-xs text-gray-500 truncate max-w-[80px]">
                           {chat.persona.name}
                         </span>
-                        <Avatar
-                          src={chat.persona.avatarUrl}
-                          alt={chat.persona.name}
-                          name={chat.persona.name}
-                          size="sm"
-                          className="w-6 h-6"
-                        />
+                        <div onClick={() => chat.persona && handlePersonaAvatarClick(chat.persona)} className="cursor-pointer">
+                          <Avatar
+                            src={chat.persona.avatarUrl}
+                            alt={chat.persona.name}
+                            name={chat.persona.name}
+                            size="sm"
+                            className="w-6 h-6"
+                            onClick={null}
+                          />
+                        </div>
                       </>
                     ) : (
                       <>
@@ -219,31 +260,62 @@ const ChatListPage: React.FC = () => {
                 </div>
                 
                 <p className="text-sm text-gray-600 truncate">
-                  {formatLastMessage(chat)}
+                  {chat.lastMessage || '대화를 시작해보세요!'}
                 </p>
                 
-                {chat.unreadCount && chat.unreadCount > 0 && (
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-gray-400">
-                      {formatTimeAgo(chat.updatedAt || chat.createdAt)}
-                    </span>
-                    <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full">
-                      {chat.unreadCount}
-                    </span>
-                  </div>
-                )}
-                {!chat.unreadCount && (
-                  <div className="mt-1">
-                    <span className="text-xs text-gray-400">
-                      {formatTimeAgo(chat.updatedAt || chat.createdAt)}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-gray-400">
+                    {chat.lastMessageAt ? new Date(chat.lastMessageAt).toLocaleString('ko-KR') : ''}
+                  </p>
+                  {(chat.unreadCount || 0) > 0 && (
+                    <div className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                      {chat.unreadCount || 0}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          title="채팅 목록을 보려면 로그인하세요"
+          subtitle="나만의 AI 친구들과 대화하세요!"
+        />
+      )}
+
+      {/* Character Detail Modal */}
+      {showCharacterDetail && selectedCharacter && (
+        <CharacterDetail
+          characterId={selectedCharacter.id}
+          onClose={handleCloseCharacterDetail}
+          onEdit={() => {}} // 편집 기능은 비활성화
+        />
+      )}
+
+      {/* Persona Detail Modal */}
+      {showPersonaDetail && selectedPersona && (
+        <PersonaDetail
+          personaId={selectedPersona.id}
+          onClose={handleClosePersonaDetail}
+          onEdit={() => {}} // 편집 기능은 비활성화
+        />
+      )}
+
+      {/* Persona Selection Modal */}
+      {showPersonaSelection && selectedCharacterForChat && (
+        <PersonaSelection
+          isOpen={showPersonaSelection}
+          onClose={handleClosePersonaSelection}
+          characterId={selectedCharacterForChat.id}
+          characterName={selectedCharacterForChat.name}
+        />
+      )}
     </div>
   );
 };

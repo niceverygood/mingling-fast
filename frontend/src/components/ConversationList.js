@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { PlusIcon, TrashIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import { conversationsAPI } from '../services/api';
 import Avatar from './Avatar';
+import CharacterDetail from '../pages/CharacterCreation/CharacterDetail';
 
 const ConversationList = ({ characterId, personaId }) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showCharacterDetail, setShowCharacterDetail] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
 
   useEffect(() => {
     fetchConversations();
@@ -48,6 +52,16 @@ const ConversationList = ({ characterId, personaId }) => {
       console.error('Error creating conversation:', err);
       alert('새 대화를 시작하는데 실패했습니다.');
     }
+  };
+
+  const handleAvatarClick = (character) => {
+    setSelectedCharacter(character);
+    setShowCharacterDetail(true);
+  };
+
+  const handleCloseCharacterDetail = () => {
+    setShowCharacterDetail(false);
+    setSelectedCharacter(null);
   };
 
   if (loading) {
@@ -137,6 +151,7 @@ const ConversationList = ({ characterId, personaId }) => {
                   name={conversation.character?.name}
                   size="md"
                   fallbackType="emoji"
+                  onClick={() => handleAvatarClick(conversation.character)}
                 />
 
                 {/* Conversation Info */}
@@ -180,6 +195,13 @@ const ConversationList = ({ characterId, personaId }) => {
           ))
         )}
       </div>
+
+      {showCharacterDetail && selectedCharacter && (
+        <CharacterDetail
+          character={selectedCharacter}
+          onClose={handleCloseCharacterDetail}
+        />
+      )}
     </div>
   );
 };
