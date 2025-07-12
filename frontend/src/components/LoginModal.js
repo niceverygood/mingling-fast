@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './LoginModal.css';
 
-const LoginModal = ({ isOpen, onClose }) => {
+const LoginModal = ({ isOpen, onClose, title, subtitle }) => {
   const { loginWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -40,12 +40,12 @@ const LoginModal = ({ isOpen, onClose }) => {
     <div className="login-modal-overlay" onClick={onClose}>
       <div className="login-modal" onClick={(e) => e.stopPropagation()}>
         <div className="login-modal-header">
-          <h2>💫 로그인이 필요해요</h2>
+          <h2>{title || "💫 로그인이 필요해요"}</h2>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
 
         <div className="login-modal-content">
-          <p>더 많은 기능을 사용하려면 로그인해주세요!</p>
+          <p>{subtitle || "더 많은 기능을 사용하려면 로그인해주세요!"}</p>
           
           {error && (
             <div className="error-message">
