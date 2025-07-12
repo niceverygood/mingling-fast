@@ -138,29 +138,8 @@ const Login = () => {
     setLoading(false);
   };
 
-  // WebView 환경에서 임시 로그인 기능 (기존 방식 유지)
-  const handleTempLogin = () => {
-    const tempUser = {
-      uid: 'webview-user-' + Date.now(),
-      email: 'webview@minglingchat.com',
-      displayName: 'WebView User',
-      photoURL: null,
-      provider: 'temp'
-    };
-    
-    // AuthContext의 login 함수 사용
-    if (window.auth && window.auth.login) {
-      window.auth.login(tempUser);
-    } else {
-      // localStorage에 임시 사용자 정보 저장
-      localStorage.setItem('userEmail', tempUser.email);
-      localStorage.setItem('userId', tempUser.uid);
-      localStorage.setItem('userName', tempUser.displayName);
-      
-      // 페이지 새로고침으로 AuthContext가 다시 초기화되도록
-      window.location.reload();
-    }
-  };
+  // WebView 환경에서 임시 로그인 기능 제거 (앱에서는 정식 로그인만 허용)
+  // const handleTempLogin = () => { ... } - 제거됨
 
   return (
     <div className="login-container">
@@ -207,30 +186,52 @@ const Login = () => {
             {loading ? '로그인 중...' : '🔍 Google로 로그인'}
           </button>
 
-          {/* 네이티브 앱 환경에서만 앱 전용 로그인 버튼들 표시 */}
+          {/* 네이티브 앱 환경에서만 앱 전용 로그인 버튼 표시 (체험용 로그인 제거) */}
           {isWebView && (
-            <>
-              <button 
-                onClick={handleNativeQuickLogin}
-                disabled={loading}
-                className="native-login-btn"
-              >
-                {loading ? '로그인 중...' : '🚀 앱 전용 빠른 로그인'}
-              </button>
-              
-              <button 
-                onClick={handleTempLogin}
-                className="temp-login-btn"
-              >
-                ⚡ 체험용 로그인 (임시)
-              </button>
-            </>
+            <button 
+              onClick={handleNativeQuickLogin}
+              disabled={loading}
+              className="native-login-btn"
+            >
+              {loading ? '로그인 중...' : '🚀 앱 전용 빠른 로그인'}
+            </button>
+          )}
+
+          {/* 웹 환경에서만 체험용 로그인 허용 */}
+          {!isWebView && (
+            <button 
+              onClick={() => {
+                const tempUser = {
+                  uid: 'guest-user-' + Date.now(),
+                  email: 'guest@minglingchat.com',
+                  displayName: '게스트 사용자',
+                  photoURL: null,
+                  provider: 'guest'
+                };
+                
+                // AuthContext의 login 함수 사용
+                if (window.auth && window.auth.login) {
+                  window.auth.login(tempUser);
+                } else {
+                  // localStorage에 임시 사용자 정보 저장
+                  localStorage.setItem('userEmail', tempUser.email);
+                  localStorage.setItem('userId', tempUser.uid);
+                  localStorage.setItem('userName', tempUser.displayName);
+                  
+                  // 페이지 새로고침으로 AuthContext가 다시 초기화되도록
+                  window.location.reload();
+                }
+              }}
+              className="temp-login-btn"
+            >
+              ⚡ 게스트로 둘러보기
+            </button>
           )}
         </div>
 
         {isWebView && (
           <div className="webview-help">
-            <h3>💡 로그인 방법 안내</h3>
+            <h3>💡 앱에서 로그인하기</h3>
             
             <div className="login-method">
               <h4>🚀 추천: 앱 전용 빠른 로그인</h4>
@@ -246,9 +247,9 @@ const Login = () => {
               </ol>
             </div>
             
-            <div className="login-method">
-              <h4>⚡ 체험용 로그인</h4>
-              <p>임시 계정으로 서비스를 먼저 체험해보세요.</p>
+            <div className="security-notice">
+              <h4>🔒 안전한 사용을 위해</h4>
+              <p>앱에서는 정식 로그인 후 모든 기능을 안전하게 이용하실 수 있습니다.</p>
             </div>
           </div>
         )}
