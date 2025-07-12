@@ -3,6 +3,7 @@ import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/rea
 import { personasAPI } from '../../services/api';
 import PersonaCreation from './PersonaCreation';
 import PersonaEdit from './PersonaEdit';
+import Avatar from '../../components/Avatar';
 
 const PersonaManagement = () => {
   const [personas, setPersonas] = useState([]);
@@ -125,17 +126,13 @@ const PersonaManagement = () => {
                 className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl shadow-sm"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
-                    {persona.avatarUrl ? (
-                      <img 
-                        src={persona.avatarUrl} 
-                        alt={persona.name}
-                        className="w-16 h-16 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-2xl">👤</span>
-                    )}
-                  </div>
+                  <Avatar 
+                    src={persona.avatarUrl}
+                    alt={persona.name}
+                    name={persona.name}
+                    size="lg"
+                    fallbackType="initial"
+                  />
                   <div>
                     <h3 className="font-semibold text-gray-900 text-lg">{persona.name}</h3>
                     <p className="text-gray-500">

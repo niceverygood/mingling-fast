@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { personasAPI } from '../../services/api';
+import Avatar from '../../components/Avatar';
 
 const PersonaDetail = ({ personaId, onClose, onEdit }) => {
   const [persona, setPersona] = useState(null);
@@ -66,18 +67,15 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
           <div className="px-4 py-6 space-y-6">
             {/* Profile Section */}
             <div className="text-center">
-              <div className="w-24 h-24 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                {persona.avatarUrl ? (
-                  <img 
-                    src={persona.avatarUrl} 
-                    alt={persona.name} 
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-pink-500 text-3xl font-bold">
-                    {persona.name?.charAt(0)}
-                  </span>
-                )}
+              <div className="mb-4">
+                <Avatar 
+                  src={persona.avatarUrl}
+                  alt={persona.name}
+                  name={persona.name}
+                  size="xl"
+                  fallbackType="initial"
+                  className="mx-auto"
+                />
               </div>
               <h3 className="text-2xl font-bold text-black mb-2">{persona.name}</h3>
               <div className="flex items-center justify-center space-x-2 text-gray-600">

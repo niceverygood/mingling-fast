@@ -3,6 +3,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { personasAPI, chatsAPI } from '../../services/api';
+import Avatar from '../../components/Avatar';
 
 const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
   const [personas, setPersonas] = useState([]);
@@ -125,17 +126,13 @@ const PersonaSelection = ({ isOpen, onClose, characterId, characterName }) => {
                   onClick={() => setSelectedPersona(persona.id)}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-                      {persona.avatarUrl ? (
-                        <img 
-                          src={persona.avatarUrl} 
-                          alt={persona.name}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-lg">👤</span>
-                      )}
-                    </div>
+                    <Avatar 
+                      src={persona.avatarUrl}
+                      alt={persona.name}
+                      name={persona.name}
+                      size="md"
+                      fallbackType="initial"
+                    />
                     <div>
                       <h4 className="font-medium text-gray-900">{persona.name}</h4>
                       <p className="text-sm text-gray-500">

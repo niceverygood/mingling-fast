@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeftIcon, PencilIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import { charactersAPI } from '../../services/api';
 import PersonaSelection from '../PersonaCreation/PersonaSelection';
+import Avatar from '../../components/Avatar';
 
 const CharacterDetail = ({ characterId, onClose, onEdit }) => {
   const [character, setCharacter] = useState(null);
@@ -68,18 +69,15 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
           <div className="px-4 py-6 space-y-6">
             {/* Profile Section */}
             <div className="text-center">
-              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                {character.avatarUrl ? (
-                  <img 
-                    src={character.avatarUrl} 
-                    alt={character.name} 
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-blue-500 text-3xl font-bold">
-                    {character.name?.charAt(0)}
-                  </span>
-                )}
+              <div className="mb-4">
+                <Avatar 
+                  src={character.avatarUrl}
+                  alt={character.name}
+                  name={character.name}
+                  size="xl"
+                  fallbackType="initial"
+                  className="mx-auto"
+                />
               </div>
               <h3 className="text-2xl font-bold text-black mb-2">{character.name}</h3>
               <div className="flex items-center justify-center space-x-2 text-gray-600">
