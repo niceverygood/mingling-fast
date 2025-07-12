@@ -507,11 +507,13 @@ const ForYouPage = () => {
         />
 
         {/* Character Detail Modal */}
-        <CharacterDetail
-          isOpen={showCharacterDetail}
-          onClose={handleCloseCharacterDetail}
-          character={selectedCharacter}
-        />
+        {showCharacterDetail && selectedCharacter && (
+          <CharacterDetail
+            characterId={selectedCharacter.id}
+            onClose={handleCloseCharacterDetail}
+            onEdit={() => {}} // 편집 기능은 비활성화
+          />
+        )}
       </div>
     </div>
   );

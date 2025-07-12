@@ -14,6 +14,13 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
   }, [characterId]);
 
   const fetchCharacterData = async () => {
+    // characterId 유효성 검사
+    if (!characterId) {
+      console.error('❌ characterId가 없습니다.');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       console.log('🔍 캐릭터 상세 정보 로딩 시작:', characterId);

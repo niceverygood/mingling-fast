@@ -8,6 +8,13 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchPersonaData = async () => {
+    // personaId 유효성 검사
+    if (!personaId) {
+      console.error('❌ personaId가 없습니다.');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       console.log('🔍 페르소나 상세 정보 로딩 시작:', personaId);
