@@ -406,8 +406,8 @@ const ForYouPage = () => {
         </div>
 
         {/* Header - Character Profile */}
-        <div className="relative z-10 p-6 pt-14">
-          <div className="flex items-center justify-between mb-4">
+        <div className="relative z-30 p-6 pt-12">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-3">
               <Avatar 
                 src={currentCharacter.avatarUrl}
@@ -465,12 +465,12 @@ const ForYouPage = () => {
         )}
 
         {/* First Impression Card - Upper Center */}
-        <div className="absolute top-1/3 left-6 right-6 transform -translate-y-1/2 z-20">
+        <div className="absolute top-1/2 left-6 right-6 transform -translate-y-1/2 z-20">
           <CharacterIntroCard character={currentCharacter} />
         </div>
 
         {/* Countdown Timer and Add Character Button */}
-        <div className="absolute bottom-44 left-6 right-6 z-10">
+        <div className="absolute bottom-36 left-6 right-6 z-10">
           <RecommendationTimer
             countdown={countdown}
             onAddCharacter={handleAddCharacter}
@@ -480,7 +480,7 @@ const ForYouPage = () => {
         </div>
 
         {/* Chat Button - Bottom */}
-        <div className="absolute bottom-24 left-6 right-6 z-10">
+        <div className="absolute bottom-20 left-6 right-6 z-10">
           <button 
             onClick={handleStartChat}
             className="w-full bg-white bg-opacity-95 text-gray-800 py-5 rounded-2xl font-bold text-lg flex items-center justify-center space-x-3 backdrop-blur-sm hover:bg-opacity-100 active:scale-95 transition-all shadow-lg"
@@ -492,7 +492,7 @@ const ForYouPage = () => {
 
         {/* Swipe Hint */}
         {characters.length > 1 && (
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">
             <p className="text-white text-xs opacity-60 text-center">
               {currentIndex === 0 && characters.length > 1 && '→ 스와이프하여 다음 캐릭터 보기'}
               {currentIndex > 0 && currentIndex < characters.length - 1 && '← 스와이프하여 캐릭터 이동 →'}
