@@ -1,0 +1,31 @@
+<!-- 밍글링챗 파비콘 옵션들 -->
+
+<!-- 현재 사용 중: 💕 (두근두근 하트) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <text y=".9em" font-size="90">💕</text>
+</svg>
+
+<!-- 옵션 1: 💌 (러브레터) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <text y=".9em" font-size="90">💌</text>
+</svg>
+
+<!-- 옵션 2: 💖 (반짝이는 하트) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <text y=".9em" font-size="90">💖</text>
+</svg>
+
+<!-- 옵션 3: 💬 (말풍선) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <text y=".9em" font-size="90">💬</text>
+</svg>
+
+<!-- 옵션 4: 🥰 (사랑스러운 얼굴) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <text y=".9em" font-size="90">🥰</text>
+</svg>
+
+<!-- 옵션 5: 💘 (화살에 꽂힌 하트) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <text y=".9em" font-size="90">💘</text>
+</svg> 
