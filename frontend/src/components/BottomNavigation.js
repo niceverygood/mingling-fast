@@ -42,7 +42,7 @@ const BottomNavigation = () => {
   const isForYouActive = isActive('/for-you');
 
   return (
-    <div className={`fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md border-t ${
+    <div className={`fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md border-t z-50 ${
       isForYouActive 
         ? 'bg-gray-900 border-gray-700' 
         : 'bg-white border-gray-200'

@@ -281,8 +281,8 @@ const ForYouPage = () => {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto bg-white min-h-screen">
-        <div className="flex justify-center items-center h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="flex justify-center items-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500" style={{ height: 'calc(100vh - 60px)' }}>
           <div className="text-white text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-white border-t-transparent mx-auto mb-4"></div>
             <p className="text-lg font-medium">추천 캐릭터를 불러오는 중...</p>
@@ -295,8 +295,8 @@ const ForYouPage = () => {
   // 로그인하지 않은 경우 게스트 화면
   if (!isLoggedIn) {
     return (
-      <div className="max-w-md mx-auto bg-white min-h-screen">
-        <div className="relative w-full h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 overflow-hidden">
+      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="relative w-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 overflow-hidden" style={{ height: 'calc(100vh - 60px)' }}>
           {/* Header */}
           <div className="relative z-10 flex items-center justify-between p-6 pt-14">
             <div className="flex items-center space-x-3">
@@ -338,8 +338,8 @@ const ForYouPage = () => {
 
   if (error) {
     return (
-      <div className="max-w-md mx-auto bg-white min-h-screen">
-        <div className="flex justify-center items-center h-screen bg-gradient-to-br from-red-400 to-pink-500 p-6">
+      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="flex justify-center items-center bg-gradient-to-br from-red-400 to-pink-500 p-6" style={{ height: 'calc(100vh - 60px)' }}>
           <div className="text-white text-center">
             <div className="text-6xl mb-6">😞</div>
             <h3 className="text-xl font-bold mb-4">문제가 발생했어요</h3>
@@ -358,8 +358,8 @@ const ForYouPage = () => {
 
   if (characters.length === 0) {
     return (
-      <div className="max-w-md mx-auto bg-white min-h-screen">
-        <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-400 to-gray-600 p-6">
+      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="flex justify-center items-center bg-gradient-to-br from-gray-400 to-gray-600 p-6" style={{ height: 'calc(100vh - 60px)' }}>
           <div className="text-white text-center">
             <div className="text-7xl mb-6">🎭</div>
             <h3 className="text-xl font-bold mb-2">캐릭터가 없어요</h3>
@@ -379,10 +379,11 @@ const ForYouPage = () => {
   const currentCharacter = characters[currentIndex];
 
   return (
-    <div className="max-w-md mx-auto bg-white min-h-screen">
+    <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
       <div 
         ref={containerRef}
-        className="relative w-full h-screen overflow-hidden"
+        className="relative w-full overflow-hidden"
+        style={{ height: 'calc(100vh - 60px)' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -473,7 +474,7 @@ const ForYouPage = () => {
         </div>
 
         {/* Countdown Timer and Add Character Button */}
-        <div className="absolute bottom-24 left-6 right-6 z-10">
+        <div className="absolute bottom-16 left-6 right-6 z-10">
           <RecommendationTimer
             countdown={countdown}
             onAddCharacter={handleAddCharacter}
@@ -484,16 +485,7 @@ const ForYouPage = () => {
 
 
 
-        {/* Swipe Hint */}
-        {characters.length > 1 && (
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">
-            <p className="text-white text-xs opacity-60 text-center">
-              {currentIndex === 0 && characters.length > 1 && '→ 스와이프하여 다음 캐릭터 보기'}
-              {currentIndex > 0 && currentIndex < characters.length - 1 && '← 스와이프하여 캐릭터 이동 →'}
-              {currentIndex === characters.length - 1 && characters.length > 1 && '← 스와이프하여 이전 캐릭터 보기'}
-            </p>
-          </div>
-        )}
+
 
         {/* Persona Selection Modal */}
         <PersonaSelection
