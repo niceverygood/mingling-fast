@@ -3,132 +3,62 @@ name: Deploy Backend to EC2
 on:
   push:
     branches: [ main ]
-    paths: [ 'backend/**' ]  # 백엔드 파일이 변경될 때만 실행
-  workflow_dispatch:  # 수동 실행 허용
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:
+    name: Deploy to EC2
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Debug connection info
-      run: |
-        echo "🔍 Connection debugging info:"
-        echo "Repository: ${{ github.repository }}"
-        echo "Ref: ${{ github.ref }}"
-        echo "SHA: ${{ github.sha }}"
-        
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.8
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: 22
-        timeout: 120s  # 타임아웃 증가
-        command_timeout: 15m  # 명령 타임아웃 증가
-        debug: true
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
         script: |
-          echo "🚀 Starting deployment..."
-          echo "📅 Deployment time: $(date)"
-          echo "🖥️ Server info: $(uname -a)"
-          echo "📍 Current directory: $(pwd)"
-          echo "👤 Current user: $(whoami)"
+          echo "🔄 Starting backend deployment..."
           
-          # 네트워크 연결 테스트
-          echo "🌐 Testing network connectivity..."
-          ping -c 2 github.com || echo "⚠️ GitHub ping failed"
-          
-          # EC2 백엔드 디렉토리 정리 및 설정
-          echo "📁 Setting up backend directory..."
-          rm -rf ~/backend_temp
-          mkdir -p ~/backend_temp
-          cd ~/backend_temp
-          
-          echo "📥 Cloning latest code from correct repository..."
-          git clone https://github.com/niceverygood/mingling_new.git . || {
-            echo "❌ Git clone failed, trying alternative method..."
+          # Navigate to project directory
+          cd /home/ec2-user/mingling_new || {
+            echo "❌ Project directory not found!"
             exit 1
           }
           
-          echo "🔍 Verifying cloned code..."
-          ls -la
-          ls -la backend/ || { echo "❌ Backend directory not found"; exit 1; }
+          # Pull latest code
+          echo "📥 Pulling latest code..."
+          git pull origin main
           
-          echo "🔄 Stopping existing backend..."
-          pm2 stop mingling-backend 2>/dev/null || echo "Backend not running"
-          pm2 delete mingling-backend 2>/dev/null || echo "Backend process not found"
+          # Navigate to backend
+          cd backend
           
-          # 모든 Node.js 프로세스 정리
-          echo "🧹 Cleaning up any remaining processes..."
-          pkill -f "index.js" 2>/dev/null || echo "No index.js processes to kill"
-          
-          echo "📦 Preparing backend files..."
-          # 기존 백엔드 디렉토리 백업
-          if [ -f ~/backend/.env ]; then
-            cp ~/backend/.env ~/backend_env_backup
-            echo "📄 .env file backed up"
-          fi
-          
-          # 새로운 백엔드 파일들로 교체
-          rm -rf ~/backend
-          cp -r backend ~/backend
-          
-          # .env 파일 복원
-          if [ -f ~/backend_env_backup ]; then
-            cp ~/backend_env_backup ~/backend/.env
-            echo "📄 .env file restored"
-          else
-            echo "⚠️ No .env backup found - please check environment variables"
-          fi
-          
+          # Install dependencies
           echo "📦 Installing dependencies..."
-          cd ~/backend
-          npm install --production || { echo "❌ npm install failed"; exit 1; }
+          npm install --production
           
-          echo "🔍 Environment check..."
-          node -e "
-            const envVars = ['NODE_ENV', 'DATABASE_URL', 'OPENAI_API_KEY', 'JWT_SECRET'];
-            envVars.forEach(env => {
-              console.log(\`\${env}: \${process.env[env] ? '✅ Set' : '❌ Missing'}\`);
-            });
-          "
+          # Stop existing server
+          echo "🛑 Stopping existing server..."
+          pkill -f 'node.*index.js' || echo "No existing server to stop"
+          sleep 3
           
-          echo "🔄 Starting backend with environment variables..."
-          PORT=8001 NODE_ENV=production pm2 start index.js --name "mingling-backend" --max-memory-restart 512M
-          
-          echo "📊 Checking PM2 status..."
-          pm2 status
-          
-          echo "🧪 Testing API..."
+          # Start new server
+          echo "🚀 Starting new server..."
+          nohup node index.js > /home/ec2-user/backend.log 2>&1 &
           sleep 5
           
-          # 로컬 API 테스트
-          if curl -s localhost:8001/api/health > /dev/null; then
-            echo "✅ Local API test passed"
-            curl -s localhost:8001/api/health | head -3
-          else
-            echo "❌ Local API test failed"
-            echo "📋 PM2 logs:"
-            pm2 logs mingling-backend --lines 10
-            exit 1
-          fi
+          # Check server status
+          echo "📊 Checking server status..."
+          ps aux | grep node | grep -v grep || echo "No node processes found"
           
-          # 외부 API 테스트
-          echo "🌐 Testing external API access..."
-          if curl -s https://api.minglingchat.com/api/health > /dev/null; then
-            echo "✅ External API test passed"
-          else
-            echo "❌ External API test failed"
-          fi
+          # Health check
+          echo "🔍 Running health check..."
+          curl -s http://localhost:8001/api/health || echo "Health check failed"
           
-          echo "🗑️ Cleanup temporary files..."
-          rm -rf ~/backend_temp ~/backend_env_backup
-          
-          echo "✅ Backend deployment completed successfully!"
-          echo "🚀 Server is running on port 8001"
-          echo "📊 Final status:"
-          pm2 status 
+          echo "✅ Backend deployment completed!" 
