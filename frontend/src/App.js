@@ -22,6 +22,7 @@ import Login from './components/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PopupProvider } from './context/PopupContext';
 import BottomNavigation from './components/BottomNavigation';
+import GuestInterceptor from './components/GuestInterceptor';
 import './App.css';
 import RelationshipPage from './pages/RelationshipPage';
 
@@ -46,9 +47,11 @@ function AppContent() {
   }
 
   return (
-    <Router>
-      <AppWithNavigation />
-    </Router>
+    <GuestInterceptor>
+      <Router>
+        <AppWithNavigation />
+      </Router>
+    </GuestInterceptor>
   );
 }
 
