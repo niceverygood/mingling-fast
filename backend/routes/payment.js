@@ -1104,6 +1104,197 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+// 인앱결제 구매 처리 API
+router.post('/iap-purchase', async (req, res) => {
+  console.log('📱 ===== 인앱결제 구매 처리 시작 =====');
+  console.log('📋 요청 정보:', {
+    timestamp: new Date().toISOString(),
+    body: req.body,
+    headers: {
+      'x-user-id': req.headers['x-user-id'],
+      'x-user-email': req.headers['x-user-email'],
+      'origin': req.headers.origin,
+      'user-agent': req.headers['user-agent']
+    }
+  });
+
+  try {
+    const { 
+      productId, 
+      purchaseToken, 
+      transactionId, 
+      transactionReceipt, 
+      hearts 
+    } = req.body;
+    
+    const userId = req.headers['x-user-id'];
+    const userEmail = req.headers['x-user-email'];
+    
+    console.log('📝 처리 파라미터:', {
+      productId,
+      purchaseToken: purchaseToken ? '존재함' : '없음',
+      transactionId,
+      transactionReceipt: transactionReceipt ? '존재함' : '없음',
+      hearts,
+      userId,
+      userEmail
+    });
+
+    // 1단계: 필수 파라미터 검증
+    if (!productId || !transactionId || !userId || !hearts) {
+      console.error('❌ 1단계 실패: 필수 파라미터 누락');
+      return res.status(400).json({ 
+        success: false, 
+        error: '필수 파라미터 누락',
+        details: { 
+          productId: !!productId, 
+          transactionId: !!transactionId, 
+          userId: !!userId, 
+          hearts: !!hearts 
+        }
+      });
+    }
+    console.log('✅ 1단계 성공: 필수 파라미터 검증 완료');
+
+    // 2단계: 중복 거래 확인
+    console.log('🔍 2단계: 중복 거래 확인 중...');
+    const existingTransaction = await prisma.heartTransaction.findFirst({
+      where: {
+        nativeTransactionId: transactionId
+      }
+    });
+    
+    if (existingTransaction) {
+      console.log('⚠️ 중복 거래 발견:', {
+        transactionId: existingTransaction.id,
+        nativeTransactionId: existingTransaction.nativeTransactionId,
+        status: existingTransaction.status
+      });
+      
+      // 이미 완료된 거래인 경우 성공 응답
+      if (existingTransaction.status === 'completed') {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { hearts: true }
+        });
+        
+        return res.json({
+          success: true,
+          message: '이미 처리된 거래입니다',
+          hearts_added: existingTransaction.heartAmount,
+          newBalance: user?.hearts || 0,
+          transaction_id: existingTransaction.id
+        });
+      }
+    }
+    console.log('✅ 2단계 성공: 중복 거래 확인 완료');
+
+    // 3단계: 사용자 정보 조회 또는 생성
+    console.log('👤 3단계: 사용자 정보 처리 중...');
+    let user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      console.log('👤 사용자 자동 생성 중...', { userId, userEmail });
+      user = await prisma.user.create({
+        data: {
+          id: userId,
+          email: userEmail || `${userId}@iap.user`,
+          username: userEmail?.split('@')[0] || '사용자',
+          hearts: 150
+        }
+      });
+    }
+    console.log('✅ 3단계 성공: 사용자 정보 처리 완료');
+
+    // 4단계: 결제 금액 결정
+    let amount = 0;
+    switch (productId) {
+      case 'hearts_10':
+        amount = 1990; // $1.99 in cents
+        break;
+      case 'hearts_50':
+        amount = 4990; // $4.99
+        break;
+      case 'hearts_100':
+        amount = 9990; // $9.99
+        break;
+      default:
+        amount = hearts * 20; // 기본 가격: 하트당 20원
+    }
+
+    // 5단계: 거래 생성 및 하트 지급
+    console.log('💖 5단계: 하트 지급 처리 중...');
+    const result = await prisma.$transaction(async (tx) => {
+      // 하트 거래 기록 생성
+      const heartTransaction = await tx.heartTransaction.create({
+        data: {
+          userId: userId,
+          amount: amount,
+          heartAmount: hearts,
+          nativeTransactionId: transactionId,
+          nativeProductId: productId,
+          nativePurchaseToken: purchaseToken,
+          nativeReceipt: transactionReceipt,
+          status: 'completed',
+          type: 'iap_purchase',
+          paymentMethod: 'in_app_purchase',
+          paidAt: new Date()
+        }
+      });
+
+      // 사용자 하트 업데이트
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: { 
+          hearts: {
+            increment: hearts
+          }
+        }
+      });
+
+      return {
+        transaction: heartTransaction,
+        newBalance: updatedUser.hearts,
+        hearts_added: hearts
+      };
+    });
+
+    console.log('✅ 인앱결제 처리 완료:', {
+      transactionId: result.transaction.id,
+      newBalance: result.newBalance,
+      hearts_added: result.hearts_added,
+      productId,
+      amount
+    });
+
+    return res.json({
+      success: true,
+      message: '인앱결제 처리 완료',
+      hearts_added: result.hearts_added,
+      newBalance: result.newBalance,
+      transaction_id: result.transaction.id,
+      product_id: productId,
+      amount: amount
+    });
+
+  } catch (error) {
+    console.error('❌ 인앱결제 처리 실패:', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    
+    return res.status(500).json({ 
+      success: false, 
+      error: '인앱결제 처리 중 오류가 발생했습니다',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 console.log('✅ Payment 라우트 설정 완료');
 
 module.exports = router; 
