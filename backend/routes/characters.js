@@ -192,6 +192,453 @@ router.get('/recommended', async (req, res) => {
   }
 });
 
+// GET /api/characters/for-you - 포유페이지용 랜덤 6개 캐릭터
+router.get('/for-you', async (req, res) => {
+  try {
+    const firebaseUserId = req.headers['x-user-id'];
+    const excludeIds = req.query.exclude ? req.query.exclude.split(',').map(id => parseInt(id)) : [];
+    
+    console.log('🎯 For You 캐릭터 요청:', { 
+      userId: firebaseUserId,
+      excludeIds: excludeIds.length,
+      timestamp: new Date().toISOString()
+    });
+
+    // 공개 캐릭터 중에서 제외할 ID를 제외하고 가져오기
+    const whereClause = {
+      isPublic: true,
+      ...(excludeIds.length > 0 && {
+        id: {
+          notIn: excludeIds
+        }
+      })
+    };
+
+    // 총 캐릭터 수 확인
+    const totalCount = await prisma.character.count({
+      where: { isPublic: true }
+    });
+
+    // 사용 가능한 캐릭터 수 확인
+    const availableCount = await prisma.character.count({
+      where: whereClause
+    });
+
+    console.log('📊 캐릭터 통계:', { totalCount, availableCount, excludeCount: excludeIds.length });
+
+    let characters;
+    const targetCount = 6;
+
+    if (availableCount >= targetCount) {
+      // 충분한 캐릭터가 있는 경우: 랜덤 선택
+      const skipCount = Math.floor(Math.random() * Math.max(1, availableCount - targetCount + 1));
+      
+      characters = await prisma.character.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          avatarUrl: true,
+          age: true,
+          personality: true,
+          firstImpression: true,
+          basicSetting: true,
+          characterType: true,
+          gender: true,
+          background: true,
+          mbti: true,
+          height: true,
+          likes: true,
+          dislikes: true,
+          hashtags: true,
+          hashtagCode: true,
+          userId: true,
+          createdAt: true,
+          user: {
+            select: {
+              username: true
+            }
+          }
+        },
+        skip: skipCount,
+        take: targetCount,
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      // 결과가 6개 미만이면 추가로 가져오기
+      if (characters.length < targetCount) {
+        const remainingCount = targetCount - characters.length;
+        const additionalCharacters = await prisma.character.findMany({
+          where: whereClause,
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            avatarUrl: true,
+            age: true,
+            personality: true,
+            firstImpression: true,
+            basicSetting: true,
+            characterType: true,
+            gender: true,
+            background: true,
+            mbti: true,
+            height: true,
+            likes: true,
+            dislikes: true,
+            hashtags: true,
+            hashtagCode: true,
+            userId: true,
+            createdAt: true,
+            user: {
+              select: {
+                username: true
+              }
+            }
+          },
+          take: remainingCount,
+          orderBy: {
+            createdAt: 'asc'
+          }
+        });
+        characters = [...characters, ...additionalCharacters];
+      }
+    } else {
+      // 사용 가능한 캐릭터가 부족한 경우: 모든 공개 캐릭터에서 랜덤 선택
+      console.log('⚠️ 사용 가능한 캐릭터 부족, 전체에서 선택');
+      
+      const allCharacters = await prisma.character.findMany({
+        where: { isPublic: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          avatarUrl: true,
+          age: true,
+          personality: true,
+          firstImpression: true,
+          basicSetting: true,
+          characterType: true,
+          gender: true,
+          background: true,
+          mbti: true,
+          height: true,
+          likes: true,
+          dislikes: true,
+          hashtags: true,
+          hashtagCode: true,
+          userId: true,
+          createdAt: true,
+          user: {
+            select: {
+              username: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      // 셔플 후 6개 선택
+      const shuffled = shuffleArray(allCharacters);
+      characters = shuffled.slice(0, targetCount);
+    }
+
+    // 캐릭터 데이터 최적화
+    const optimizedCharacters = characters.map(character => {
+      const isOwner = character.userId === firebaseUserId;
+      
+      let optimizedAvatarUrl = character.avatarUrl;
+      if (optimizedAvatarUrl && !optimizedAvatarUrl.startsWith('http')) {
+        optimizedAvatarUrl = `https://mingling-uploads.s3.ap-northeast-2.amazonaws.com/${optimizedAvatarUrl}`;
+      }
+      
+      let displayFirstImpression = character.firstImpression;
+      if (!displayFirstImpression) {
+        displayFirstImpression = character.description || character.personality || character.basicSetting;
+      }
+      
+      let displayPersonality = character.personality;
+      if (!displayPersonality && character.mbti) {
+        displayPersonality = character.mbti;
+      }
+      
+      return {
+        id: character.id,
+        name: character.name,
+        description: character.description,
+        avatarUrl: optimizedAvatarUrl,
+        age: character.age,
+        personality: displayPersonality,
+        firstImpression: displayFirstImpression,
+        basicSetting: character.basicSetting,
+        characterType: character.characterType,
+        gender: character.gender,
+        background: character.background,
+        mbti: character.mbti,
+        height: character.height,
+        likes: character.likes,
+        dislikes: character.dislikes,
+        hashtags: character.hashtags,
+        hashtagCode: character.hashtagCode,
+        isOwner,
+        createdAt: character.createdAt,
+        user: character.user
+      };
+    });
+
+    // 다음 정시까지 남은 시간 계산
+    const now = new Date();
+    const nextHour = new Date(now);
+    nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+    const timeUntilNextRefresh = nextHour.getTime() - now.getTime();
+
+    const response = {
+      characters: optimizedCharacters,
+      refreshInfo: {
+        nextRefreshAt: nextHour.toISOString(),
+        timeUntilRefresh: timeUntilNextRefresh,
+        minutesUntilRefresh: Math.floor(timeUntilNextRefresh / (1000 * 60)),
+        secondsUntilRefresh: Math.floor((timeUntilNextRefresh % (1000 * 60)) / 1000)
+      },
+      metadata: {
+        totalCharacters: totalCount,
+        availableCharacters: availableCount,
+        excludedCharacters: excludeIds.length,
+        returnedCharacters: optimizedCharacters.length
+      }
+    };
+
+    console.log('✅ For You 캐릭터 응답:', {
+      charactersCount: optimizedCharacters.length,
+      nextRefresh: nextHour.toISOString(),
+      minutesUntilRefresh: response.refreshInfo.minutesUntilRefresh
+    });
+
+    res.json(response);
+  } catch (error) {
+    console.error('❌ For You 캐릭터 조회 실패:', error);
+    res.status(500).json({ error: 'Failed to fetch for-you characters' });
+  }
+});
+
+// POST /api/characters/for-you/add - 하트로 캐릭터 추가
+router.post('/for-you/add', async (req, res) => {
+  try {
+    const firebaseUserId = req.headers['x-user-id'];
+    const { excludeIds = [] } = req.body;
+    
+    if (!firebaseUserId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+
+    console.log('💎 하트로 캐릭터 추가 요청:', { 
+      userId: firebaseUserId,
+      excludeIds: excludeIds.length,
+      timestamp: new Date().toISOString()
+    });
+
+    // 하트 잔액 확인
+    const user = await prisma.user.findUnique({
+      where: { id: firebaseUserId },
+      select: { hearts: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.hearts < 5) {
+      return res.status(400).json({ 
+        error: 'Insufficient hearts',
+        required: 5,
+        current: user.hearts
+      });
+    }
+
+    // 하트 차감
+    await prisma.user.update({
+      where: { id: firebaseUserId },
+      data: {
+        hearts: {
+          decrement: 5
+        }
+      }
+    });
+
+    // 하트 사용 기록
+    await prisma.heartTransaction.create({
+      data: {
+        userId: firebaseUserId,
+        amount: -5,
+        type: 'spend',
+        description: 'For You 캐릭터 추가 추천'
+      }
+    });
+
+    // 새로운 캐릭터 1개 선택 (제외 목록 제외)
+    const whereClause = {
+      isPublic: true,
+      ...(excludeIds.length > 0 && {
+        id: {
+          notIn: excludeIds.map(id => parseInt(id))
+        }
+      })
+    };
+
+    const availableCount = await prisma.character.count({ where: whereClause });
+    
+    let newCharacter;
+    if (availableCount > 0) {
+      const skipCount = Math.floor(Math.random() * availableCount);
+      
+      const characters = await prisma.character.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          avatarUrl: true,
+          age: true,
+          personality: true,
+          firstImpression: true,
+          basicSetting: true,
+          characterType: true,
+          gender: true,
+          background: true,
+          mbti: true,
+          height: true,
+          likes: true,
+          dislikes: true,
+          hashtags: true,
+          hashtagCode: true,
+          userId: true,
+          createdAt: true,
+          user: {
+            select: {
+              username: true
+            }
+          }
+        },
+        skip: skipCount,
+        take: 1,
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      newCharacter = characters[0];
+    } else {
+      // 제외할 캐릭터가 없는 경우 전체에서 랜덤 선택
+      const allCharacters = await prisma.character.findMany({
+        where: { isPublic: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          avatarUrl: true,
+          age: true,
+          personality: true,
+          firstImpression: true,
+          basicSetting: true,
+          characterType: true,
+          gender: true,
+          background: true,
+          mbti: true,
+          height: true,
+          likes: true,
+          dislikes: true,
+          hashtags: true,
+          hashtagCode: true,
+          userId: true,
+          createdAt: true,
+          user: {
+            select: {
+              username: true
+            }
+          }
+        }
+      });
+
+      if (allCharacters.length > 0) {
+        newCharacter = allCharacters[Math.floor(Math.random() * allCharacters.length)];
+      }
+    }
+
+    if (!newCharacter) {
+      return res.status(404).json({ error: 'No characters available' });
+    }
+
+    // 캐릭터 데이터 최적화
+    const isOwner = newCharacter.userId === firebaseUserId;
+    
+    let optimizedAvatarUrl = newCharacter.avatarUrl;
+    if (optimizedAvatarUrl && !optimizedAvatarUrl.startsWith('http')) {
+      optimizedAvatarUrl = `https://mingling-uploads.s3.ap-northeast-2.amazonaws.com/${optimizedAvatarUrl}`;
+    }
+    
+    let displayFirstImpression = newCharacter.firstImpression;
+    if (!displayFirstImpression) {
+      displayFirstImpression = newCharacter.description || newCharacter.personality || newCharacter.basicSetting;
+    }
+    
+    let displayPersonality = newCharacter.personality;
+    if (!displayPersonality && newCharacter.mbti) {
+      displayPersonality = newCharacter.mbti;
+    }
+
+    const optimizedCharacter = {
+      id: newCharacter.id,
+      name: newCharacter.name,
+      description: newCharacter.description,
+      avatarUrl: optimizedAvatarUrl,
+      age: newCharacter.age,
+      personality: displayPersonality,
+      firstImpression: displayFirstImpression,
+      basicSetting: newCharacter.basicSetting,
+      characterType: newCharacter.characterType,
+      gender: newCharacter.gender,
+      background: newCharacter.background,
+      mbti: newCharacter.mbti,
+      height: newCharacter.height,
+      likes: newCharacter.likes,
+      dislikes: newCharacter.dislikes,
+      hashtags: newCharacter.hashtags,
+      hashtagCode: newCharacter.hashtagCode,
+      isOwner,
+      createdAt: newCharacter.createdAt,
+      user: newCharacter.user
+    };
+
+    // 업데이트된 하트 잔액 조회
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: firebaseUserId },
+      select: { hearts: true }
+    });
+
+    console.log('✅ 하트로 캐릭터 추가 완료:', {
+      characterId: optimizedCharacter.id,
+      characterName: optimizedCharacter.name,
+      heartsSpent: 5,
+      remainingHearts: updatedUser.hearts
+    });
+
+    res.json({
+      character: optimizedCharacter,
+      heartsSpent: 5,
+      remainingHearts: updatedUser.hearts
+    });
+
+  } catch (error) {
+    console.error('❌ 하트로 캐릭터 추가 실패:', error);
+    res.status(500).json({ error: 'Failed to add character with hearts' });
+  }
+});
+
 // 배열 셔플 유틸리티 함수
 function shuffleArray(array) {
   const shuffled = [...array];

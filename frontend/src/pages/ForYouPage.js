@@ -4,17 +4,26 @@ import { ChatBubbleLeftRightIcon, HeartIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
 import PersonaSelection from './PersonaCreation/PersonaSelection';
-import { charactersAPI } from '../services/api';
+import { charactersAPI, heartsAPI } from '../services/api';
 import Avatar from '../components/Avatar';
+import { usePopup } from '../context/PopupContext';
 
 const ForYouPage = () => {
   const { isLoggedIn } = useAuth();
+  const { showInsufficientHearts, showError } = usePopup();
   const [characters, setCharacters] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showPersonaSelection, setShowPersonaSelection] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  
+  // For You 페이지 전용 상태
+  const [excludeIds, setExcludeIds] = useState([]);
+  const [hearts, setHearts] = useState(150);
+  const [addingCharacter, setAddingCharacter] = useState(false);
+  const [refreshInfo, setRefreshInfo] = useState(null);
+  const [countdown, setCountdown] = useState({ minutes: 0, seconds: 0 });
   
   // 터치/스와이프 관련 상태
   const [touchStartX, setTouchStartX] = useState(0);
@@ -24,31 +33,75 @@ const ForYouPage = () => {
   
   // 모바일 최적화를 위한 ref
   const containerRef = useRef(null);
+  const timerRef = useRef(null);
 
   // 스와이프 감지 최소 거리
   const minSwipeDistance = 50;
 
   useEffect(() => {
-    fetchRecommendedCharacters();
+    if (isLoggedIn) {
+      fetchForYouCharacters();
+      fetchHeartBalance();
+    }
   }, [isLoggedIn]);
 
-  const fetchRecommendedCharacters = async () => {
+  // 카운트다운 타이머 효과
+  useEffect(() => {
+    if (refreshInfo) {
+      updateCountdown();
+      timerRef.current = setInterval(updateCountdown, 1000);
+      
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }
+  }, [refreshInfo]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  const fetchHeartBalance = async () => {
+    try {
+      const response = await heartsAPI.getBalance();
+      if (response.data && typeof response.data.hearts === 'number') {
+        setHearts(response.data.hearts);
+      }
+    } catch (error) {
+      console.error('❌ 하트 잔액 조회 실패:', error);
+    }
+  };
+
+  const fetchForYouCharacters = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 캐릭터 로딩 시도...');
+      console.log('🎯 For You 캐릭터 로딩 시도...', { excludeIds: excludeIds.length });
       
-      // 게스트 모드도 지원
       const headers = {
         'Content-Type': 'application/json'
       };
       
+      // 로그인한 사용자 헤더 추가
       if (isLoggedIn) {
-        // 로그인한 사용자용 헤더 추가 (필요한 경우)
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.uid) {
+          headers['x-user-id'] = user.uid;
+        }
       }
       
-      const response = await fetch('https://api.minglingchat.com/api/characters/recommended', {
+      // exclude 파라미터 추가
+      const queryParams = excludeIds.length > 0 ? `?exclude=${excludeIds.join(',')}` : '';
+      
+      const response = await fetch(`https://api.minglingchat.com/api/characters/for-you${queryParams}`, {
         method: 'GET',
         headers
       });
@@ -56,14 +109,16 @@ const ForYouPage = () => {
       if (response.ok) {
         const data = await response.json();
         
-        if (Array.isArray(data)) {
-          setCharacters(data);
-          if (data.length > 0) {
+        if (data.characters && Array.isArray(data.characters)) {
+          setCharacters(data.characters);
+          setRefreshInfo(data.refreshInfo);
+          if (data.characters.length > 0) {
             setCurrentIndex(0);
           }
-          console.log('✅ 캐릭터 로딩 성공:', data.length, '개');
+          console.log('✅ For You 캐릭터 로딩 성공:', data.characters.length, '개');
+          console.log('⏰ 다음 새로고침:', data.refreshInfo.nextRefreshAt);
         } else {
-          console.error('Received non-array response:', data);
+          console.error('Received invalid response:', data);
           setCharacters([]);
           setError('캐릭터 데이터를 불러올 수 없습니다.');
         }
@@ -71,11 +126,32 @@ const ForYouPage = () => {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      console.error('Error fetching recommended characters:', error);
+      console.error('❌ For You 캐릭터 로딩 실패:', error);
       setCharacters([]);
       setError('캐릭터를 불러오는 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateCountdown = () => {
+    if (!refreshInfo) return;
+    
+    const now = new Date().getTime();
+    const nextRefresh = new Date(refreshInfo.nextRefreshAt).getTime();
+    const timeDiff = nextRefresh - now;
+    
+    if (timeDiff <= 0) {
+      setCountdown({ minutes: 0, seconds: 0 });
+      // 자동 새로고침
+      setTimeout(() => {
+        setExcludeIds([]);
+        fetchForYouCharacters();
+      }, 1000);
+    } else {
+      const minutes = Math.floor(timeDiff / (1000 * 60));
+      const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+      setCountdown({ minutes, seconds });
     }
   };
 
@@ -98,6 +174,7 @@ const ForYouPage = () => {
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
+    // 좌우 스와이프 처리 (무한 루프 제거)
     if (isLeftSwipe && currentIndex < characters.length - 1) {
       handleNext();
     }
@@ -119,17 +196,77 @@ const ForYouPage = () => {
   };
 
   const handlePrevious = () => {
-    if (isTransitioning) return;
+    if (isTransitioning || currentIndex <= 0) return;
     setIsTransitioning(true);
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : characters.length - 1));
+    setCurrentIndex((prev) => prev - 1);
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
   const handleNext = () => {
-    if (isTransitioning) return;
+    if (isTransitioning || currentIndex >= characters.length - 1) return;
     setIsTransitioning(true);
-    setCurrentIndex((prev) => (prev < characters.length - 1 ? prev + 1 : 0));
+    setCurrentIndex((prev) => prev + 1);
     setTimeout(() => setIsTransitioning(false), 300);
+  };
+
+  const handleAddCharacter = async () => {
+    if (addingCharacter) return;
+    
+    if (hearts < 5) {
+      showInsufficientHearts(hearts, {
+        onConfirm: () => {
+          // 하트샵으로 이동 로직 (필요한 경우)
+        },
+        onCancel: () => {}
+      });
+      return;
+    }
+
+    try {
+      setAddingCharacter(true);
+      console.log('💎 하트로 캐릭터 추가 요청...');
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (isLoggedIn) {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.uid) {
+          headers['x-user-id'] = user.uid;
+        }
+      }
+
+      const currentCharacterIds = characters.map(char => char.id);
+      const allExcludeIds = [...excludeIds, ...currentCharacterIds];
+
+      const response = await fetch('https://api.minglingchat.com/api/characters/for-you/add', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          excludeIds: allExcludeIds
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // 새로운 캐릭터를 맨 앞에 추가
+        setCharacters(prev => [data.character, ...prev]);
+        setHearts(data.remainingHearts);
+        setCurrentIndex(0); // 새 캐릭터로 이동
+        
+        console.log('✅ 캐릭터 추가 성공:', data.character.name);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '캐릭터 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('❌ 캐릭터 추가 실패:', error);
+      showError(error.message || '캐릭터 추가 중 오류가 발생했습니다.');
+    } finally {
+      setAddingCharacter(false);
+    }
   };
 
   // 직접 슬라이드 선택
@@ -206,7 +343,7 @@ const ForYouPage = () => {
             <h3 className="text-xl font-bold mb-4">문제가 발생했어요</h3>
             <p className="mb-6 text-base opacity-90">{error}</p>
             <button 
-              onClick={fetchRecommendedCharacters}
+              onClick={fetchForYouCharacters}
               className="bg-white text-red-500 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-colors"
             >
               다시 시도
@@ -226,7 +363,7 @@ const ForYouPage = () => {
             <h3 className="text-xl font-bold mb-2">캐릭터가 없어요</h3>
             <p className="text-base opacity-90 mb-6">아직 추천할 캐릭터가 없습니다.</p>
             <button 
-              onClick={fetchRecommendedCharacters}
+              onClick={fetchForYouCharacters}
               className="bg-white text-gray-600 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-colors"
             >
               새로고침
@@ -305,21 +442,25 @@ const ForYouPage = () => {
         </div>
 
         {/* Navigation Arrows */}
-        <button 
-          onClick={handlePrevious}
-          disabled={isTransitioning}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
-        >
-          <ChevronLeftIcon className="w-6 h-6" />
-        </button>
+        {currentIndex > 0 && (
+          <button 
+            onClick={handlePrevious}
+            disabled={isTransitioning}
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
+          >
+            <ChevronLeftIcon className="w-6 h-6" />
+          </button>
+        )}
         
-        <button 
-          onClick={handleNext}
-          disabled={isTransitioning}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
-        >
-          <ChevronRightIcon className="w-6 h-6" />
-        </button>
+        {currentIndex < characters.length - 1 && (
+          <button 
+            onClick={handleNext}
+            disabled={isTransitioning}
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 active:bg-opacity-40 transition-all disabled:opacity-50"
+          >
+            <ChevronRightIcon className="w-6 h-6" />
+          </button>
+        )}
 
         {/* First Impression Card - Center */}
         <div className="absolute top-1/2 left-6 right-6 transform -translate-y-1/2 z-10">
@@ -364,6 +505,44 @@ const ForYouPage = () => {
           </div>
         </div>
 
+        {/* Countdown Timer and Add Character Button */}
+        <div className="absolute bottom-44 left-6 right-6 z-10">
+          <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl p-4 shadow-lg mb-4 text-center">
+            <div className="text-gray-700 text-sm mb-2">
+              다음 캐릭터 추천까지 남은 시간
+            </div>
+            <div className="text-2xl font-bold text-gray-800 mb-3">
+              {String(countdown.minutes).padStart(2, '0')}:{String(countdown.seconds).padStart(2, '0')}
+            </div>
+            <button
+              onClick={handleAddCharacter}
+              disabled={addingCharacter || hearts < 5}
+              className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center space-x-2 transition-all ${
+                hearts < 5 
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : addingCharacter
+                    ? 'bg-pink-300 text-white cursor-wait'
+                    : 'bg-pink-500 text-white hover:bg-pink-600 active:scale-95'
+              }`}
+            >
+              {addingCharacter ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>추가하는 중...</span>
+                </>
+              ) : (
+                <>
+                  <HeartIcon className="w-4 h-4" />
+                  <span>캐릭터 한장 더 추천 받기 (하트 5개 소모)</span>
+                </>
+              )}
+            </button>
+            <div className="text-xs text-gray-500 mt-2">
+              현재 하트: {hearts}개
+            </div>
+          </div>
+        </div>
+
         {/* Chat Button - Bottom */}
         <div className="absolute bottom-24 left-6 right-6 z-10">
           <button 
@@ -376,10 +555,12 @@ const ForYouPage = () => {
         </div>
 
         {/* Swipe Hint */}
-        {characters.length > 1 && currentIndex === 0 && (
+        {characters.length > 1 && (
           <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
-            <p className="text-white text-xs opacity-60 animate-pulse">
-              ← 스와이프하여 다른 캐릭터 보기 →
+            <p className="text-white text-xs opacity-60 text-center">
+              {currentIndex === 0 && characters.length > 1 && '→ 스와이프하여 다음 캐릭터 보기'}
+              {currentIndex > 0 && currentIndex < characters.length - 1 && '← 스와이프하여 캐릭터 이동 →'}
+              {currentIndex === characters.length - 1 && characters.length > 1 && '← 스와이프하여 이전 캐릭터 보기'}
             </p>
           </div>
         )}
