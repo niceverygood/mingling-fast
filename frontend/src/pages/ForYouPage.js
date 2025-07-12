@@ -7,6 +7,8 @@ import PersonaSelection from './PersonaCreation/PersonaSelection';
 import { charactersAPI, heartsAPI } from '../services/api';
 import Avatar from '../components/Avatar';
 import { usePopup } from '../context/PopupContext';
+import CharacterIntroCard from '../components/CharacterIntroCard';
+import RecommendationTimer from '../components/RecommendationTimer';
 
 const ForYouPage = () => {
   const { isLoggedIn } = useAuth();
@@ -464,83 +466,17 @@ const ForYouPage = () => {
 
         {/* First Impression Card - Center */}
         <div className="absolute top-1/2 left-6 right-6 transform -translate-y-1/2 z-10">
-          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl">
-            <div className="text-center">
-              <h2 className="text-gray-800 text-lg font-bold mb-4">첫인상</h2>
-              
-              {currentCharacter.firstImpression ? (
-                <p className="text-gray-700 text-base leading-relaxed mb-6">
-                  "{currentCharacter.firstImpression}"
-                </p>
-              ) : currentCharacter.description ? (
-                <p className="text-gray-700 text-base leading-relaxed mb-6">
-                  "{currentCharacter.description}"
-                </p>
-              ) : (
-                <p className="text-gray-500 text-base leading-relaxed mb-6">
-                  "안녕하세요! 저와 함께 즐거운 대화를 나눠보세요."
-                </p>
-              )}
-
-              <div className="space-y-3">
-                {currentCharacter.personality && (
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className="text-gray-500 text-sm">성격:</span>
-                    <span className="text-gray-700 text-sm font-medium">
-                      {currentCharacter.personality}
-                    </span>
-                  </div>
-                )}
-                
-                {currentCharacter.user?.username && (
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className="text-gray-500 text-sm">제작자:</span>
-                    <span className="text-gray-700 text-sm font-medium">
-                      {currentCharacter.user.username}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <CharacterIntroCard character={currentCharacter} />
         </div>
 
         {/* Countdown Timer and Add Character Button */}
         <div className="absolute bottom-44 left-6 right-6 z-10">
-          <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl p-4 shadow-lg mb-4 text-center">
-            <div className="text-gray-700 text-sm mb-2">
-              다음 캐릭터 추천까지 남은 시간
-            </div>
-            <div className="text-2xl font-bold text-gray-800 mb-3">
-              {String(countdown.minutes).padStart(2, '0')}:{String(countdown.seconds).padStart(2, '0')}
-            </div>
-            <button
-              onClick={handleAddCharacter}
-              disabled={addingCharacter || hearts < 5}
-              className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center space-x-2 transition-all ${
-                hearts < 5 
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : addingCharacter
-                    ? 'bg-pink-300 text-white cursor-wait'
-                    : 'bg-pink-500 text-white hover:bg-pink-600 active:scale-95'
-              }`}
-            >
-              {addingCharacter ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>추가하는 중...</span>
-                </>
-              ) : (
-                <>
-                  <HeartIcon className="w-4 h-4" />
-                  <span>캐릭터 한장 더 추천 받기 (하트 5개 소모)</span>
-                </>
-              )}
-            </button>
-            <div className="text-xs text-gray-500 mt-2">
-              현재 하트: {hearts}개
-            </div>
-          </div>
+          <RecommendationTimer
+            countdown={countdown}
+            onAddCharacter={handleAddCharacter}
+            addingCharacter={addingCharacter}
+            hearts={hearts}
+          />
         </div>
 
         {/* Chat Button - Bottom */}
