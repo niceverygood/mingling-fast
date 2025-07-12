@@ -9,13 +9,36 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
 
   const fetchPersonaData = async () => {
     try {
-              const response = await personasAPI.getById(personaId);
+      setLoading(true);
+      console.log('🔍 페르소나 상세 정보 로딩 시작:', personaId);
+      
+      const response = await personasAPI.getById(personaId);
       setPersona(response.data);
+      
+      console.log('✅ 페르소나 상세 정보 로딩 성공:', response.data.name);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching persona:', error);
-      alert('페르소나 정보를 불러오는데 실패했습니다.');
-      onClose();
+      console.error('❌ 페르소나 상세 정보 로딩 실패:', error);
+      setLoading(false);
+      
+      // 사용자에게 친화적인 에러 메시지 표시
+      let errorMessage = '페르소나 정보를 불러오는데 실패했습니다.';
+      
+      if (error.response?.status === 404) {
+        errorMessage = '페르소나를 찾을 수 없습니다.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (error.message?.includes('Network Error')) {
+        errorMessage = '네트워크 연결을 확인해주세요.';
+      }
+      
+      // 5초 후 자동으로 재시도
+      setTimeout(() => {
+        console.log('🔄 페르소나 정보 자동 재시도...');
+        fetchPersonaData();
+      }, 5000);
+      
+      alert(errorMessage + '\n5초 후 자동으로 재시도됩니다.');
     }
   };
 
@@ -30,15 +53,44 @@ const PersonaDetail = ({ personaId, onClose, onEdit }) => {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl p-8">
-          <div className="text-gray-500">페르소나 정보를 불러오는 중...</div>
+        <div className="bg-white rounded-2xl p-8 max-w-sm mx-4">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="text-gray-600 mb-2">페르소나 정보를 불러오는 중...</div>
+            <div className="text-sm text-gray-400">잠시만 기다려주세요</div>
+          </div>
         </div>
       </div>
     );
   }
 
   if (!persona) {
-    return null;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl p-8 max-w-sm mx-4">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-500 text-xl">⚠️</span>
+            </div>
+            <div className="text-gray-600 mb-4">페르소나 정보를 불러올 수 없습니다</div>
+            <div className="space-y-2">
+              <button
+                onClick={fetchPersonaData}
+                className="w-full bg-pink-500 text-white py-2 px-4 rounded-lg hover:bg-pink-600 transition-colors"
+              >
+                다시 시도
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

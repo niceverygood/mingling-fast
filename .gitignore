@@ -84,7 +84,7 @@ dist
 
 # Gatsby files
 .cache/
-public
+# public -> frontend/public은 React에서 필요하므로 제거
 
 # Storybook build outputs
 .out

@@ -365,7 +365,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 사용자 자동 생성 미들웨어
+// 사용자 자동 생성 미들웨어 (개선)
 app.use('/api', async (req, res, next) => {
   const userEmail = req.headers['x-user-email'];
   const userId = req.headers['x-user-id'];
@@ -384,13 +384,22 @@ app.use('/api', async (req, res, next) => {
       
       // 사용자가 없으면 자동 생성
       if (!user) {
-        const username = userEmail.split('@')[0] + '_' + Date.now(); // 고유한 username 생성
+        const isGuestUser = userId.startsWith('guest-');
+        let username;
+        
+        if (isGuestUser) {
+          // 게스트 사용자의 경우 간단한 username 생성
+          username = userId.replace('@guest.minglingchat.com', '');
+        } else {
+          // 일반 사용자의 경우 이메일 기반 username 생성
+          username = userEmail.split('@')[0] + '_' + Date.now();
+        }
         
         const userData = {
           id: userId,
           email: userEmail,
           username: username,
-          hearts: 100 // 기본 하트 100개 지급
+          hearts: isGuestUser ? 50 : 100 // 게스트는 50개, 일반 사용자는 100개
         };
         
         console.log('🔧 Creating user with data:', userData);
@@ -398,19 +407,32 @@ app.use('/api', async (req, res, next) => {
         user = await prisma.user.create({
           data: userData
         });
-        console.log(`✅ New user created: ${userEmail} (ID: ${userId}, Username: ${username})`);
+        
+        if (isGuestUser) {
+          console.log(`✅ New guest user created: ${userId} (Username: ${username})`);
+        } else {
+          console.log(`✅ New user created: ${userEmail} (ID: ${userId}, Username: ${username})`);
+        }
       } else {
-        console.log(`✅ Existing user found: ${userEmail} (ID: ${user.id})`);
+        if (userId.startsWith('guest-')) {
+          console.log(`✅ Existing guest user found: ${userId}`);
+        } else {
+          console.log(`✅ Existing user found: ${userEmail} (ID: ${user.id})`);
+        }
       }
     } catch (error) {
       console.error('❌ User creation error:', error);
       console.error('Error details:', {
         code: error.code,
         message: error.message,
-        meta: error.meta
+        meta: error.meta,
+        userId: userId,
+        userEmail: userEmail
       });
       // 에러가 발생해도 요청을 계속 진행
     }
+  } else {
+    console.warn('⚠️ Missing user headers:', { userEmail, userId });
   }
   
   next();

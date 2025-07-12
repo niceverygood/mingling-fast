@@ -18,8 +18,61 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 사용자 정보를 localStorage와 axios 헤더에 동기화하는 함수
+  const syncUserToStorage = (userData) => {
+    if (userData) {
+      localStorage.setItem('userEmail', userData.email);
+      localStorage.setItem('userId', userData.uid);
+      localStorage.setItem('userName', userData.displayName || userData.email.split('@')[0]);
+      localStorage.setItem('userType', userData.provider || 'guest');
+      
+      // axios 헤더에 즉시 설정
+      axios.defaults.headers.common['X-User-ID'] = userData.uid;
+      axios.defaults.headers.common['X-User-Email'] = userData.email;
+      
+      console.log('💾 사용자 정보 동기화 완료:', {
+        email: userData.email,
+        uid: userData.uid,
+        displayName: userData.displayName,
+        provider: userData.provider
+      });
+    }
+  };
+
+  // 게스트 모드 처리 함수 개선
+  const handleGuestMode = () => {
+    // 기존 게스트 사용자 확인
+    let guestUserId = localStorage.getItem('guestUserId');
+    let guestUserEmail = localStorage.getItem('guestUserEmail');
+    
+    if (!guestUserId) {
+      // 새 게스트 사용자 생성
+      guestUserId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      guestUserEmail = `${guestUserId}@guest.minglingchat.com`;
+    }
+    
+    const guestUser = {
+      uid: guestUserId,
+      email: guestUserEmail,
+      displayName: '게스트 사용자',
+      photoURL: null,
+      provider: 'guest'
+    };
+    
+    // localStorage와 axios 헤더 동기화
+    syncUserToStorage(guestUser);
+    localStorage.setItem('guestUserId', guestUserId);
+    localStorage.setItem('guestUserEmail', guestUserEmail);
+    
+    console.log('👤 게스트 모드 활성화:', guestUser);
+    setIsLoggedIn(true);
+    setUser(guestUser);
+    
+    return guestUser;
+  };
+
   useEffect(() => {
-    // 개발 환경에서 즉시 임시 로그인
+    // 개발 환경에서 즉시 임시 로그인 (개선)
     if (process.env.NODE_ENV === 'development') {
       // 실제 로그인 사용자 정보가 localStorage에 있는지 확인
       const storedUserEmail = localStorage.getItem('userEmail');
@@ -40,68 +93,19 @@ export const AuthProvider = ({ children }) => {
         setUser(realUser);
         setLoading(false);
         
-        // Firebase 사용자 ID를 axios 헤더에 설정
-        axios.defaults.headers.common['X-User-ID'] = realUser.uid;
-        axios.defaults.headers.common['X-User-Email'] = realUser.email;
+        // axios 헤더 동기화
+        syncUserToStorage(realUser);
         
         return;
       }
       
-      // 실제 사용자 정보가 없으면 임시 사용자 사용
-      const tempUser = {
-        uid: 'test-user-123',
-        email: 'test@example.com',
-        displayName: 'Test User',
-        photoURL: null,
-        provider: 'temp'
-      };
-      
-      console.log('🔧 Development mode: Auto-login with temp user');
-      setIsLoggedIn(true);
-      setUser(tempUser);
+      // 실제 사용자 정보가 없으면 게스트 모드 사용
+      console.log('🔧 Development mode: Using guest mode');
+      handleGuestMode();
       setLoading(false);
-      
-      // Firebase 사용자 ID를 axios 헤더에 설정
-      axios.defaults.headers.common['X-User-ID'] = tempUser.uid;
-      axios.defaults.headers.common['X-User-Email'] = tempUser.email;
       
       return; // 개발 환경에서는 Firebase 인증 건너뛰기
     }
-
-    // 프로덕션 환경에서 게스트 모드 처리
-    const handleGuestMode = () => {
-      // localStorage에서 기존 게스트 사용자 확인
-      let guestUserId = localStorage.getItem('guestUserId');
-      let guestUserEmail = localStorage.getItem('guestUserEmail');
-      
-      if (!guestUserId) {
-        // 새 게스트 사용자 생성
-        guestUserId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        guestUserEmail = `${guestUserId}@guest.minglingchat.com`;
-        
-        localStorage.setItem('guestUserId', guestUserId);
-        localStorage.setItem('guestUserEmail', guestUserEmail);
-        localStorage.setItem('userType', 'guest');
-      }
-      
-      const guestUser = {
-        uid: guestUserId,
-        email: guestUserEmail,
-        displayName: '게스트 사용자',
-        photoURL: null,
-        provider: 'guest'
-      };
-      
-      console.log('👤 게스트 모드 활성화:', guestUser);
-      setIsLoggedIn(true);
-      setUser(guestUser);
-      
-      // axios 헤더 설정
-      axios.defaults.headers.common['X-User-ID'] = guestUser.uid;
-      axios.defaults.headers.common['X-User-Email'] = guestUser.email;
-      
-      return guestUser;
-    };
 
     // WebView 환경에서 redirect 결과 처리
     const checkRedirectResult = async () => {
@@ -127,20 +131,18 @@ export const AuthProvider = ({ children }) => {
             console.log('✅ Redirect 로그인 성공:', result.user);
             setIsLoggedIn(true);
             setUser(result.user);
-            // Firebase 사용자 ID를 axios 헤더에 설정
-            axios.defaults.headers.common['X-User-ID'] = result.user.uid;
-            axios.defaults.headers.common['X-User-Email'] = result.user.email;
+            syncUserToStorage(result.user);
+            return;
           } else if (result.error) {
             console.error('❌ Redirect 로그인 실패:', result.error);
-            // WebView에서 로그인 실패 시 게스트 모드
-            handleGuestMode();
           }
         }
       } catch (error) {
         console.error('💥 Redirect 결과 처리 오류:', error);
-        // 에러 시 게스트 모드
-        handleGuestMode();
       }
+      
+      // WebView에서 로그인 실패 시 또는 일반 브라우저에서 게스트 모드
+      handleGuestMode();
     };
 
     checkRedirectResult();
@@ -155,24 +157,10 @@ export const AuthProvider = ({ children }) => {
           provider: 'google'
         };
         
-        // localStorage에 사용자 정보 저장
-        localStorage.setItem('userEmail', firebaseUser.email);
-        localStorage.setItem('userId', firebaseUser.uid);
-        localStorage.setItem('userName', firebaseUser.displayName || firebaseUser.email.split('@')[0]);
-        localStorage.setItem('userType', 'google');
-        
-        console.log('💾 사용자 정보 localStorage에 저장:', {
-          email: firebaseUser.email,
-          uid: firebaseUser.uid,
-          displayName: firebaseUser.displayName
-        });
-        
+        console.log('🔥 Firebase 인증 성공:', userData);
         setIsLoggedIn(true);
         setUser(userData);
-        
-        // Firebase 사용자 ID를 axios 헤더에 설정
-        axios.defaults.headers.common['X-User-ID'] = firebaseUser.uid;
-        axios.defaults.headers.common['X-User-Email'] = firebaseUser.email;
+        syncUserToStorage(userData);
       } else {
         // Firebase 로그인이 없으면 게스트 모드 활성화
         console.log('🚫 Firebase 로그인 없음 - 게스트 모드 활성화');
@@ -197,6 +185,7 @@ export const AuthProvider = ({ children }) => {
           // 일반 브라우저에서 popup 로그인 성공
           setIsLoggedIn(true);
           setUser(result.user);
+          syncUserToStorage(result.user);
           return { success: true };
         }
       } else {
@@ -233,30 +222,9 @@ export const AuthProvider = ({ children }) => {
       delete axios.defaults.headers.common['X-User-Email'];
       
       // 새로운 게스트 사용자 생성
-      const newGuestUserId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const newGuestUserEmail = `${newGuestUserId}@guest.minglingchat.com`;
-      
-      localStorage.setItem('guestUserId', newGuestUserId);
-      localStorage.setItem('guestUserEmail', newGuestUserEmail);
-      localStorage.setItem('userType', 'guest');
-      
-      const newGuestUser = {
-        uid: newGuestUserId,
-        email: newGuestUserEmail,
-        displayName: '게스트 사용자',
-        photoURL: null,
-        provider: 'guest'
-      };
+      const newGuestUser = handleGuestMode();
       
       console.log('🔄 로그아웃 후 새 게스트 모드:', newGuestUser);
-      
-      // 새 게스트 사용자로 설정
-      setIsLoggedIn(true);
-      setUser(newGuestUser);
-      
-      // axios 헤더 재설정
-      axios.defaults.headers.common['X-User-ID'] = newGuestUser.uid;
-      axios.defaults.headers.common['X-User-Email'] = newGuestUser.email;
       
       return { success: true };
     } catch (error) {
@@ -269,6 +237,7 @@ export const AuthProvider = ({ children }) => {
   const login = (userData) => {
     setIsLoggedIn(true);
     setUser(userData);
+    syncUserToStorage(userData);
   };
 
   const value = {
