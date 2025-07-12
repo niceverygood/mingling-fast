@@ -464,8 +464,8 @@ const ForYouPage = () => {
           </button>
         )}
 
-        {/* First Impression Card - Upper Center */}
-        <div className="absolute top-1/2 left-6 right-6 transform -translate-y-1/2 z-20">
+        {/* First Impression Card - Upper Section */}
+        <div className="absolute top-32 left-6 right-6 z-20">
           <CharacterIntroCard 
             character={currentCharacter} 
             onStartChat={handleStartChat}
@@ -473,7 +473,7 @@ const ForYouPage = () => {
         </div>
 
         {/* Countdown Timer and Add Character Button */}
-        <div className="absolute bottom-20 left-6 right-6 z-10">
+        <div className="absolute bottom-24 left-6 right-6 z-10">
           <RecommendationTimer
             countdown={countdown}
             onAddCharacter={handleAddCharacter}
@@ -486,7 +486,7 @@ const ForYouPage = () => {
 
         {/* Swipe Hint */}
         {characters.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">
             <p className="text-white text-xs opacity-60 text-center">
               {currentIndex === 0 && characters.length > 1 && '→ 스와이프하여 다음 캐릭터 보기'}
               {currentIndex > 0 && currentIndex < characters.length - 1 && '← 스와이프하여 캐릭터 이동 →'}
