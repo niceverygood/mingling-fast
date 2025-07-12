@@ -464,8 +464,8 @@ const ForYouPage = () => {
           </button>
         )}
 
-        {/* First Impression Card - Center */}
-        <div className="absolute top-1/2 left-6 right-6 transform -translate-y-1/2 z-10">
+        {/* First Impression Card - Upper Center */}
+        <div className="absolute top-1/3 left-6 right-6 transform -translate-y-1/2 z-20">
           <CharacterIntroCard character={currentCharacter} />
         </div>
 
