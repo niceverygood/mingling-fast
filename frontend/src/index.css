@@ -93,6 +93,16 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   transform: scale(1.02);
 } 
 
+/* 모바일 안전 영역 패딩 */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* 하단 네비게이션을 고려한 패딩 */
+.pb-nav-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 80px);
+}
+
 /* 기본 애니메이션 (필요시 유지) */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
