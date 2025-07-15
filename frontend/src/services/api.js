@@ -1,5 +1,7 @@
 import axios from 'axios';
 import API_CONFIG, { API_ENDPOINTS, getAxiosConfig, getDefaultHeaders } from '../config/api';
+import { handleError, withRetry, isOnline, getUserFriendlyMessage } from '../utils/errorHandler';
+import performanceMonitor from '../utils/monitoring';
 
 // 🔧 환경 정보 로깅
 if (API_CONFIG.enableDebug) {
@@ -66,6 +68,18 @@ api.interceptors.request.use(
     // FormData 업로드 요청 감지
     const isFileUpload = config.data instanceof FormData;
     
+    // 자동으로 인증 헤더 추가
+    const userId = localStorage.getItem('userId');
+    const userEmail = localStorage.getItem('userEmail');
+    
+    if (userId) {
+      config.headers['x-user-id'] = userId;
+    }
+    
+    if (userEmail) {
+      config.headers['x-user-email'] = userEmail;
+    }
+    
     // 최신 헤더 정보로 업데이트
     const currentHeaders = getDefaultHeaders();
     
@@ -86,7 +100,8 @@ api.interceptors.request.use(
       method: config.method?.toUpperCase(),
       url: config.url,
       contentType: config.headers['Content-Type'] || 'auto-detect',
-      isFileUpload
+      isFileUpload,
+      hasAuth: !!userId
     });
     
     return config;
@@ -98,48 +113,84 @@ api.interceptors.request.use(
   }
 );
 
-// 응답 인터셉터
+// 응답 인터셉터 (응답 검증 포함)
 api.interceptors.response.use(
   (response) => {
-    const responseTime = response.config.metadata ? 
-      Date.now() - response.config.metadata.startTime : 0;
+    const endTime = Date.now();
+    const duration = endTime - response.config.metadata.startTime;
     
     apiStats.successfulRequests++;
     
-    safeLog('info', '✅ API Response Success', {
-      status: response.status,
+    // 응답 데이터 검증
+    if (response.data) {
+      // 표준 API 응답 형식 검증
+      const hasStandardFormat = (
+        response.data.hasOwnProperty('success') ||
+        response.data.hasOwnProperty('data') ||
+        response.data.hasOwnProperty('error')
+      );
+      
+      // 비표준 형식이지만 유효한 데이터인 경우도 허용
+      const hasValidData = (
+        Array.isArray(response.data) ||
+        (typeof response.data === 'object' && Object.keys(response.data).length > 0)
+      );
+      
+      if (!hasStandardFormat && !hasValidData) {
+        console.warn('⚠️ 비표준 API 응답 형식:', {
+          url: response.config.url,
+          data: response.data
+        });
+      }
+    }
+    
+    safeLog('info', '✅ API Response', {
+      method: response.config.method?.toUpperCase(),
       url: response.config.url,
-      responseTime: `${responseTime}ms`
+      status: response.status,
+      duration: `${duration}ms`,
+      hasData: !!response.data
     });
     
     return response;
   },
   (error) => {
-    const responseTime = error.config?.metadata ? 
-      Date.now() - error.config.metadata.startTime : 0;
+    const endTime = Date.now();
+    const duration = error.config?.metadata ? endTime - error.config.metadata.startTime : 0;
     
     apiStats.failedRequests++;
-    const errorType = classifyError(error);
     
+    // 401 에러 시 자동 로그인 모달 표시
+    if (error.response?.status === 401) {
+      safeLog('warn', '🔐 인증 오류 - 로그인 필요', {
+        url: error.config?.url,
+        status: error.response.status
+      });
+      
+      // 로그인 모달 표시 (전역 이벤트 발생)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:loginRequired', {
+          detail: { reason: '인증이 필요합니다', redirectUrl: window.location.pathname }
+        }));
+      }
+    }
+    
+    // 에러 로깅
     const errorInfo = {
-      errorType,
-      status: error.response?.status,
-      url: error.config?.url,
       method: error.config?.method?.toUpperCase(),
-      responseTime: `${responseTime}ms`,
+      url: error.config?.url,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      duration: `${duration}ms`,
       message: error.message
     };
     
-    apiStats.lastError = {
-      ...errorInfo,
-      timestamp: new Date().toISOString()
-    };
-    
-    safeLog('error', '🚨 API Response Error', errorInfo);
-    
-    // 네트워크 에러 특별 처리
-    if (errorType === 'NETWORK_ERROR') {
-      safeLog('warn', '🌐 Network Error - Check server connection');
+    if (error.response?.status >= 500) {
+      safeLog('error', '🚨 Server Error', errorInfo);
+    } else if (error.response?.status >= 400) {
+      safeLog('warn', '⚠️ Client Error', errorInfo);
+    } else {
+      safeLog('error', '❌ Network Error', errorInfo);
     }
     
     return Promise.reject(error);
@@ -157,17 +208,26 @@ if (API_CONFIG.enableDebug && typeof window !== 'undefined') {
   };
 }
 
-// 🔄 재시도 로직을 포함한 API 호출 함수 (최적화됨)
+// 🔄 개선된 API 호출 함수 (에러 핸들링 강화)
 const apiCall = async (method, url, data = null, options = {}) => {
-  const maxRetries = options.retries || 3; // 재시도 횟수 증가
+  const maxRetries = options.retries || 3;
+  const showUserError = options.showUserError !== false;
   let lastError;
+  
+  // 오프라인 체크
+  if (!isOnline()) {
+    const offlineError = new Error('인터넷 연결을 확인해주세요.');
+    offlineError.isOffline = true;
+    throw offlineError;
+  }
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const config = {
         method,
         url,
-        timeout: options.timeout || 15000, // 타임아웃 증가
+        timeout: options.timeout || 15000,
+        metadata: { startTime: Date.now() },
         ...options
       };
       
@@ -182,18 +242,46 @@ const apiCall = async (method, url, data = null, options = {}) => {
         safeLog('info', `✅ API 호출 성공 (${attempt}번째 시도)`, { url });
       }
       
+      // 성공한 API 호출 모니터링 기록
+      const duration = Date.now() - (config.metadata?.startTime || Date.now());
+      performanceMonitor.recordAPICall(
+        url,
+        method.toUpperCase(),
+        duration,
+        response.status
+      );
+      
       return response;
     } catch (error) {
       lastError = error;
       
-      // 특정 에러는 재시도하지 않음
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        safeLog('error', '🚫 인증 에러 - 재시도 중단', { url, status: error.response.status });
+      // 에러에 컨텍스트 정보 추가
+      error.apiContext = {
+        method: method.toUpperCase(),
+        url,
+        attempt,
+        maxRetries
+      };
+      
+      // 재시도 불가능한 에러 체크
+      const shouldNotRetry = (
+        error.response?.status === 401 || 
+        error.response?.status === 403 || 
+        error.response?.status === 404 ||
+        error.response?.status === 422
+      );
+      
+      if (shouldNotRetry) {
+        safeLog('error', '🚫 재시도 불가 에러', { 
+          url, 
+          status: error.response?.status,
+          message: error.message 
+        });
         break;
       }
       
       if (attempt < maxRetries) {
-        const delay = Math.min(Math.pow(2, attempt - 1) * 1000, 5000); // 최대 5초 제한
+        const delay = Math.min(Math.pow(2, attempt - 1) * 1000, 5000);
         safeLog('warn', `🔄 API 재시도 ${attempt}/${maxRetries} (${delay}ms 후)`, {
           url,
           error: error.message,
@@ -204,6 +292,35 @@ const apiCall = async (method, url, data = null, options = {}) => {
         safeLog('error', '❌ 모든 재시도 실패', { url, attempts: maxRetries });
       }
     }
+  }
+  
+  // 최종 에러 처리
+  if (lastError) {
+    // 사용자 친화적 에러 메시지 추가
+    if (showUserError) {
+      lastError.userMessage = getUserFriendlyMessage(lastError);
+    }
+    
+    // 성능 모니터링에 API 호출 기록
+    const totalDuration = Date.now() - (lastError.apiContext?.startTime || Date.now());
+    performanceMonitor.recordAPICall(
+      url,
+      method.toUpperCase(),
+      totalDuration,
+      lastError.response?.status || 0,
+      lastError
+    );
+    
+    // 에러 보고 (개발/프로덕션 환경별)
+    handleError(lastError, {
+      context: {
+        component: 'apiCall',
+        action: `${method.toUpperCase()} ${url}`,
+        attempts: maxRetries
+      },
+      logError: true,
+      showToUser: false // API 레벨에서는 로깅만, UI에서 표시
+    });
   }
   
   throw lastError;
@@ -474,41 +591,62 @@ export const heartsAPI = {
   // 하트 거래 내역
   getTransactions: () => apiCall('get', API_ENDPOINTS.HEARTS.TRANSACTIONS, null, { timeout: 10000 }),
   
-  // 하트 소모 함수 (채팅 메시지 전송용) - 최적화됨
-  spend: async (amount, description) => {
+  // 하트 사용
+  spend: async (amount, description = '') => {
     try {
-      const response = await apiCall('post', API_ENDPOINTS.HEARTS.SPEND, { amount, description }, { 
-        retries: 2,
-        timeout: 10000
+      const response = await apiCall('post', API_ENDPOINTS.HEARTS.SPEND, { 
+        amount, 
+        description 
+      }, { 
+        retries: 3,
+        timeout: 15000 
       });
       
-      // 성공 시 캐시 업데이트
+      // 하트 잔액 변경 전역 이벤트 발생
       if (response.data.hearts !== undefined) {
-        localStorage.setItem('heartBalance', JSON.stringify({
-          hearts: response.data.hearts,
-          timestamp: Date.now()
+        window.dispatchEvent(new CustomEvent('hearts:balanceChanged', {
+          detail: { 
+            newBalance: response.data.hearts, 
+            change: -amount,
+            reason: description || '하트 사용'
+          }
         }));
       }
       
+      safeLog('info', '💖 하트 사용 성공', { amount, newBalance: response.data.hearts });
       return response;
     } catch (error) {
-      safeLog('error', '❌ 하트 소모 실패', { amount, description, error: error.message });
+      safeLog('error', '❌ 하트 사용 실패', { amount, error: error.message });
       throw error;
     }
   },
   
-  // 하트 복구 (메시지 전송 실패 시)
-  refund: async (amount, description) => {
-    console.log('💎 하트 복구 API 호출:', { amount, description });
+  // 하트 환불
+  refund: async (amount, description = '') => {
     try {
-      const response = await apiCall('post', API_ENDPOINTS.HEARTS.REFUND, { amount, description }, {
-        retries: 2,
-        timeout: 10000
+      const response = await apiCall('post', API_ENDPOINTS.HEARTS.REFUND, { 
+        amount, 
+        description 
+      }, { 
+        retries: 3,
+        timeout: 15000 
       });
-      console.log('✅ 하트 복구 API 성공:', response.data);
+      
+      // 하트 잔액 변경 전역 이벤트 발생
+      if (response.data.hearts !== undefined) {
+        window.dispatchEvent(new CustomEvent('hearts:balanceChanged', {
+          detail: { 
+            newBalance: response.data.hearts, 
+            change: +amount,
+            reason: description || '하트 환불'
+          }
+        }));
+      }
+      
+      safeLog('info', '💖 하트 환불 성공', { amount, newBalance: response.data.hearts });
       return response;
     } catch (error) {
-      console.error('❌ 하트 복구 API 실패:', error);
+      safeLog('error', '❌ 하트 환불 실패', { amount, error: error.message });
       throw error;
     }
   }

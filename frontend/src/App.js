@@ -1,118 +1,115 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import ForYouPage from './pages/ForYouPage';
-import CharacterCreation from './pages/CharacterCreation/CharacterCreation';
-import CharacterDetail from './pages/CharacterCreation/CharacterDetail';
-import CharacterEdit from './pages/CharacterCreation/CharacterEdit';
-import ChatPage from './pages/ChatPage';
-import MyPage from './pages/MyPage';
-import Settings from './pages/Settings/Settings';
-import PersonaCreation from './pages/PersonaCreation/PersonaCreation';
-import PersonaDetail from './pages/PersonaCreation/PersonaDetail';
-import PersonaEdit from './pages/PersonaCreation/PersonaEdit';
-import PersonaManagement from './pages/PersonaCreation/PersonaManagement';
-import PersonaSelection from './pages/PersonaCreation/PersonaSelection';
-import HeartShop from './pages/HeartShop/HeartShop';
-import ChatListPage from './pages/ChatListPage';
-import TestWebView from './pages/TestWebView';
-import TestFavorability from './pages/TestFavorability';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-import Login from './components/Login';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import { PopupProvider } from './context/PopupContext';
-import BottomNavigation from './components/BottomNavigation';
-import GuestInterceptor from './components/GuestInterceptor';
-import './App.css';
-import RelationshipPage from './pages/RelationshipPage';
+import performanceMonitor from './utils/monitoring';
 
-function AppContent() {
-  const { loading, isLoggedIn } = useAuth();
+// 페이지 컴포넌트들
+import MainPage from './pages/MainPage';
+import ForYouPage from './pages/ForYouPage';
+import MyPage from './pages/MyPage';
+import ChatListPage from './pages/ChatListPage';
+import ChatPage from './pages/ChatPage';
+import HeartShopPage from './pages/HeartShopPage';
 
-  // Firebase 인증 상태 확인 중일 때 로딩 화면
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-black">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">앱을 준비하고 있어요...</p>
+// 에러 경계 컴포넌트
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // 성능 모니터링에 React 에러 기록
+    performanceMonitor.recordError(error, {
+      type: 'react_error_boundary',
+      componentStack: errorInfo.componentStack
+    });
+
+    // 전역 React 에러 이벤트 발생
+    window.dispatchEvent(new CustomEvent('react:error', {
+      detail: { error, componentStack: errorInfo.componentStack }
+    }));
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="max-w-md mx-auto text-center p-6">
+            <div className="text-6xl mb-4">😵</div>
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">
+              앗, 문제가 발생했어요!
+            </h1>
+            <p className="text-gray-600 mb-4">
+              페이지를 새로고침하거나 잠시 후 다시 시도해주세요.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              새로고침
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+
+    return this.props.children;
   }
-
-  // 로그인되지 않은 상태일 때 로그인 화면 표시
-  if (!isLoggedIn) {
-    return <Login />;
-  }
-
-  return (
-    <GuestInterceptor>
-      <Router>
-        <AppWithNavigation />
-      </Router>
-    </GuestInterceptor>
-  );
-}
-
-function AppWithNavigation() {
-  const location = useLocation();
-  
-  // 하단 네비게이션을 숨길 페이지들
-  const hideBottomNav = [
-    '/chat/', // 채팅 페이지 (동적 경로 포함)
-    '/character-creation',
-    '/character/',
-    '/persona-creation',
-    '/persona/',
-    '/settings',
-    '/heart-shop',
-    '/persona-management',
-    '/persona-selection',
-    '/test-webview',
-    '/privacy-policy',
-    '/terms-of-service'
-  ];
-
-  // 현재 경로가 하단 네비게이션을 숨겨야 하는 페이지인지 확인
-  const shouldHideBottomNav = hideBottomNav.some(path => 
-    location.pathname.startsWith(path) || location.pathname.includes(path)
-  );
-
-  return (
-    <div className="App">
-      <div className="app-content">
-        <Routes>
-          <Route path="/" element={<ForYouPage />} />
-          <Route path="/for-you" element={<ForYouPage />} />
-          <Route path="/chats" element={<ChatListPage />} />
-          <Route path="/chat/:chatId" element={<ChatPage />} />
-          <Route path="/relationship/:characterId" element={<RelationshipPage />} />
-          <Route path="/my" element={<MyPage />} />
-          <Route path="/character-creation" element={<CharacterCreation />} />
-          <Route path="/character/:id" element={<CharacterDetail />} />
-          <Route path="/character/:id/edit" element={<CharacterEdit />} />
-          <Route path="/persona-management" element={<PersonaManagement />} />
-          <Route path="/persona-selection" element={<PersonaSelection />} />
-          <Route path="/heart-shop" element={<HeartShop />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-of-service" element={<TermsOfService />} />
-          <Route path="/test-webview" element={<TestWebView />} />
-          <Route path="/test-favorability" element={<TestFavorability />} />
-        </Routes>
-      </div>
-      {!shouldHideBottomNav && <BottomNavigation />}
-    </div>
-  );
 }
 
 function App() {
+  useEffect(() => {
+    // 앱 시작 시 사용자 액션 기록
+    performanceMonitor.recordUserAction('app_start', {
+      timestamp: Date.now(),
+      userAgent: navigator.userAgent,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      }
+    });
+
+    // 페이지 가시성 변경 추적
+    const handleVisibilityChange = () => {
+      performanceMonitor.recordUserAction(
+        document.hidden ? 'page_hidden' : 'page_visible',
+        { timestamp: Date.now() }
+      );
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   return (
-    <AuthProvider>
+    <ErrorBoundary>
       <PopupProvider>
-        <AppContent />
+        <AuthProvider>
+          <Router>
+            <div className="App">
+              <Routes>
+                <Route path="/" element={<MainPage />} />
+                <Route path="/for-you" element={<ForYouPage />} />
+                <Route path="/my" element={<MyPage />} />
+                <Route path="/chats" element={<ChatListPage />} />
+                <Route path="/chat/:chatId" element={<ChatPage />} />
+                <Route path="/heart-shop" element={<HeartShopPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+          </Router>
+        </AuthProvider>
       </PopupProvider>
-    </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

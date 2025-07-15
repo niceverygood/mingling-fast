@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false); // 로그인 모달 상태
 
   // 사용자 정보를 localStorage와 axios 헤더에 동기화하는 함수
   const syncUserToStorage = (userData) => {
@@ -173,6 +174,49 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    // 전역 인증 오류 이벤트 리스너 추가
+    const handleAuthRequired = (event) => {
+      console.log('🔐 전역 인증 오류 감지:', event.detail);
+      
+      // 이미 로그인되어 있다면 토큰 만료로 간주하고 로그아웃 처리
+      if (isLoggedIn) {
+        console.log('🔄 토큰 만료로 인한 자동 로그아웃');
+        logout();
+      }
+      
+      // 로그인 모달 표시
+      setShowLoginModal(true);
+      
+      // 사용자에게 알림
+      if (event.detail?.reason) {
+        // 토스트 알림이나 다른 알림 방식으로 표시할 수 있음
+        console.log('📢 인증 오류:', event.detail.reason);
+      }
+    };
+    
+    // 하트 잔액 변경 이벤트 리스너 추가
+    const handleHeartBalanceChanged = (event) => {
+      console.log('💖 하트 잔액 변경 감지:', event.detail);
+      
+      // 사용자 정보 업데이트 (하트 잔액이 포함된 경우)
+      if (user && event.detail?.newBalance !== undefined) {
+        setUser(prevUser => ({
+          ...prevUser,
+          hearts: event.detail.newBalance
+        }));
+      }
+    };
+    
+    window.addEventListener('auth:loginRequired', handleAuthRequired);
+    window.addEventListener('hearts:balanceChanged', handleHeartBalanceChanged);
+    
+    return () => {
+      window.removeEventListener('auth:loginRequired', handleAuthRequired);
+      window.removeEventListener('hearts:balanceChanged', handleHeartBalanceChanged);
+    };
+  }, [isLoggedIn, user, logout]); // 의존성 배열에 필요한 값들 추가
+
   const loginWithGoogle = async () => {
     try {
       const result = await signInWithGoogle();
@@ -246,12 +290,45 @@ export const AuthProvider = ({ children }) => {
     loading,
     loginWithGoogle,
     login,
-    logout
+    logout,
+    showLoginModal, // 로그인 모달 상태 공유
+    setShowLoginModal // 로그인 모달 상태 변경 함수 공유
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+      return (
+      <AuthContext.Provider value={value}>
+        {children}
+        
+        {/* 전역 로그인 모달 */}
+        {showLoginModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm mx-4 w-full">
+              <h2 className="text-lg font-semibold mb-4 text-center">로그인이 필요합니다</h2>
+              <p className="text-gray-600 mb-6 text-center">
+                계속하려면 로그인해주세요.
+              </p>
+              
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    loginWithGoogle();
+                  }}
+                  className="w-full bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                >
+                  Google로 로그인
+                </button>
+                
+                <button
+                  onClick={() => setShowLoginModal(false)}
+                  className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </AuthContext.Provider>
+    );
 }; 

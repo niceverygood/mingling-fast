@@ -91,16 +91,20 @@ const ForYouPage = () => {
       
       console.log('🎯 For You 캐릭터 로딩 시도...', { excludeIds: excludeIds.length });
       
+      // userId, userEmail을 항상 localStorage에서 읽어옴
+      const userId = localStorage.getItem('userId');
+      const userEmail = localStorage.getItem('userEmail');
       const headers = {
         'Content-Type': 'application/json'
       };
+      if (userId) headers['x-user-id'] = userId;
+      if (userEmail) headers['x-user-email'] = userEmail;
       
-      // 로그인한 사용자 헤더 추가
-      if (isLoggedIn) {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (user.uid) {
-          headers['x-user-id'] = user.uid;
-        }
+      // userId가 없으면 로그인 모달 표시 후 요청 중단
+      if (!userId) {
+        setShowLoginModal(true);
+        setLoading(false);
+        return;
       }
       
       // exclude 파라미터 추가
