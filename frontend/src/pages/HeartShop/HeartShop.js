@@ -109,16 +109,16 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
         }
       } else {
         // 웹 환경에서는 기존 결제 시스템 사용
-        setProcessingMessage('결제 모듈 로딩 중...');
-        await paymentService.loadSDK();
+      setProcessingMessage('결제 모듈 로딩 중...');
+      await paymentService.loadSDK();
 
-        // 결제 요청
-        setProcessingMessage('결제 진행 중...');
+      // 결제 요청
+      setProcessingMessage('결제 진행 중...');
         result = await paymentService.purchaseHearts(pack.id, {
-          userId,
-          email: userEmail,
-          name: userEmail.split('@')[0]
-        });
+        userId,
+        email: userEmail,
+        name: userEmail.split('@')[0]
+      });
       }
 
       console.log('✅ 하트 구매 완료:', result);

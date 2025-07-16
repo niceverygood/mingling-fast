@@ -274,8 +274,30 @@ const ForYouPage = () => {
         throw new Error('사용자 ID가 없습니다. 다시 로그인해주세요.');
       }
 
-      const currentCharacterIds = characters.map(char => char.id);
-      const allExcludeIds = [...excludeIds, ...currentCharacterIds];
+      // ✅ 현재 캐릭터 ID들을 문자열로 확실히 변환
+      const currentCharacterIds = characters.map(char => String(char.id));
+      
+      // ✅ excludeIds를 문자열 배열로 필터링 (정수 제거)
+      const validExcludeIds = excludeIds
+        .map(id => String(id))
+        .filter(id => {
+          // 정수로만 이루어진 문자열은 제외 (실제 cuid가 아님)
+          if (/^\d+$/.test(id)) {
+            console.log(`⚠️ 정수 형태 ID ${id}는 제외됩니다 (실제 캐릭터 ID는 cuid 형태)`);
+            return false;
+          }
+          return true;
+        });
+      
+      // ✅ 모든 제외 ID를 문자열로 통일
+      const allExcludeIds = [...validExcludeIds, ...currentCharacterIds];
+
+      console.log('🔍 제외 ID 처리:', {
+        excludeIds: excludeIds,
+        validExcludeIds: validExcludeIds,
+        currentCharacterIds: currentCharacterIds,
+        allExcludeIds: allExcludeIds
+      });
 
       const response = await fetch(`${API_CONFIG.apiURL}/characters/for-you/add`, {
         method: 'POST',

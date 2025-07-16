@@ -483,25 +483,40 @@ router.post('/for-you/add', async (req, res) => {
     // 새로운 캐릭터 1개 선택 (제외 목록 제외)
     const excludeIdsArray = Array.isArray(excludeIds) ? excludeIds : [];
     
-    // excludeIds 배열을 문자열로 변환하고 유효한 ID만 필터링
+    // excludeIds가 비어있거나 유효하지 않은 경우 처리
     const validExcludeIds = excludeIdsArray
-      .map(id => String(id))
-      .filter(id => id && id !== 'null' && id !== 'undefined');
+      .filter(id => id !== null && id !== undefined && id !== '')
+      .map(id => {
+        // 정수든 문자열이든 모두 문자열로 통일
+        const stringId = String(id);
+        // 숫자로만 이루어진 문자열은 제외 (실제 cuid가 아님)
+        if (/^\d+$/.test(stringId)) {
+          console.log(`⚠️ 정수 ID ${stringId}는 제외됩니다 (실제 캐릭터 ID는 cuid 형태)`);
+          return null;
+        }
+        return stringId;
+      })
+      .filter(id => id !== null);
 
     console.log('💡 제외 ID 처리:', { 
       original: excludeIds, 
       excludeIdsArray, 
-      validExcludeIds 
+      validExcludeIds,
+      excludeCount: validExcludeIds.length
     });
 
+    // WHERE 절 구성 - validExcludeIds가 비어있으면 notIn 조건 제외
     const whereClause = {
-      isPublic: true,
-      ...(validExcludeIds.length > 0 && {
-        id: {
-          notIn: validExcludeIds
-        }
-      })
+      isPublic: true
     };
+    
+    if (validExcludeIds.length > 0) {
+      whereClause.id = {
+        notIn: validExcludeIds
+      };
+    }
+
+    console.log('🔍 Prisma WHERE 절:', JSON.stringify(whereClause, null, 2));
 
     const availableCount = await prisma.character.count({ where: whereClause });
     
