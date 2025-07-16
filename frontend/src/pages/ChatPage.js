@@ -145,14 +145,29 @@ const ChatPage = () => {
     }
   }, [isTyping]);
 
+  // 새 메시지가 추가될 때마다 스크롤 (메시지 배열 변경 감지)
+  useEffect(() => {
+    if (hasInitiallyScrolled && messages.length > 0) {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100); // 메시지 렌더링 완료 후 스크롤
+      
+      return () => clearTimeout(timer);
+    }
+  }, [messages.length, hasInitiallyScrolled]);
+
   // 즉시 스크롤 (애니메이션 없음) - 초기 로딩 시 사용
   const scrollToBottomInstant = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
   };
 
   // 부드러운 스크롤 - 새 메시지 전송 시 사용
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   useEffect(() => {
@@ -616,8 +631,8 @@ const ChatPage = () => {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto bg-gradient-to-b from-white to-gray-50 min-h-screen">
-        <div className="flex justify-center items-center h-screen">
+      <div className="max-w-md mx-auto bg-gradient-to-b from-white to-gray-50 h-screen">
+        <div className="flex justify-center items-center h-full">
           <div className="text-center">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
@@ -632,10 +647,10 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-gradient-to-b from-white to-gray-50 min-h-screen flex flex-col">
+    <div className="max-w-md mx-auto bg-gradient-to-b from-white to-gray-50 h-screen flex flex-col">
       <div 
         ref={containerRef}
-        className="flex flex-col flex-1 overflow-hidden"
+        className="flex flex-col h-full overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -758,13 +773,19 @@ const ChatPage = () => {
       {/* Messages - 참고 이미지 스타일 */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-6 bg-white"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 bg-white min-h-0 chat-messages-scroll"
         style={{ 
-          scrollBehavior: 'smooth',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
+          transform: 'translateZ(0)', // 하드웨어 가속 활성화
+          willChange: 'scroll-position' // 스크롤 최적화
         }}
       >
-        <div className="space-y-4">
+        <div className="space-y-4"
+          style={{
+            contain: 'layout', // 레이아웃 최적화
+            overflowAnchor: 'auto' // 스크롤 앵커링
+          }}
+        >
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'}`}>
               <div className="max-w-[270px] group">
