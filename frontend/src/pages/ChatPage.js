@@ -7,7 +7,7 @@ import Avatar from '../components/Avatar';
 import TypingAnimation from '../components/TypingAnimation';
 import RelationshipModal from '../components/RelationshipModal';
 import CharacterDetail from './CharacterCreation/CharacterDetail';
-import { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
+
 
 // API imports
 import * as charactersAPI from '../services/api';
@@ -40,7 +40,7 @@ const ChatPage = () => {
   
   // 호감도 관련 상태
   const [relationInfo, setRelationInfo] = useState(null);
-  const [favorabilityNotification, setFavorabilityNotification] = useState(null);
+
   
   // 모바일 터치 최적화 상태
   const [touchStartY, setTouchStartY] = useState(0);
@@ -484,20 +484,7 @@ const ChatPage = () => {
           console.log('✅ 관계 정보 즉시 업데이트 완료');
         }
         
-        // 변화 알림 표시
-        if (favorabilityData.deltaScore !== 0) {
-          setFavorabilityNotification({
-            deltaScore: favorabilityData.deltaScore,
-            oldStage: favorabilityData.oldStage,
-            newStage: favorabilityData.newStage || favorabilityData.relation?.stage,
-            stageChanged: favorabilityData.stageChanged
-          });
-          
-          // 3초 후 알림 자동 제거
-          setTimeout(() => {
-            setFavorabilityNotification(null);
-          }, 3000);
-        }
+
         
         // 메시지 전송 후 관계 정보 다시 불러오기 (최종 동기화 보장)
         setTimeout(() => {
@@ -936,19 +923,7 @@ const ChatPage = () => {
         </div>
       </div>
       
-      {/* Favorability Change Notification - 개선된 디자인 */}
-      {favorabilityNotification && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 max-w-sm w-full px-4">
-          <div className="bg-white/95 backdrop-blur-md border border-gray-200 rounded-2xl shadow-xl p-4 animate-in slide-in-from-top-2 fade-in duration-300">
-            <FavorabilityChangeNotification 
-              deltaScore={favorabilityNotification.deltaScore}
-              oldStage={favorabilityNotification.oldStage}
-              newStage={favorabilityNotification.newStage}
-              stageChanged={favorabilityNotification.stageChanged}
-            />
-          </div>
-        </div>
-      )}
+
 
       {/* Relationship Modal */}
       <RelationshipModal 
