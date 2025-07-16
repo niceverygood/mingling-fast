@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from './LoginModal';
 
@@ -14,7 +14,7 @@ const GuestInterceptor = ({ children }) => {
                    window.IS_NATIVE_APP === true;
 
   // 게스트 사용자인지 확인하는 함수
-  const isGuestUser = () => {
+  const isGuestUser = useCallback(() => {
     if (!isLoggedIn || !user) return false;
     
     // 여러 방법으로 게스트 사용자 확인
@@ -26,7 +26,7 @@ const GuestInterceptor = ({ children }) => {
     );
     
     return isGuest;
-  };
+  }, [isLoggedIn, user]);
 
   useEffect(() => {
     // 웹 브라우저 환경에서만 게스트 인터셉터 작동
@@ -95,7 +95,7 @@ const GuestInterceptor = ({ children }) => {
       ];
 
       if (excludeSelectors.some(selector => target.closest(selector))) {
-        console.log('✅ 제외된 요소 클릭:', selector);
+        console.log('✅ 제외된 요소 클릭 - 허용됨');
         return;
       }
 
@@ -118,7 +118,7 @@ const GuestInterceptor = ({ children }) => {
     return () => {
       document.removeEventListener('click', handleClick, true);
     };
-  }, [isLoggedIn, user, showLoginModal, isWebView]);
+  }, [isLoggedIn, user, showLoginModal, isWebView, isGuestUser]);
 
   const handleCloseModal = () => {
     setShowLoginModal(false);
