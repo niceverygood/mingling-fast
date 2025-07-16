@@ -25,7 +25,7 @@ const MyPage = () => {
   const { isLoggedIn, user: authUser } = useAuth();
   
   // 커스텀 팝업 훅
-  const { showCharacterSuccess, showPersonaSuccess, showPaymentSuccess, showError } = usePopup();
+  const { showCharacterSuccess, showPersonaSuccess, showError } = usePopup();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('characters');
   const [myCharacters, setMyCharacters] = useState([]);

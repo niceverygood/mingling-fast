@@ -42,36 +42,39 @@ const BottomNavigation = () => {
   const isForYouActive = isActive('/for-you');
 
   return (
-    <div className={`fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md border-t z-50 ${
+    <div className={`fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md border-t z-50 bottom-navigation ${
       isForYouActive 
         ? 'bg-gray-900 border-gray-700' 
         : 'bg-white border-gray-200'
-    }`}>
+    }`} data-navigation="true">
       <div className="flex justify-around items-center py-2">
         {tabs.map((tab) => {
-          const active = isActive(tab.path);
-          const Icon = active ? tab.activeIcon : tab.icon;
-          
+          const Icon = isActive(tab.path) ? tab.activeIcon : tab.icon;
           return (
             <button
-              key={tab.name}
+              key={tab.path}
               onClick={() => navigate(tab.path)}
-              className="flex flex-col items-center justify-center py-2 px-4 min-w-0 flex-1"
+              data-navigation="true"
+              className={`flex flex-col items-center space-y-1 p-3 transition-colors min-w-0 flex-1 ${
+                isActive(tab.path)
+                  ? isForYouActive 
+                    ? 'text-white' 
+                    : 'text-purple-600'
+                  : isForYouActive
+                    ? 'text-gray-400'
+                    : 'text-gray-400 hover:text-gray-600'
+              }`}
             >
-              <Icon 
-                className={`w-6 h-6 ${
-                  isForYouActive
-                    ? active ? 'text-white' : 'text-gray-400'
-                    : active ? 'text-black' : 'text-gray-400'
-                }`} 
-              />
-              <span 
-                className={`text-xs mt-1 ${
-                  isForYouActive
-                    ? active ? 'text-white font-medium' : 'text-gray-400'
-                    : active ? 'text-black font-medium' : 'text-gray-400'
-                }`}
-              >
+              <Icon className="w-6 h-6" />
+              <span className={`text-xs font-medium truncate w-full text-center ${
+                isActive(tab.path)
+                  ? isForYouActive 
+                    ? 'text-white' 
+                    : 'text-purple-600'
+                  : isForYouActive
+                    ? 'text-gray-400'
+                    : 'text-gray-500'
+              }`}>
                 {tab.name}
               </span>
             </button>

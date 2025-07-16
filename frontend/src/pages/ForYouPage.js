@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, UserIcon } from '@heroicons/react/24/outline';
-import { ChatBubbleLeftRightIcon, HeartIcon } from '@heroicons/react/24/solid';
+import { HeartIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
 import PersonaSelection from './PersonaCreation/PersonaSelection';
-import { charactersAPI, heartsAPI } from '../services/api';
+import { heartsAPI } from '../services/api';
 import API_CONFIG from '../config/api';
 import Avatar from '../components/Avatar';
 import { usePopup } from '../context/PopupContext';
@@ -46,37 +46,8 @@ const ForYouPage = () => {
   // 스와이프 감지 최소 거리
   const minSwipeDistance = 50;
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchForYouCharacters();
-      fetchHeartBalance();
-    }
-  }, [isLoggedIn]);
-
-  // 카운트다운 타이머 효과
-  useEffect(() => {
-    if (refreshInfo) {
-      updateCountdown();
-      timerRef.current = setInterval(updateCountdown, 1000);
-      
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-      };
-    }
-  }, [refreshInfo]);
-
-  // 컴포넌트 언마운트 시 타이머 정리
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, []);
-
-  const fetchHeartBalance = async () => {
+  // 함수들을 useEffect보다 먼저 정의
+  const fetchHeartBalance = useCallback(async () => {
     try {
       const response = await heartsAPI.getBalance();
       if (response.data && typeof response.data.hearts === 'number') {
@@ -85,9 +56,9 @@ const ForYouPage = () => {
     } catch (error) {
       console.error('❌ 하트 잔액 조회 실패:', error);
     }
-  };
+  }, []);
 
-  const fetchForYouCharacters = async () => {
+  const fetchForYouCharacters = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -147,9 +118,9 @@ const ForYouPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [excludeIds]);
 
-  const updateCountdown = () => {
+  const updateCountdown = useCallback(() => {
     if (!refreshInfo) return;
     
     const now = new Date().getTime();
@@ -168,7 +139,37 @@ const ForYouPage = () => {
       const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
       setCountdown({ minutes, seconds });
     }
-  };
+  }, [refreshInfo, fetchForYouCharacters]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchForYouCharacters();
+      fetchHeartBalance();
+    }
+  }, [isLoggedIn, fetchForYouCharacters, fetchHeartBalance]);
+
+  // 카운트다운 타이머 효과
+  useEffect(() => {
+    if (refreshInfo) {
+      updateCountdown();
+      timerRef.current = setInterval(updateCountdown, 1000);
+      
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }
+  }, [refreshInfo, updateCountdown]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
 
   // 터치 이벤트 핸들러
   const handleTouchStart = (e) => {
@@ -305,13 +306,7 @@ const ForYouPage = () => {
     }
   };
 
-  // 직접 슬라이드 선택
-  const handleSlideSelect = (index) => {
-    if (isTransitioning || index === currentIndex) return;
-    setIsTransitioning(true);
-    setCurrentIndex(index);
-    setTimeout(() => setIsTransitioning(false), 300);
-  };
+
 
   if (loading) {
     return (
@@ -508,7 +503,7 @@ const ForYouPage = () => {
           </div>
 
           {/* Character Introduction Card */}
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center px-4">
             <CharacterIntroCard 
               character={currentCharacter} 
               onStartChat={handleStartChat}

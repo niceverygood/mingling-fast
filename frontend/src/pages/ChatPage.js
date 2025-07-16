@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, HeartIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
-import { heartsAPI, chatsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useHearts } from '../hooks/useHearts';
 import Avatar from '../components/Avatar';
-import FavorabilityGauge, { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
 import TypingAnimation from '../components/TypingAnimation';
 import RelationshipModal from '../components/RelationshipModal';
 import CharacterDetail from './CharacterCreation/CharacterDetail';
+import { FavorabilityChangeNotification } from '../components/FavorabilityGauge';
+
+// API imports
+import * as charactersAPI from '../services/api';
+import * as conversationsAPI from '../services/api';
+import { heartsAPI, chatsAPI } from '../services/api';
 import { getRelationInfo } from '../services/relationshipAPI';
-import { goToHeartShopWithAlert, openHeartShop, isInApp, listenForHeartUpdates } from '../utils/webview';
+import { openHeartShop, isInApp, listenForHeartUpdates } from '../utils/webview';
 import { usePopup } from '../context/PopupContext';
 
 const ChatPage = () => {
@@ -605,23 +610,7 @@ const ChatPage = () => {
     }
   };
 
-  // 로딩 인디케이터 컴포넌트 - 개선된 디자인
-  const LoadingIndicator = () => (
-    <div className="flex justify-start">
-      <div className="max-w-[280px]">
-        <div className="px-4 py-3 rounded-2xl bg-white border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-            <span className="text-xs text-gray-500">입력 중...</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+
 
   // 실제 데이터만 사용 - 더미 하트 수 제거됨
 

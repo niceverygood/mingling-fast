@@ -13,12 +13,50 @@ const GuestInterceptor = ({ children }) => {
                    navigator.userAgent.includes('MinglingApp') ||
                    window.IS_NATIVE_APP === true;
 
+  // 게스트 사용자인지 확인하는 함수
+  const isGuestUser = () => {
+    if (!isLoggedIn || !user) return false;
+    
+    // 여러 방법으로 게스트 사용자 확인
+    const isGuest = (
+      user.provider === 'guest' ||
+      user.uid?.startsWith('guest-') ||
+      user.email?.includes('@guest.minglingchat.com') ||
+      localStorage.getItem('userType') === 'guest'
+    );
+    
+    return isGuest;
+  };
+
   useEffect(() => {
     // 웹 브라우저 환경에서만 게스트 인터셉터 작동
-    if (isWebView) return;
+    if (isWebView) {
+      console.log('🌐 WebView 환경에서는 게스트 인터셉터 비활성화');
+      return;
+    }
     
     // 게스트 사용자가 아니면 인터셉터 비활성화
-    if (!isLoggedIn || !user || user.provider !== 'guest') return;
+    if (!isGuestUser()) {
+      console.log('👤 게스트 사용자가 아니므로 인터셉터 비활성화', {
+        isLoggedIn,
+        user: user ? {
+          uid: user.uid,
+          provider: user.provider,
+          email: user.email
+        } : null,
+        localStorage: localStorage.getItem('userType')
+      });
+      return;
+    }
+
+    console.log('🚫 게스트 인터셉터 활성화됨!', {
+      user: {
+        uid: user.uid,
+        provider: user.provider,
+        email: user.email
+      },
+      localStorage: localStorage.getItem('userType')
+    });
 
     const handleClick = (event) => {
       // 로그인 모달이 이미 열려있으면 무시
@@ -32,8 +70,16 @@ const GuestInterceptor = ({ children }) => {
       // 로그인 모달 오버레이 클릭은 무시 (모달 닫기 허용)
       if (target.closest('.login-modal-overlay')) return;
 
+      // 하단 네비게이션 버튼은 허용
+      if (target.closest('.bottom-navigation') || 
+          target.closest('[data-navigation="true"]') ||
+          target.closest('nav')) {
+        console.log('📱 하단 네비게이션 클릭 허용');
+        return;
+      }
+
       // 클릭한 요소가 버튼, 링크, 또는 클릭 가능한 요소인지 확인
-      const clickableElement = target.closest('button, a, [onclick], .clickable, [role="button"], input[type="submit"], input[type="button"]');
+      const clickableElement = target.closest('button, a, [onclick], .clickable, [role="button"], input[type="submit"], input[type="button"], .cursor-pointer');
       
       // 클릭 가능한 요소가 아니면 무시
       if (!clickableElement) return;
@@ -41,10 +87,15 @@ const GuestInterceptor = ({ children }) => {
       // 특정 요소들만 제외 (최소한으로 축소)
       const excludeSelectors = [
         '.close-button', // 모달 닫기 버튼
-        '.login-modal-close' // 로그인 모달 닫기 버튼
+        '.login-modal-close', // 로그인 모달 닫기 버튼
+        '.bottom-navigation', // 하단 네비게이션
+        '[data-navigation="true"]', // 네비게이션 데이터 속성
+        'nav', // nav 태그
+        '.navigation' // 네비게이션 클래스
       ];
 
       if (excludeSelectors.some(selector => target.closest(selector))) {
+        console.log('✅ 제외된 요소 클릭:', selector);
         return;
       }
 
@@ -73,24 +124,14 @@ const GuestInterceptor = ({ children }) => {
     setShowLoginModal(false);
   };
 
-  // 게스트 사용자 상태 디버그 정보
-  useEffect(() => {
-    if (user && user.provider === 'guest') {
-      console.log('👤 게스트 인터셉터 활성화됨:', {
-        isLoggedIn,
-        userProvider: user.provider,
-        userId: user.uid,
-        isWebView
-      });
-    }
-  }, [user, isLoggedIn, isWebView]);
-
   return (
     <>
       {children}
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={handleCloseModal} 
+        title="🔐 로그인이 필요한 기능이에요"
+        subtitle="구글로 간편하게 로그인하세요"
       />
     </>
   );
