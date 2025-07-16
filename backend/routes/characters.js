@@ -482,11 +482,23 @@ router.post('/for-you/add', async (req, res) => {
 
     // 새로운 캐릭터 1개 선택 (제외 목록 제외)
     const excludeIdsArray = Array.isArray(excludeIds) ? excludeIds : [];
+    
+    // excludeIds 배열을 문자열로 변환하고 유효한 ID만 필터링
+    const validExcludeIds = excludeIdsArray
+      .map(id => String(id))
+      .filter(id => id && id !== 'null' && id !== 'undefined');
+
+    console.log('💡 제외 ID 처리:', { 
+      original: excludeIds, 
+      excludeIdsArray, 
+      validExcludeIds 
+    });
+
     const whereClause = {
       isPublic: true,
-      ...(excludeIdsArray.length > 0 && {
+      ...(validExcludeIds.length > 0 && {
         id: {
-          notIn: excludeIdsArray.map(id => parseInt(id))
+          notIn: validExcludeIds
         }
       })
     };
