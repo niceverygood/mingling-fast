@@ -481,11 +481,12 @@ router.post('/for-you/add', async (req, res) => {
     });
 
     // 새로운 캐릭터 1개 선택 (제외 목록 제외)
+    const excludeIdsArray = Array.isArray(excludeIds) ? excludeIds : [];
     const whereClause = {
       isPublic: true,
-      ...(excludeIds.length > 0 && {
+      ...(excludeIdsArray.length > 0 && {
         id: {
-          notIn: excludeIds.map(id => parseInt(id))
+          notIn: excludeIdsArray.map(id => parseInt(id))
         }
       })
     };

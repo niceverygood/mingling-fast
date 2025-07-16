@@ -20,33 +20,28 @@ const GuestInterceptor = ({ children }) => {
     // 게스트 사용자가 아니면 인터셉터 비활성화
     if (!isLoggedIn || !user || user.provider !== 'guest') return;
 
-    // 사용자가 "계속하기"를 선택했는지 확인
-    const skipUntil = localStorage.getItem('skipGuestInterceptor');
-    if (skipUntil && Date.now() < parseInt(skipUntil)) {
-      return; // 스킵 기간 동안 인터셉터 비활성화
-    }
-
     const handleClick = (event) => {
       // 로그인 모달이 이미 열려있으면 무시
       if (showLoginModal) return;
 
       const target = event.target;
-      const clickedElement = target.closest('button, a, .clickable');
       
-      // 클릭한 요소가 버튼이거나 링크가 아니면 무시
-      if (!clickedElement) return;
-
       // 로그인 모달 내부 클릭은 무시
       if (target.closest('.login-modal')) return;
+      
+      // 로그인 모달 오버레이 클릭은 무시 (모달 닫기 허용)
+      if (target.closest('.login-modal-overlay')) return;
 
-      // 특정 요소들은 인터셉트하지 않음
+      // 클릭한 요소가 버튼, 링크, 또는 클릭 가능한 요소인지 확인
+      const clickableElement = target.closest('button, a, [onclick], .clickable, [role="button"], input[type="submit"], input[type="button"]');
+      
+      // 클릭 가능한 요소가 아니면 무시
+      if (!clickableElement) return;
+
+      // 특정 요소들만 제외 (최소한으로 축소)
       const excludeSelectors = [
-        '.close-button',
-        '.login-modal-overlay',
-        '.bottom-nav',
-        '.navbar',
-        '.popup-overlay',
-        '.no-intercept'
+        '.close-button', // 모달 닫기 버튼
+        '.login-modal-close' // 로그인 모달 닫기 버튼
       ];
 
       if (excludeSelectors.some(selector => target.closest(selector))) {
@@ -57,9 +52,16 @@ const GuestInterceptor = ({ children }) => {
       event.preventDefault();
       event.stopPropagation();
       setShowLoginModal(true);
+      
+      console.log('🚫 게스트 사용자 버튼 클릭 인터셉트됨:', {
+        element: clickableElement.tagName,
+        text: clickableElement.textContent?.trim().substring(0, 50),
+        id: clickableElement.id,
+        className: clickableElement.className
+      });
     };
 
-    // 전역 클릭 이벤트 리스너 추가
+    // 전역 클릭 이벤트 리스너 추가 (캡처 단계에서 처리)
     document.addEventListener('click', handleClick, true);
 
     return () => {
@@ -70,6 +72,18 @@ const GuestInterceptor = ({ children }) => {
   const handleCloseModal = () => {
     setShowLoginModal(false);
   };
+
+  // 게스트 사용자 상태 디버그 정보
+  useEffect(() => {
+    if (user && user.provider === 'guest') {
+      console.log('👤 게스트 인터셉터 활성화됨:', {
+        isLoggedIn,
+        userProvider: user.provider,
+        userId: user.uid,
+        isWebView
+      });
+    }
+  }, [user, isLoggedIn, isWebView]);
 
   return (
     <>

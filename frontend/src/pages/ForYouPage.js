@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, UserIcon } from '@heroicons/react/24/outline';
 import { ChatBubbleLeftRightIcon, HeartIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
 import PersonaSelection from './PersonaCreation/PersonaSelection';
 import { charactersAPI, heartsAPI } from '../services/api';
+import API_CONFIG from '../config/api';
 import Avatar from '../components/Avatar';
 import { usePopup } from '../context/PopupContext';
 import CharacterIntroCard from '../components/CharacterIntroCard';
 import RecommendationTimer from '../components/RecommendationTimer';
 import CharacterDetail from './CharacterCreation/CharacterDetail';
+import ChatProfileSelector from '../components/ChatProfileSelector';
 
 const ForYouPage = () => {
   const { isLoggedIn } = useAuth();
@@ -29,6 +31,7 @@ const ForYouPage = () => {
   const [countdown, setCountdown] = useState({ minutes: 0, seconds: 0 });
   const [showCharacterDetail, setShowCharacterDetail] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
+  const [showChatProfileSelector, setShowChatProfileSelector] = useState(false);
   
   // 터치/스와이프 관련 상태
   const [touchStartX, setTouchStartX] = useState(0);
@@ -100,8 +103,11 @@ const ForYouPage = () => {
       if (userId) headers['x-user-id'] = userId;
       if (userEmail) headers['x-user-email'] = userEmail;
       
+      console.log('🔍 For You 캐릭터 요청 헤더:', { userId, userEmail, headers });
+      
       // userId가 없으면 로그인 모달 표시 후 요청 중단
       if (!userId) {
+        console.log('❌ 사용자 ID가 없어 For You 요청 중단');
         setShowLoginModal(true);
         setLoading(false);
         return;
@@ -110,7 +116,7 @@ const ForYouPage = () => {
       // exclude 파라미터 추가
       const queryParams = excludeIds.length > 0 ? `?exclude=${excludeIds.join(',')}` : '';
       
-      const response = await fetch(`https://api.minglingchat.com/api/characters/for-you${queryParams}`, {
+      const response = await fetch(`${API_CONFIG.apiURL}/characters/for-you${queryParams}`, {
         method: 'GET',
         headers
       });
@@ -249,17 +255,28 @@ const ForYouPage = () => {
         'Content-Type': 'application/json'
       };
 
-      if (isLoggedIn) {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (user.uid) {
-          headers['x-user-id'] = user.uid;
-        }
+      // userId와 userEmail을 localStorage에서 직접 읽어옴
+      const userId = localStorage.getItem('userId');
+      const userEmail = localStorage.getItem('userEmail');
+      
+      if (userId) {
+        headers['x-user-id'] = userId;
+      }
+      if (userEmail) {
+        headers['x-user-email'] = userEmail;
+      }
+
+      console.log('🔍 카드 추가 요청 헤더:', { userId, userEmail, headers });
+
+      // userId가 없으면 에러 처리
+      if (!userId) {
+        throw new Error('사용자 ID가 없습니다. 다시 로그인해주세요.');
       }
 
       const currentCharacterIds = characters.map(char => char.id);
       const allExcludeIds = [...excludeIds, ...currentCharacterIds];
 
-      const response = await fetch('https://api.minglingchat.com/api/characters/for-you/add', {
+      const response = await fetch(`${API_CONFIG.apiURL}/characters/for-you/add`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -457,16 +474,16 @@ const ForYouPage = () => {
                 className="ring-4 ring-white ring-opacity-50"
                 onClick={handleAvatarClick}
               />
-              <div>
-                <h1 className="text-white text-xl font-bold">{currentCharacter.name}</h1>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-white text-xl font-bold truncate">{currentCharacter.name}</h1>
                 <div className="flex items-center space-x-2">
-                  <p className="text-white text-sm opacity-90">
+                  <p className="text-white text-sm opacity-90 truncate">
                     {currentCharacter.age && `${currentCharacter.age}세`}
                     {currentCharacter.age && currentCharacter.characterType && ' • '}
                     {currentCharacter.characterType}
                   </p>
                   {currentCharacter.isOwner && (
-                    <span className="bg-white bg-opacity-20 text-white text-xs px-2 py-1 rounded-full">
+                    <span className="bg-white bg-opacity-20 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
                       내 캐릭터
                     </span>
                   )}
@@ -474,7 +491,14 @@ const ForYouPage = () => {
               </div>
             </div>
             
-            <div className="text-right">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowChatProfileSelector(true)}
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 transition-all"
+                title="프로필 선택"
+              >
+                <UserIcon className="w-5 h-5" />
+              </button>
               <div className="bg-white bg-opacity-20 rounded-full px-3 py-1 backdrop-blur-sm">
                 <span className="text-white text-sm font-medium">
                   {currentIndex + 1} / {characters.length}
@@ -516,6 +540,22 @@ const ForYouPage = () => {
             characterId={selectedCharacter.id}
             onClose={handleCloseCharacterDetail}
             onEdit={() => {}} // 편집 기능은 비활성화
+          />
+        )}
+
+        {/* Chat Profile Selector Modal */}
+        {showChatProfileSelector && (
+          <ChatProfileSelector
+            onClose={() => setShowChatProfileSelector(false)}
+            onSelect={(profileData) => {
+              console.log('프로필 선택됨:', profileData);
+              setShowChatProfileSelector(false);
+              // 여기서 선택된 프로필로 채팅을 시작할 수 있습니다
+              // 예: 현재 캐릭터와 선택된 프로필로 채팅 시작
+              if (currentCharacter) {
+                handleStartChat();
+              }
+            }}
           />
         )}
       </div>

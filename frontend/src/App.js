@@ -1,16 +1,19 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { PopupProvider } from './context/PopupContext';
 import performanceMonitor from './utils/monitoring';
 
 // 페이지 컴포넌트들
-import MainPage from './pages/MainPage';
 import ForYouPage from './pages/ForYouPage';
 import MyPage from './pages/MyPage';
 import ChatListPage from './pages/ChatListPage';
 import ChatPage from './pages/ChatPage';
-import HeartShopPage from './pages/HeartShopPage';
+import HeartShop from './pages/HeartShop/HeartShop';
+
+// 컴포넌트들
+import BottomNavigation from './components/BottomNavigation';
+import GuestInterceptor from './components/GuestInterceptor';
 
 // 에러 경계 컴포넌트
 class ErrorBoundary extends React.Component {
@@ -63,6 +66,56 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// 하단 네비게이션을 조건부로 렌더링하는 컴포넌트
+function ConditionalBottomNavigation() {
+  const location = useLocation();
+  
+  // 하단 네비게이션이 보여야 하는 페이지들
+  const visiblePaths = [
+    '/',
+    '/for-you',
+    '/my',
+    '/chats',
+    '/heart-shop',
+    '/relationships',
+    '/settings'
+  ];
+  
+  // 정확히 일치하거나 하위 경로인 경우를 확인
+  const shouldShowNavigation = visiblePaths.some(path => {
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  });
+  
+  // 특별히 숨겨야 하는 페이지들 (우선순위 높음)
+  const hiddenPaths = [
+    '/chat/', // 개별 채팅룸
+    '/character/create',
+    '/character/edit',
+    '/persona/create', 
+    '/persona/edit',
+    '/login',
+    '/signup'
+  ];
+  
+  const shouldHideNavigation = hiddenPaths.some(path => location.pathname.includes(path));
+  
+  // 숨겨야 하는 페이지라면 숨기기 (우선순위)
+  if (shouldHideNavigation) {
+    return null;
+  }
+  
+  // 보여야 하는 페이지라면 보이기
+  if (shouldShowNavigation) {
+    return <BottomNavigation />;
+  }
+  
+  // 기본적으로는 보이기 (새로운 페이지 추가 시 안전)
+  return <BottomNavigation />;
+}
+
 function App() {
   useEffect(() => {
     // 앱 시작 시 사용자 액션 기록
@@ -94,19 +147,22 @@ function App() {
     <ErrorBoundary>
       <PopupProvider>
         <AuthProvider>
-          <Router>
-            <div className="App">
-              <Routes>
-                <Route path="/" element={<MainPage />} />
-                <Route path="/for-you" element={<ForYouPage />} />
-                <Route path="/my" element={<MyPage />} />
-                <Route path="/chats" element={<ChatListPage />} />
-                <Route path="/chat/:chatId" element={<ChatPage />} />
-                <Route path="/heart-shop" element={<HeartShopPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </div>
-          </Router>
+          <GuestInterceptor>
+            <Router>
+              <div className="App">
+                <Routes>
+                  <Route path="/" element={<ForYouPage />} />
+                  <Route path="/for-you" element={<ForYouPage />} />
+                  <Route path="/my" element={<MyPage />} />
+                  <Route path="/chats" element={<ChatListPage />} />
+                  <Route path="/chat/:chatId" element={<ChatPage />} />
+                  <Route path="/heart-shop" element={<HeartShop />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+                <ConditionalBottomNavigation />
+              </div>
+            </Router>
+          </GuestInterceptor>
         </AuthProvider>
       </PopupProvider>
     </ErrorBoundary>

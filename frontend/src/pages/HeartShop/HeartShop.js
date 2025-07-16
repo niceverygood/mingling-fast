@@ -3,6 +3,7 @@ import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
 import { getPaymentService } from '../../services/payment';
 import { usePopup } from '../../context/PopupContext';
+import appBridge from '../../utils/appBridge';
 
 const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
   const [selectedPack, setSelectedPack] = useState(null);
@@ -80,17 +81,45 @@ const HeartShop = ({ onClose, currentHearts, onPurchase }) => {
 
       console.log('👤 사용자 정보:', { userId, userEmail });
 
-      // SDK 로드
-      setProcessingMessage('결제 모듈 로딩 중...');
-      await paymentService.loadSDK();
+      let result;
 
-      // 결제 요청
-      setProcessingMessage('결제 진행 중...');
-      const result = await paymentService.purchaseHearts(pack.id, {
-        userId,
-        email: userEmail,
-        name: userEmail.split('@')[0]
-      });
+      // 앱 환경에서는 인앱결제 사용
+      if (appBridge.isAppEnvironment()) {
+        setProcessingMessage('인앱결제 진행 중...');
+        
+        try {
+          result = await appBridge.requestPayment({
+            productId: pack.id,
+            productName: pack.name,
+            amount: pack.price,
+            hearts: pack.hearts,
+            userId,
+            userEmail
+          });
+          
+          console.log('✅ 인앱결제 성공:', result);
+          
+          // 인앱결제 성공 후 서버에 결제 정보 전송하여 하트 충전
+          const serverResult = await paymentService.processInAppPurchase(result);
+          result = serverResult;
+          
+        } catch (error) {
+          console.error('❌ 인앱결제 실패:', error);
+          throw new Error('인앱결제에 실패했습니다.');
+        }
+      } else {
+        // 웹 환경에서는 기존 결제 시스템 사용
+        setProcessingMessage('결제 모듈 로딩 중...');
+        await paymentService.loadSDK();
+
+        // 결제 요청
+        setProcessingMessage('결제 진행 중...');
+        result = await paymentService.purchaseHearts(pack.id, {
+          userId,
+          email: userEmail,
+          name: userEmail.split('@')[0]
+        });
+      }
 
       console.log('✅ 하트 구매 완료:', result);
 

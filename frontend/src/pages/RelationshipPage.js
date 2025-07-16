@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeftIcon, 
+  HeartIcon,
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
+import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import Avatar from '../components/Avatar';
 import RelationshipStageIndicator from '../components/RelationshipStageIndicator';
 import { charactersAPI } from '../services/api';
@@ -12,10 +14,12 @@ import {
   getStageInfo,
   getMoodInfo
 } from '../services/relationshipAPI';
+import { useAuth } from '../context/AuthContext';
 
 const RelationshipPage = () => {
   const { characterId } = useParams();
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [character, setCharacter] = useState(null);
   const [relationInfo, setRelationInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -84,82 +88,155 @@ const RelationshipPage = () => {
   }
 
   const stageInfo = getStageInfo(relationInfo.stage);
+  const progressPercentage = (relationInfo.score / 1000) * 100;
 
   return (
-    <div className="max-w-md mx-auto bg-white h-screen flex flex-col">
+    <div className="max-w-md mx-auto min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100">
       {/* Header */}
-      <div className="relative bg-gradient-to-r from-pink-500 to-purple-600 text-white flex-shrink-0">
-        <div className="flex items-center justify-between p-4">
+      <div className="relative bg-transparent pt-12 pb-4">
+        <div className="flex items-center justify-between px-4">
           <button 
             onClick={() => navigate(-1)}
-            className="p-2 hover:bg-white/20 rounded-full transition-colors"
+            className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:bg-white transition-all duration-200"
           >
-            <ArrowLeftIcon className="w-6 h-6" />
+            <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
           </button>
-          <h1 className="text-lg font-semibold">관계 관리</h1>
-          <button 
-            onClick={() => navigate(`/chat/${characterId}`)}
-            className="p-2 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <ChatBubbleLeftRightIcon className="w-6 h-6" />
-          </button>
-        </div>
-        
-        {/* Character Info */}
-        <div className="flex items-center p-4 pb-6">
-          <Avatar 
-            src={character.avatarUrl}
-            alt={character.name}
-            name={character.name}
-            size="xl"
-            className="mr-4"
-          />
-          <div className="flex-1">
-            <h2 className="text-xl font-bold">{character.name}</h2>
-            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${stageInfo.bgColor} ${stageInfo.color} mt-2`}>
-              <span className="mr-1">{getMoodEmoji(mood)}</span>
-              {stageInfo.title}
-            </div>
-            <p className="text-white/80 text-sm mt-1">{stageInfo.description}</p>
+          <div className="text-center">
+            <h1 className="text-lg font-bold text-gray-800">
+              백준현과 {authUser?.displayName || 'user_14784'}의 이야기
+            </h1>
           </div>
+          <button className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:bg-white transition-all duration-200">
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      {/* 스크롤 가능한 내용 영역 */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4 pb-24">
-          <div className="space-y-6">
-            {/* Relationship Stage Indicator */}
-            <div className="bg-white rounded-lg shadow-sm border p-4">
-              <RelationshipStageIndicator 
-                score={relationInfo.score}
-                stage={relationInfo.stage}
-                showDetails={true}
-                size="normal"
-                showAdvice={true}
-                showAllStages={false}
-              />
-            </div>
-
-            {/* Current Mood */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-medium mb-3">현재 기분</h3>
-              <div className="flex items-center space-x-3">
-                <div className="text-4xl">{getMoodEmoji(mood)}</div>
-                <div>
-                  <p className="font-medium capitalize">{mood}</p>
-                  <p className="text-sm text-gray-500">
-                    {mood === 'happy' && '기분이 좋아 보여요!'}
-                    {mood === 'excited' && '설레고 있는 것 같아요!'}
-                    {mood === 'loving' && '사랑이 넘쳐 보여요!'}
-                    {mood === 'neutral' && '평온한 상태예요'}
-                    {mood === 'friendly' && '친근한 분위기예요'}
-                    {mood === 'devoted' && '깊은 애정을 느끼고 있어요'}
-                    {mood === 'blissful' && '행복에 가득 차 있어요'}
-                  </p>
-                </div>
+      {/* 메인 관계 표시 영역 */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-12">
+        {/* 캐릭터 아바타들과 하트 */}
+        <div className="relative mb-8">
+          <div className="flex items-center gap-16">
+            {/* 사용자 아바타 */}
+            <div className="relative">
+              <div className="w-20 h-20 bg-white rounded-full shadow-lg border-4 border-white overflow-hidden">
+                <Avatar 
+                  src={authUser?.photoURL}
+                  alt={authUser?.displayName || 'User'}
+                  name={authUser?.displayName || 'User'}
+                  size="xl"
+                  fallbackType="emoji"
+                  className="w-full h-full"
+                />
+              </div>
+              <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 bg-white px-2 py-0.5 rounded-full shadow-sm">
+                <span className="text-xs font-medium text-gray-600">아는 사이</span>
               </div>
             </div>
+
+            {/* 중앙 하트 */}
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="relative">
+                <div className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center">
+                  <HeartIconSolid className="w-6 h-6 text-pink-500" />
+                </div>
+                {/* 하트 주변 효과 */}
+                <div className="absolute inset-0 bg-pink-200 rounded-full animate-pulse opacity-30"></div>
+              </div>
+            </div>
+
+            {/* 캐릭터 아바타 */}
+            <div className="relative">
+              <div className="w-20 h-20 bg-white rounded-full shadow-lg border-4 border-white overflow-hidden">
+                <Avatar 
+                  src={character?.avatarUrl}
+                  alt={character?.name}
+                  name={character?.name}
+                  size="xl"
+                  fallbackType="emoji"
+                  className="w-full h-full"
+                />
+              </div>
+              <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 bg-white px-2 py-0.5 rounded-full shadow-sm">
+                <span className="text-xs font-medium text-gray-600">{character?.name}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 관계 상태 텍스트 */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            0일 동안
+          </h2>
+          <p className="text-lg text-gray-600">
+            이야기를 쌓아오고 있어요
+          </p>
+        </div>
+
+        {/* 기다항 아이콘 */}
+        <div className="mb-8">
+          <div className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center">
+            <span className="text-2xl">❤️</span>
+          </div>
+          <p className="text-center text-sm text-gray-600 mt-2">기다항</p>
+        </div>
+      </div>
+
+      {/* 하단 진행률 바와 상태 아이콘들 */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-t-3xl px-6 py-6 shadow-2xl">
+        {/* 호감도 진행률 */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-600">호감도</span>
+            <span className="text-sm font-bold text-pink-600">{relationInfo.score} / 20</span>
+          </div>
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-pink-400 to-purple-500 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, progressPercentage)}%` }}
+            ></div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{character?.name}</p>
+        </div>
+
+        {/* 상태 아이콘들 */}
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-1">
+              <span className="text-lg">👋</span>
+            </div>
+            <span className="text-xs text-gray-600">{character?.name}</span>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-1">
+              <span className="text-lg">🍯</span>
+            </div>
+            <span className="text-xs text-gray-600">친구</span>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-1">
+              <span className="text-lg">🍯</span>
+            </div>
+            <span className="text-xs text-gray-600">썸</span>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-1">
+              <span className="text-lg">❤️</span>
+            </div>
+            <span className="text-xs text-gray-600">연인</span>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-1">
+              <span className="text-lg">🔒</span>
+            </div>
+            <span className="text-xs text-gray-600">결혼</span>
           </div>
         </div>
       </div>

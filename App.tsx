@@ -1,57 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   View,
-  ActivityIndicator,
-  Alert,
-  useColorScheme,
-  Button,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  const [showWebView, setShowWebView] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    console.log('App started successfully');
-  }, []);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
 
   const handleLoadStart = () => {
-    console.log('WebView load started');
+    console.log('🚀 Starting to load minglingchat.com...');
     setLoading(true);
-    setError(null);
+    setError('');
   };
 
   const handleLoadEnd = () => {
-    console.log('WebView load ended');
+    console.log('✅ Successfully loaded minglingchat.com');
     setLoading(false);
   };
 
   const handleError = (syntheticEvent: any) => {
     const { nativeEvent } = syntheticEvent;
-    console.error('WebView Error:', nativeEvent);
-    setError(nativeEvent.description || 'Unknown error');
+    console.error('❌ WebView error:', nativeEvent);
+    setError(`연결 오류: ${nativeEvent.description || '알 수 없는 오류'}`);
     setLoading(false);
-    Alert.alert('오류', `웹사이트 로딩 중 오류가 발생했습니다: ${nativeEvent.description}`);
   };
 
-  if (!showWebView) {
+  const handleHttpError = (syntheticEvent: any) => {
+    const { nativeEvent } = syntheticEvent;
+    console.error('❌ HTTP error:', nativeEvent);
+    setError(`HTTP 오류 ${nativeEvent.statusCode}: 서버에 연결할 수 없습니다`);
+    setLoading(false);
+  };
+
+  if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <View style={styles.testContainer}>
-          <Text style={styles.title}>🎉 Mingling 앱 작동 중! 🎉</Text>
-          <Text style={styles.subtitle}>React Native 앱이 성공적으로 실행되었습니다!</Text>
-          <Button 
-            title="웹사이트 로드하기" 
-            onPress={() => setShowWebView(true)}
-          />
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>⚠️ 연결 오류</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <Text style={styles.errorSubtext}>
+            인터넷 연결을 확인하고 앱을 다시 시작해주세요.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -59,43 +54,23 @@ function App(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      
+      <StatusBar barStyle="dark-content" />
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Mingling 로딩 중...</Text>
+          <Text style={styles.loadingText}>밍글링챗 로딩 중...</Text>
         </View>
       )}
-      
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>오류: {error}</Text>
-          <Button 
-            title="다시 시도" 
-            onPress={() => setShowWebView(false)}
-          />
-        </View>
-      )}
-      
       <WebView
         source={{ uri: 'https://www.minglingchat.com' }}
         style={styles.webview}
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}
         onError={handleError}
+        onHttpError={handleHttpError}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
-        scalesPageToFit={true}
-        allowsInlineMediaPlayback={true}
-        mediaPlaybackRequiresUserAction={false}
-        onMessage={(event) => {
-          console.log('WebView message:', event.nativeEvent.data);
-        }}
-        onNavigationStateChange={(navState) => {
-          console.log('Navigation state changed:', navState);
-        }}
+        userAgent="Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
       />
     </SafeAreaView>
   );
@@ -104,26 +79,7 @@ function App(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  testContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#007AFF',
-  },
-  subtitle: {
-    fontSize: 16,
-    marginBottom: 30,
-    textAlign: 'center',
-    color: '#666',
+    backgroundColor: '#ffffff',
   },
   webview: {
     flex: 1,
@@ -134,30 +90,39 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     zIndex: 1000,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#007AFF',
+    fontSize: 18,
+    color: '#333333',
+    fontWeight: '500',
   },
   errorContainer: {
-    position: 'absolute',
-    top: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: '#ffebee',
-    padding: 10,
-    borderRadius: 5,
-    zIndex: 1001,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  errorText: {
-    color: '#c62828',
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#e74c3c',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  errorSubtext: {
     fontSize: 14,
-    marginBottom: 10,
+    color: '#999999',
+    textAlign: 'center',
   },
 });
 

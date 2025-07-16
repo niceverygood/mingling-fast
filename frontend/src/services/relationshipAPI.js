@@ -10,10 +10,16 @@ import { API_ENDPOINTS } from '../config/api';
 export const getAllRelations = async () => {
   try {
     const response = await apiCall('get', API_ENDPOINTS.RELATIONS.BASE);
-    return response.data;
+    // 백엔드 응답 구조: { success: true, data: [...] }
+    if (response.data && response.data.success && Array.isArray(response.data.data)) {
+      return response.data.data;
+    } else {
+      console.warn('Invalid relations response format:', response.data);
+      return [];
+    }
   } catch (error) {
     console.error('Error fetching all relations:', error);
-    throw error;
+    return []; // 에러 시에도 빈 배열 반환
   }
 };
 
@@ -21,10 +27,16 @@ export const getAllRelations = async () => {
 export const getRelationInfo = async (characterId) => {
   try {
     const response = await apiCall('get', API_ENDPOINTS.RELATIONS.BY_CHARACTER(characterId));
-    return response.data;
+    // 백엔드 응답 구조 확인
+    if (response.data && response.data.success) {
+      return response.data.data;
+    } else {
+      console.warn('Invalid relation info response format:', response.data);
+      return null;
+    }
   } catch (error) {
     console.error('Error fetching relation info:', error);
-    throw error;
+    return null; // 에러 시 null 반환
   }
 };
 

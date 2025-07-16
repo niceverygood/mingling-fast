@@ -33,6 +33,42 @@ class PaymentService {
     this.isSDKLoaded = false;
   }
 
+  // 인앱결제 처리 (앱에서 결제 완료 후 서버에 전송)
+  async processInAppPurchase(purchaseData) {
+    console.log('📱 인앱결제 처리 시작:', purchaseData);
+    
+    try {
+      const response = await fetch(`${this.apiURL}${this.endpoints.processInAppPurchase}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getDefaultHeaders()
+        },
+        body: JSON.stringify({
+          transactionId: purchaseData.transactionId,
+          productId: purchaseData.productId,
+          amount: purchaseData.amount,
+          userId: purchaseData.userId,
+          userEmail: purchaseData.userEmail,
+          platform: 'android',
+          purchaseToken: purchaseData.purchaseToken || purchaseData.transactionId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`서버 응답 오류: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ 인앱결제 서버 처리 완료:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ 인앱결제 서버 처리 실패:', error);
+      throw error;
+    }
+  }
+
   // 포트원 SDK 로드
   async loadSDK() {
     if (this.isSDKLoaded) {

@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithGoogle, signOutUser, handleRedirectResult } from '../firebase/config';
 import axios from 'axios';
+import appBridge from '../utils/appBridge';
 
 const AuthContext = createContext();
 
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
   const [showLoginModal, setShowLoginModal] = useState(false); // 로그인 모달 상태
 
   // 사용자 정보를 localStorage와 axios 헤더에 동기화하는 함수
-  const syncUserToStorage = (userData) => {
+  const syncUserToStorage = useCallback((userData) => {
     if (userData) {
       localStorage.setItem('userEmail', userData.email);
       localStorage.setItem('userId', userData.uid);
@@ -31,17 +32,36 @@ export const AuthProvider = ({ children }) => {
       axios.defaults.headers.common['X-User-ID'] = userData.uid;
       axios.defaults.headers.common['X-User-Email'] = userData.email;
       
+      // 앱 브릿지가 활성화된 경우 토큰을 앱으로 전달
+      if (appBridge.isAppEnvironment()) {
+        // 간단한 토큰 생성 (실제로는 서버에서 JWT 토큰을 받아야 함)
+        const token = btoa(JSON.stringify({
+          uid: userData.uid,
+          email: userData.email,
+          displayName: userData.displayName,
+          provider: userData.provider,
+          timestamp: Date.now()
+        }));
+        
+        // 토큰을 로컬 스토리지에 저장
+        localStorage.setItem('userToken', token);
+        
+        // 앱으로 로그인 성공 알림
+        appBridge.sendLoginSuccess(token);
+      }
+      
       console.log('💾 사용자 정보 동기화 완료:', {
         email: userData.email,
         uid: userData.uid,
         displayName: userData.displayName,
-        provider: userData.provider
+        provider: userData.provider,
+        isApp: appBridge.isAppEnvironment()
       });
     }
-  };
+  }, []);
 
   // 게스트 모드 처리 함수 개선
-  const handleGuestMode = () => {
+  const handleGuestMode = useCallback(() => {
     // 기존 게스트 사용자 확인
     let guestUserId = localStorage.getItem('guestUserId');
     let guestUserEmail = localStorage.getItem('guestUserEmail');
@@ -70,7 +90,7 @@ export const AuthProvider = ({ children }) => {
     setUser(guestUser);
     
     return guestUser;
-  };
+  }, [syncUserToStorage]);
 
   useEffect(() => {
     // 개발 환경에서 즉시 임시 로그인 (개선)
@@ -172,7 +192,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [handleGuestMode, syncUserToStorage]);
 
   useEffect(() => {
     // 전역 인증 오류 이벤트 리스너 추가
@@ -182,7 +202,17 @@ export const AuthProvider = ({ children }) => {
       // 이미 로그인되어 있다면 토큰 만료로 간주하고 로그아웃 처리
       if (isLoggedIn) {
         console.log('🔄 토큰 만료로 인한 자동 로그아웃');
-        logout();
+        // logout 함수 직접 호출 대신 로그아웃 로직을 여기에 구현
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userType');
+        localStorage.removeItem('guestUserId');
+        localStorage.removeItem('guestUserEmail');
+        localStorage.removeItem('userToken');
+        
+        // 새로운 게스트 사용자 생성
+        handleGuestMode();
       }
       
       // 로그인 모달 표시
@@ -215,7 +245,7 @@ export const AuthProvider = ({ children }) => {
       window.removeEventListener('auth:loginRequired', handleAuthRequired);
       window.removeEventListener('hearts:balanceChanged', handleHeartBalanceChanged);
     };
-  }, [isLoggedIn, user, logout]); // 의존성 배열에 필요한 값들 추가
+  }, [isLoggedIn, user, handleGuestMode]); // handleGuestMode를 의존성에 추가
 
   const loginWithGoogle = async () => {
     try {
@@ -241,7 +271,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       const userType = localStorage.getItem('userType');
       
@@ -260,10 +290,16 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('userType');
       localStorage.removeItem('guestUserId');
       localStorage.removeItem('guestUserEmail');
+      localStorage.removeItem('userToken');
       
       // axios 헤더 제거
       delete axios.defaults.headers.common['X-User-ID'];
       delete axios.defaults.headers.common['X-User-Email'];
+      
+      // 앱 브릿지가 활성화된 경우 로그아웃 알림
+      if (appBridge.isAppEnvironment()) {
+        appBridge.sendLogout();
+      }
       
       // 새로운 게스트 사용자 생성
       const newGuestUser = handleGuestMode();
@@ -275,7 +311,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
       return { success: false, error: error.message };
     }
-  };
+  }, [handleGuestMode]);
 
   // 임시 로그인 (Apple 등 다른 방식용)
   const login = (userData) => {

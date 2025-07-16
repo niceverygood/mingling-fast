@@ -259,8 +259,12 @@ export const API_ENDPOINTS = {
     PURCHASE: `${API_CONFIG.apiURL}/hearts/purchase`,
     CHARGE: `${API_CONFIG.apiURL}/hearts/charge`,
     SPEND: `${API_CONFIG.apiURL}/hearts/spend`,
-    TRANSACTIONS: `${API_CONFIG.apiURL}/hearts/transactions`
+    TRANSACTIONS: `${API_CONFIG.apiURL}/hearts/transactions`,
+    REFUND: `${API_CONFIG.apiURL}/hearts/refund`
   },
+  
+  // 인앱결제 처리 엔드포인트
+  processInAppPurchase: `${API_CONFIG.apiURL}/hearts/in-app-purchase`,
   
   // Upload endpoints
   UPLOAD: {

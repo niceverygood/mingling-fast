@@ -67,7 +67,8 @@ const MyPage = () => {
   const fetchRelations = async () => {
     try {
       const relationsData = await getAllRelations();
-      setRelations(relationsData);
+      // getAllRelations는 이제 항상 배열을 반환하도록 수정됨
+      setRelations(relationsData || []);
     } catch (error) {
       console.error('Error fetching relations:', error);
       setRelations([]);
@@ -689,16 +690,16 @@ const MyPage = () => {
                         size="md"
                         fallbackType="emoji"
                       />
-                      <div className="flex-1 text-left">
-                        <h5 className="font-medium text-black text-left">{character.name}</h5>
-                        <p className="text-sm text-gray-500 text-left">{character.description}</p>
+                      <div className="flex-1 text-left min-w-0">
+                        <h5 className="font-medium text-black text-left truncate">{character.name}</h5>
+                        <p className="text-sm text-gray-500 text-left truncate">{character.description}</p>
                         <div className="flex items-center space-x-2 mt-1">
                           {character.age && (
-                            <span className="text-xs text-gray-400">{character.age}세</span>
+                            <span className="text-xs text-gray-400 whitespace-nowrap">{character.age}세</span>
                           )}
                           {character.age && character.characterType && <span className="text-xs text-gray-400">•</span>}
                           {character.characterType && (
-                            <span className="text-xs text-gray-400">{character.characterType}</span>
+                            <span className="text-xs text-gray-400 truncate">{character.characterType}</span>
                           )}
                         </div>
                       </div>
@@ -800,12 +801,12 @@ const MyPage = () => {
                         size="md"
                         fallbackType="initial"
                       />
-                      <div className="flex-1 text-left">
-                        <h5 className="font-medium text-black text-left">{persona.name}</h5>
-                        <p className="text-sm text-gray-500 text-left">
+                      <div className="flex-1 text-left min-w-0">
+                        <h5 className="font-medium text-black text-left truncate">{persona.name}</h5>
+                        <p className="text-sm text-gray-500 text-left truncate">
                           {persona.age && `${persona.age}세`} {persona.age && persona.job && '•'} {persona.job || '직업 미설정'}
                         </p>
-                        <p className="text-xs text-gray-400 text-left">
+                        <p className="text-xs text-gray-400 text-left whitespace-nowrap">
                           {persona.gender === 'male' ? '남성' : persona.gender === 'female' ? '여성' : '성별 비공개'}
                         </p>
                         {persona.basicInfo && (
@@ -852,10 +853,10 @@ const MyPage = () => {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-black">관계 현황</h3>
-              <span className="text-sm text-gray-500">{relations.length}개의 관계</span>
+              <span className="text-sm text-gray-500">{Array.isArray(relations) ? relations.length : 0}개의 관계</span>
             </div>
 
-            {relations.length === 0 ? (
+            {!Array.isArray(relations) || relations.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-16 h-16 mx-auto mb-4 text-gray-300">
                   💕
@@ -888,11 +889,11 @@ const MyPage = () => {
                         size="md"
                         fallbackType="emoji"
                       />
-                      <div className="flex-1">
-                        <h5 className="font-medium text-black text-left">
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-medium text-black text-left truncate">
                           {relation.character?.name || '알 수 없는 캐릭터'}
                         </h5>
-                        <p className="text-sm text-gray-500 text-left">
+                        <p className="text-sm text-gray-500 text-left truncate">
                           {relation.character?.description || '설명 없음'}
                         </p>
                       </div>
@@ -912,27 +913,39 @@ const MyPage = () => {
                       <div className="text-xs text-gray-500">
                         마지막 업데이트: {new Date(relation.updatedAt).toLocaleDateString('ko-KR')}
                       </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            navigate(`/relationship/${relation.character.id}`);
-                          }}
-                          className="flex items-center space-x-1 px-3 py-1.5 text-sm text-pink-600 hover:text-pink-800 border border-pink-300 hover:border-pink-400 bg-pink-50 hover:bg-pink-100 rounded-md transition-all duration-200"
-                        >
-                          <HeartIcon className="w-4 h-4" />
-                          <span>관계 관리</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            // 해당 캐릭터와의 채팅으로 이동
-                            navigate(`/chats?character=${relation.character.id}`);
-                          }}
-                          className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 rounded-md transition-all duration-200"
-                        >
-                          <ChatBubbleLeftRightIcon className="w-4 h-4" />
-                          <span>대화하기</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            // 해당 캐릭터와의 기존 채팅방을 찾거나 새로 생성
+                            const chatsResponse = await chatsAPI.getAll();
+                            if (chatsResponse.data && Array.isArray(chatsResponse.data)) {
+                              // 해당 캐릭터와의 기존 채팅방 찾기
+                              const existingChat = chatsResponse.data.find(
+                                chat => chat.character?.id === relation.character.id
+                              );
+                              
+                              if (existingChat) {
+                                // 기존 채팅방으로 이동
+                                navigate(`/chat/${existingChat.id}`);
+                              } else {
+                                // 새 채팅방 생성 후 이동
+                                const newChatResponse = await chatsAPI.create(relation.character.id);
+                                if (newChatResponse.data?.chatId) {
+                                  navigate(`/chat/${newChatResponse.data.chatId}`);
+                                } else {
+                                  console.error('채팅방 생성 실패');
+                                }
+                              }
+                            }
+                          } catch (error) {
+                            console.error('채팅 시작 중 오류:', error);
+                          }
+                        }}
+                        className="flex items-center space-x-1 px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                      >
+                        <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                        <span>대화하기</span>
+                      </button>
                     </div>
                   </div>
                 ))}
