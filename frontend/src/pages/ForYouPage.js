@@ -509,11 +509,6 @@ const ForYouPage = () => {
               >
                 <UserIcon className="w-5 h-5" />
               </button>
-              <div className="bg-white bg-opacity-20 rounded-full px-3 py-1 backdrop-blur-sm">
-                <span className="text-white text-sm font-medium">
-                  {currentIndex + 1} / {characters.length}
-                </span>
-              </div>
             </div>
           </div>
 
