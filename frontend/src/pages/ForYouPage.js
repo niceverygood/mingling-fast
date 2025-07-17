@@ -479,7 +479,7 @@ const ForYouPage = () => {
         )}
 
         {/* Main Content Flow */}
-        <div className="relative z-10 h-full flex flex-col justify-between p-6 pt-12">
+        <div className="relative z-10 h-full flex flex-col justify-between p-6 pt-12 pb-12">
           {/* Character Profile Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -493,18 +493,11 @@ const ForYouPage = () => {
               />
               <div className="min-w-0 flex-1">
                 <h1 className="text-white text-xl font-bold truncate">{currentCharacter.name}</h1>
-                <div className="flex items-center space-x-2">
-                  <p className="text-white text-sm opacity-90 truncate">
-                    {currentCharacter.age && `${currentCharacter.age}세`}
-                    {currentCharacter.age && currentCharacter.characterType && ' • '}
-                    {currentCharacter.characterType}
-                  </p>
-                  {currentCharacter.isOwner && (
-                    <span className="bg-white bg-opacity-20 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
-                      내 캐릭터
-                    </span>
-                  )}
-                </div>
+                {currentCharacter.isOwner && (
+                  <span className="bg-white bg-opacity-20 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
+                    내 캐릭터
+                  </span>
+                )}
               </div>
             </div>
             
@@ -524,6 +517,15 @@ const ForYouPage = () => {
             </div>
           </div>
 
+          {/* Character Age and Type - moved below header */}
+          <div className="mb-6 px-6">
+            <p className="text-white text-sm opacity-90 text-center">
+              {currentCharacter.age && `${currentCharacter.age}세`}
+              {currentCharacter.age && currentCharacter.characterType && ' • '}
+              {currentCharacter.characterType}
+            </p>
+          </div>
+
           {/* Character Introduction Card */}
           <div className="flex-1 flex items-center justify-center px-4">
             <CharacterIntroCard 
@@ -533,7 +535,7 @@ const ForYouPage = () => {
           </div>
 
           {/* Recommendation Timer */}
-          <div className="mt-6">
+          <div className="mt-6 mb-4 px-2">
             <RecommendationTimer
               countdown={countdown}
               onAddCharacter={handleAddCharacter}
