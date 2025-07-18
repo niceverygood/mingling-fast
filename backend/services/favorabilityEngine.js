@@ -41,83 +41,188 @@ function shouldChangeStage(currentStage, newStage, currentScore) {
   return false;
 }
 
-// AI를 통한 대화 평가 (OpenAI Function Calling 사용)
-async function evaluateMessage(message, characterPersonality = '') {
+// AI를 통한 종합적 대화 평가 (누적 대화 + 현재 메시지)
+async function evaluateMessage(userMessage, characterPersonality = '', messageHistory = [], currentRelation = null) {
   try {
     const openai = global.openai;
     if (!openai) {
       console.log('⚠️ OpenAI not available, using fallback evaluation');
-      return evaluateMessageFallback(message);
+      return evaluateMessageFallback(userMessage);
     }
 
-    const prompt = `You are a relationship coach analyzing a conversation message.
+    console.log('🧠 AI 관계 분석 시작...');
+    console.log('📝 현재 메시지:', userMessage.substring(0, 50) + '...');
+    console.log('💬 대화 히스토리:', messageHistory.length, '개');
+    console.log('💖 현재 관계:', currentRelation ? `${currentRelation.score}점 (${STAGES[currentRelation.stage]?.label})` : '신규');
+
+    // 대화 히스토리 요약 (최근 10개 메시지)
+    const recentHistory = messageHistory.slice(-10);
+    const conversationSummary = recentHistory.length > 0 ? 
+      recentHistory.map((msg, index) => {
+        const speaker = msg.isFromUser ? '사용자' : '캐릭터';
+        return `${index + 1}. ${speaker}: ${msg.content}`;
+      }).join('\n') : '처음 대화';
+
+    // 현재 관계 정보
+    const relationshipContext = currentRelation ? `
+현재 관계 상태:
+- 호감도 점수: ${currentRelation.score}/1000
+- 관계 단계: ${STAGES[currentRelation.stage]?.label} (${STAGES[currentRelation.stage]?.description})
+- 총 대화 수: ${currentRelation.totalMessages || 0}회
+- 마지막 상호작용: ${currentRelation.lastEventAt || '처음'}
+` : '새로운 관계 시작';
+
+    const prompt = `당신은 인간관계 전문가로서 대화를 종합적으로 분석하여 관계 발전도를 평가합니다.
+
+=== 캐릭터 성격 ===
+${characterPersonality || '일반적인 친근한 성격'}
+
+=== 현재 관계 상황 ===
+${relationshipContext}
+
+=== 최근 대화 히스토리 ===
+${conversationSummary}
+
+=== 현재 사용자 메시지 ===
+"${userMessage}"
+
+다음 기준으로 종합적으로 평가하여 관계 점수 변화량을 결정해주세요:
+
+1. **대화의 깊이와 질** (0~25점)
+   - 표면적 대화: 0~5점
+   - 개인적 관심사 공유: 6~15점 
+   - 감정적 교감: 16~25점
+
+2. **관계 발전 기여도** (0~25점)
+   - 관계 유지: 0~5점
+   - 친밀감 증진: 6~15점
+   - 신뢰/유대감 강화: 16~25점
+
+3. **캐릭터와의 궁합** (0~20점)
+   - 성격 불일치: -10~0점
+   - 보통 호환성: 1~10점
+   - 완벽한 궁합: 11~20점
+
+4. **대화 일관성과 맥락** (0~15점)
+   - 이전 대화 무시: -5~0점
+   - 적절한 연결: 1~8점
+   - 완벽한 연속성: 9~15점
+
+5. **감정적 영향** (-30~15점)
+   - 부정적 감정 유발: -30~-1점
+   - 중립적: 0점
+   - 긍정적 감정: 1~15점
+
+**특별 고려사항:**
+- 현재 관계 단계에 맞는 적절성
+- 대화의 자연스러움과 진정성
+- 미래 관계 발전 가능성
+- 부적절하거나 해로운 내용은 큰 감점
+
+**최종 점수 범위: -50 ~ +100**
+- 관계 악화: -50 ~ -1
+- 현상 유지: 0 ~ 5  
+- 소폭 발전: 6 ~ 20
+- 중간 발전: 21 ~ 50
+- 큰 발전: 51 ~ 80
+- 극적 발전: 81 ~ 100
+
+분석 과정을 간단히 설명하고 최종 점수만 숫자로 반환해주세요.
+
+예시 형식:
+"대화 분석: 사용자가 개인적인 고민을 솔직하게 공유하여 감정적 교감이 깊어짐. 캐릭터 성격과도 잘 맞으며 관계 발전에 크게 기여함. 최종 점수: 45"`;
+
+    console.log('🤖 OpenAI로 관계 분석 요청 중...');
     
-Character personality: ${characterPersonality || 'General friendly character'}
-User message: "${message}"
-
-Evaluate this message and return a favorability score change:
-- Positive interactions (compliments, empathy, humor, emotional sharing): +5 to +30
-- Neutral interactions: 0 to +5
-- Negative interactions (rudeness, insensitivity, inappropriate): -5 to -30
-- Severe negative (harassment, threats): -30 to -70
-
-Consider:
-1. Emotional tone and sentiment
-2. Appropriateness and respect
-3. Relationship building potential
-4. Character personality compatibility
-
-Return only a number between -70 and +50.`;
-
     const response = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content: message }
+        { role: 'system', content: '당신은 인간관계 분석 전문가입니다. 대화를 종합적으로 분석하여 관계 발전도를 정확히 평가해주세요.' },
+        { role: 'user', content: prompt }
       ],
-      max_tokens: 10,
+      max_tokens: 200,
       temperature: 0.3
     });
 
-    const scoreText = response.choices[0]?.message?.content?.trim();
-    const score = parseInt(scoreText);
+    const analysisResult = response.choices[0]?.message?.content?.trim();
+    console.log('🧠 AI 분석 결과:', analysisResult);
+    
+    // 점수 추출 (마지막 숫자를 찾기)
+    const scoreMatch = analysisResult.match(/(-?\d+)(?=\s*$|[^\d]*$)/);
+    const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
     
     if (isNaN(score)) {
-      console.log('⚠️ AI evaluation failed, using fallback');
-      return evaluateMessageFallback(message);
+      console.log('⚠️ AI 점수 추출 실패, 폴백 사용');
+      return evaluateMessageFallback(userMessage);
     }
 
-    // 범위 제한
-    return Math.max(-70, Math.min(50, score));
+    // 범위 제한 (-50 ~ 100)
+    const finalScore = Math.max(-50, Math.min(100, score));
+    
+    console.log('✅ AI 평가 완료:', {
+      원본점수: score,
+      최종점수: finalScore,
+      분석: analysisResult.substring(0, 100) + '...'
+    });
+
+    return finalScore;
   } catch (error) {
-    console.error('❌ AI evaluation error:', error);
-    return evaluateMessageFallback(message);
+    console.error('❌ AI 관계 분석 오류:', error);
+    return evaluateMessageFallback(userMessage);
   }
 }
 
-// AI 실패 시 폴백 평가
+// AI 실패 시 폴백 평가 (개선된 버전)
 function evaluateMessageFallback(message) {
+  console.log('🔄 폴백 평가 시스템 사용');
+  
   const text = message.toLowerCase();
   
-  // 긍정적 키워드
-  const positiveWords = ['좋아', '고마워', '사랑', '멋져', '예뻐', '재밌어', '웃겨', '최고'];
-  const negativeWords = ['싫어', '짜증', '바보', '멍청', '죽어', '꺼져', '시끄러워'];
+  // 더 정교한 키워드 분석
+  const strongPositive = ['사랑해', '너무 좋아', '최고야', '완벽해', '멋져', '예뻐'];
+  const positiveWords = ['좋아', '고마워', '재밌어', '웃겨', '기뻐', '행복', '즐거워'];
+  const neutralWords = ['어떻게', '뭐해', '그래서', '그런데', '음'];
+  const negativeWords = ['싫어', '짜증', '화나', '별로', '지겨워'];
+  const strongNegative = ['죽어', '꺼져', '바보', '멍청', '시끄러워'];
   
   let score = 0;
   
+  // 강한 긍정
+  strongPositive.forEach(word => {
+    if (text.includes(word)) score += 15;
+  });
+  
+  // 일반 긍정  
   positiveWords.forEach(word => {
     if (text.includes(word)) score += 8;
   });
   
-  negativeWords.forEach(word => {
-    if (text.includes(word)) score -= 12;
+  // 중립
+  neutralWords.forEach(word => {
+    if (text.includes(word)) score += 2;
   });
   
-  // 길이 보너스 (긴 메시지는 더 많은 관심을 의미)
-  if (message.length > 50) score += 3;
-  if (message.length > 100) score += 2;
+  // 부정
+  negativeWords.forEach(word => {
+    if (text.includes(word)) score -= 8;
+  });
   
-  return Math.max(-30, Math.min(25, score));
+  // 강한 부정
+  strongNegative.forEach(word => {
+    if (text.includes(word)) score -= 20;
+  });
+  
+  // 메시지 길이 보너스
+  if (message.length > 30) score += 3;
+  if (message.length > 100) score += 5;
+  if (message.length > 200) score += 7;
+  
+  // 질문 보너스 (관심 표현)
+  if (text.includes('?') || text.includes('뭐') || text.includes('어떻게')) {
+    score += 5;
+  }
+  
+  return Math.max(-30, Math.min(40, score));
 }
 
 // 호감도 관계 가져오기 또는 생성
@@ -270,14 +375,43 @@ async function applyDecay(userId, characterId) {
   }
 }
 
-// 대화 메시지 처리
+// 대화 메시지 처리 (개선된 버전)
 async function processMessage(userId, characterId, userMessage, characterPersonality) {
   try {
+    console.log('💭 관계 점수 분석 시작...');
+    
+    // 현재 관계 정보 조회
+    const currentRelation = await getOrCreateRelation(userId, characterId);
+    
+    // 최근 대화 히스토리 가져오기 (최대 20개)
+    const messageHistory = await prisma.message.findMany({
+      where: {
+        chat: {
+          userId: userId,
+          characterId: characterId
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        content: true,
+        isFromUser: true,
+        createdAt: true
+      }
+    });
+
     // 감쇠 먼저 적용
     await applyDecay(userId, characterId);
     
-    // 메시지 평가
-    const deltaScore = await evaluateMessage(userMessage, characterPersonality);
+    // AI를 통한 종합적 메시지 평가
+    const deltaScore = await evaluateMessage(
+      userMessage, 
+      characterPersonality, 
+      messageHistory.reverse(), // 시간순 정렬
+      currentRelation
+    );
+    
+    console.log('📊 관계 점수 변화:', deltaScore);
     
     // 호감도 업데이트
     const result = await updateFavorability(
@@ -285,7 +419,7 @@ async function processMessage(userId, characterId, userMessage, characterPersona
       characterId,
       deltaScore,
       deltaScore > 0 ? 'chat_positive' : 'chat_negative',
-      `Message evaluation: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}"`
+      `AI 종합 분석: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}"`
     );
 
     return result;

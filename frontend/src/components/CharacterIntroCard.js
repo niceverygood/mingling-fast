@@ -2,54 +2,62 @@ import React from 'react';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
 
 const CharacterIntroCard = ({ character, onStartChat }) => {
+  const handleButtonClick = (e) => {
+    // 터치 이벤트 전파 방지
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🔘 대화 시작 버튼 클릭됨');
+    onStartChat();
+  };
+
   return (
-    <div className="w-full max-w-sm mx-auto bg-white bg-opacity-95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl">
+    <div 
+      className="w-full max-w-sm mx-auto card-modern p-6 shadow-lg" 
+      data-interactive="true"
+      style={{ pointerEvents: 'auto' }}
+    >
       <div className="text-center">
-        <h2 className="text-gray-800 text-lg font-bold mb-4">첫인상</h2>
-        
-        <div className="min-h-[120px] flex items-center justify-center mb-6">
+        {/* 첫인상 또는 설명 */}
+        <div className="mb-6">
           {character.firstImpression ? (
-            <p className="text-gray-700 text-base leading-relaxed">
+            <p className="text-lg text-gray-800 leading-relaxed font-medium">
               "{character.firstImpression}"
             </p>
           ) : character.description ? (
-            <p className="text-gray-700 text-base leading-relaxed">
+            <p className="text-lg text-gray-800 leading-relaxed font-medium">
               "{character.description}"
             </p>
           ) : (
-            <p className="text-gray-500 text-base leading-relaxed">
+            <p className="text-lg text-gray-600 leading-relaxed font-medium">
               "안녕하세요! 저와 함께 즐거운 대화를 나눠보세요."
             </p>
           )}
         </div>
 
-        <div className="space-y-3 mb-6 min-h-[60px]">
-          {character.personality && (
-            <div className="flex items-center justify-center space-x-2">
-              <span className="text-gray-500 text-sm">성격:</span>
-              <span className="text-gray-700 text-sm font-medium truncate">
-                {character.personality}
-              </span>
-            </div>
-          )}
-          
-          {character.user?.username && (
-            <div className="flex items-center justify-center space-x-2">
-              <span className="text-gray-500 text-sm">제작자:</span>
-              <span className="text-gray-700 text-sm font-medium truncate">
-                {character.user.username}
-              </span>
-            </div>
-          )}
-        </div>
+        {/* 성격 정보 */}
+        {character.personality && (
+          <div className="mb-6">
+            <span className="inline-block bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+              {character.personality}
+            </span>
+          </div>
+        )}
 
         {/* 대화 시작하기 버튼 */}
         <button 
-          onClick={onStartChat}
-          className="w-full bg-purple-600 text-white py-3 rounded-xl font-semibold text-base flex items-center justify-center space-x-2 hover:bg-purple-700 active:scale-95 transition-all shadow-md"
+          onClick={handleButtonClick}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          style={{ 
+            touchAction: 'manipulation',
+            pointerEvents: 'auto',
+            WebkitTapHighlightColor: 'transparent'
+          }}
+          className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white border-0 touch-optimized py-3 rounded-xl font-medium text-body-md flex items-center justify-center space-x-2 active:scale-95 transition-all shadow-md relative z-20 hover:from-pink-600 hover:to-purple-700"
         >
-          <ChatBubbleLeftRightIcon className="w-5 h-5" />
-          <span>대화 시작하기</span>
+          <ChatBubbleLeftRightIcon className="w-4 h-4 text-white" />
+          <span className="text-white">대화 시작하기</span>
         </button>
       </div>
     </div>

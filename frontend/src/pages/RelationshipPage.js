@@ -8,7 +8,7 @@ import {
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import Avatar from '../components/Avatar';
 import RelationshipStageIndicator from '../components/RelationshipStageIndicator';
-import { charactersAPI } from '../services/api';
+import { charactersAPI, personasAPI } from '../services/api';
 import { 
   getRelationInfo, 
   getStageInfo,
@@ -22,6 +22,7 @@ const RelationshipPage = () => {
   const { user: authUser } = useAuth();
   const [character, setCharacter] = useState(null);
   const [relationInfo, setRelationInfo] = useState(null);
+  const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mood, setMood] = useState('happy');
 
@@ -42,6 +43,15 @@ const RelationshipPage = () => {
       // 관계 정보 가져오기
       const relationResponse = await getRelationInfo(characterId);
       setRelationInfo(relationResponse);
+      
+      // 페르소나 정보 가져오기
+      try {
+        const personasResponse = await personasAPI.getMy();
+        setPersonas(personasResponse.data || []);
+      } catch (personaError) {
+        console.log('페르소나 정보 없음:', personaError);
+        setPersonas([]);
+      }
       
       // 감정 상태 설정 (관계 단계에 따라)
       setMood(getMoodByStage(relationResponse.stage));
@@ -95,22 +105,45 @@ const RelationshipPage = () => {
       {/* Header */}
       <div className="relative bg-transparent pt-12 pb-4">
         <div className="flex items-center justify-between px-4">
-          <button 
-            onClick={() => navigate(-1)}
-            className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:bg-white transition-all duration-200"
-          >
-            <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => navigate(-1)}
+              className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:bg-white transition-all duration-200"
+            >
+              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+            </button>
+            {/* 캐릭터 프로필 사진 */}
+            <div className="w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full shadow-sm border-2 border-white overflow-hidden">
+              <Avatar 
+                src={character?.avatarUrl}
+                alt={character?.name}
+                name={character?.name}
+                size="sm"
+                fallbackType="emoji"
+                className="w-full h-full"
+              />
+            </div>
+          </div>
+          
           <div className="text-center">
             <h1 className="text-lg font-bold text-gray-800">
-              백준현과 {authUser?.displayName || 'user_14784'}의 이야기
+              {character?.name}과 {personas[0]?.name || authUser?.displayName || '나'}의 이야기
             </h1>
           </div>
-          <button className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:bg-white transition-all duration-200">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01" />
-            </svg>
-          </button>
+          
+          <div className="flex items-center gap-2">
+            {/* 페르소나 프로필 사진 */}
+            <div className="w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full shadow-sm border-2 border-white overflow-hidden">
+              <Avatar 
+                src={personas[0]?.avatarUrl}
+                alt={personas[0]?.name || '나'}
+                name={personas[0]?.name || authUser?.displayName || '나'}
+                size="sm"
+                fallbackType="emoji"
+                className="w-full h-full"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

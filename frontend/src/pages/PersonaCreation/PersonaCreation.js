@@ -4,6 +4,8 @@ import { personasAPI } from '../../services/api';
 import ImageUpload from '../../components/ImageUpload';
 
 const PersonaCreation = ({ onClose, onComplete }) => {
+  console.log('🎭 PersonaCreation 컴포넌트 렌더링됨');
+  
   const [formData, setFormData] = useState({
     name: '',
     age: '',

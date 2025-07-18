@@ -4,24 +4,13 @@ const favorabilityEngine = require('../services/favorabilityEngine');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// OpenAI 설정 (테스트 환경이 아닐 때만)
-let openai = null;
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
-
-if (process.env.NODE_ENV !== 'test' && process.env.OPENAI_API_KEY) {
-  try {
-    const OpenAI = require('openai');
-    openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-    console.log('✅ OpenAI initialized successfully');
-  } catch (error) {
-    console.error('❌ OpenAI initialization failed:', error.message);
-  }
-} else {
-  console.log('⚠️ OpenAI not initialized - using fallback responses');
-}
+// OpenAI 글로벌 인스턴스 사용
+const openai = global.openai;
+console.log('🤖 Chat route - OpenAI status:', {
+  available: !!openai,
+  nodeEnv: process.env.NODE_ENV,
+  apiKeyExists: !!process.env.OPENAI_API_KEY
+});
 
 // GET /api/chats - 채팅 목록 조회
 router.get('/', async (req, res) => {
@@ -250,6 +239,170 @@ router.post('/:chatId/messages', async (req, res) => {
   }
 });
 
+// GET /api/chats/:chatId/recommendations - AI 대화 추천
+router.get('/:chatId/recommendations', async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const firebaseUserId = req.headers['x-user-id'];
+    
+    if (!firebaseUserId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+
+    console.log('🪄 AI 대화 추천 요청:', { chatId, userId: firebaseUserId });
+
+    // 채팅 정보와 캐릭터 정보 가져오기
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        character: true,
+        persona: true
+      }
+    });
+
+    if (!chat) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Chat not found' 
+      });
+    }
+
+    // 최근 대화 히스토리 가져오기 (최대 20개)
+    const messages = await prisma.message.findMany({
+      where: { chatId },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+
+    if (messages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No conversation history available'
+      });
+    }
+
+    // 메시지를 시간순으로 정렬 (최신이 마지막)
+    const sortedMessages = messages.reverse();
+    
+    let recommendations = [];
+
+    if (openai) {
+      try {
+        // OpenAI로 대화 추천 생성
+        const conversationHistory = sortedMessages.map(msg => 
+          `${msg.isFromUser ? '사용자' : chat.character.name}: ${msg.content}`
+        ).join('\n');
+
+        const prompt = `다음은 "${chat.character.name}"과 사용자 간의 대화 기록입니다.
+
+캐릭터 정보:
+- 이름: ${chat.character.name}
+- 성격: ${chat.character.personality || '친근함'}
+- 첫인상: ${chat.character.firstImpression || '매력적인 캐릭터'}
+- 배경: ${chat.character.background || '흥미로운 캐릭터'}
+
+사용자 페르소나:
+${chat.persona ? `- 이름: ${chat.persona.name}
+- 성격: ${chat.persona.personality || '일반적'}` : '- 기본 사용자'}
+
+대화 기록:
+${conversationHistory}
+
+위 대화 맥락을 바탕으로, 사용자가 다음에 할 수 있는 자연스럽고 흥미로운 대화 3가지를 추천해주세요. 각 추천은:
+1. 대화의 흐름에 자연스럽게 이어지고
+2. 캐릭터의 성격과 잘 맞으며
+3. 관계 발전에 도움이 되는 내용이어야 합니다
+
+응답 형식은 반드시 다음과 같이 해주세요:
+1. [첫 번째 추천 대화]
+2. [두 번째 추천 대화]  
+3. [세 번째 추천 대화]
+
+각 추천은 한 줄로 작성하고, 번호와 점은 포함하지 마세요.`;
+
+        console.log('🚀 OpenAI 요청 전송...');
+        
+        const completion = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "당신은 대화 추천 전문가입니다. 사용자가 자연스럽고 흥미로운 대화를 이어갈 수 있도록 도와주세요."
+            },
+            {
+              role: "user", 
+              content: prompt
+            }
+          ],
+          temperature: 0.8,
+          max_tokens: 500
+        });
+
+        const response = completion.choices[0]?.message?.content;
+        
+        if (response) {
+          // 응답을 파싱하여 3개의 추천으로 분리
+          const lines = response.split('\n').filter(line => line.trim());
+          
+          recommendations = lines
+            .filter(line => line.match(/^\d+\./)) // 번호로 시작하는 라인만
+            .map(line => line.replace(/^\d+\.\s*/, '').trim()) // 번호 제거
+            .slice(0, 3); // 최대 3개만
+
+          // 추천이 3개 미만이면 전체 응답에서 추출 시도
+          if (recommendations.length < 3) {
+            recommendations = response
+              .split(/\n|(?<=\.|!|\?)(?=\s|$)/) // 문장 단위로 분리
+              .filter(line => line.trim() && line.length > 10)
+              .slice(0, 3);
+          }
+        }
+
+        console.log('✅ OpenAI 추천 생성 완료:', recommendations.length, '개');
+        
+      } catch (error) {
+        console.error('❌ OpenAI 추천 생성 실패:', error);
+        // OpenAI 실패 시 폴백
+      }
+    }
+
+    // 추천이 없거나 부족하면 기본 추천 사용
+    if (recommendations.length === 0) {
+      recommendations = [
+        `${chat.character.name}님과 더 친해지고 싶어요`,
+        "오늘 하루 어떻게 보내셨나요?",
+        "함께 재미있는 이야기를 나누고 싶어요"
+      ];
+    } else if (recommendations.length < 3) {
+      // 부족한 만큼 기본 추천으로 채우기
+      const fallbackRecommendations = [
+        "더 자세히 이야기해주세요",
+        "그런 경험이 있으시군요!",
+        "정말 흥미로운 얘기네요"
+      ];
+      
+      while (recommendations.length < 3) {
+        const fallback = fallbackRecommendations[recommendations.length - 1] || "계속 대화해요";
+        recommendations.push(fallback);
+      }
+    }
+
+    console.log('🎯 최종 추천:', recommendations);
+
+    res.json({
+      success: true,
+      recommendations: recommendations.slice(0, 3) // 정확히 3개만 반환
+    });
+
+  } catch (error) {
+    console.error('❌ 대화 추천 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate recommendations'
+    });
+  }
+});
+
 // POST /api/chats - 새 채팅 시작
 router.post('/', async (req, res) => {
   try {
@@ -377,6 +530,147 @@ router.post('/', async (req, res) => {
   }
 });
 
+// AI 대화 추천 엔드포인트
+router.post('/:chatId/recommendations', async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const firebaseUserId = req.headers['x-user-id'];
+    
+    if (!firebaseUserId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+
+    console.log('🪄 AI 대화 추천 요청:', { chatId, userId: firebaseUserId });
+
+    // 채팅 정보와 캐릭터 정보 가져오기
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        character: true,
+        persona: true,
+        user: true
+      }
+    });
+
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    // 최근 대화 히스토리 가져오기 (최대 20개)
+    const messageHistory = await prisma.message.findMany({
+      where: { chatId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        content: true,
+        sender: true,
+        createdAt: true
+      }
+    });
+
+    // 메시지 히스토리를 시간순으로 정렬 (오래된 것부터)
+    const sortedHistory = messageHistory.reverse();
+
+    console.log('📝 대화 히스토리 개수:', sortedHistory.length);
+
+    // OpenAI를 사용한 대화 추천 생성
+    if (!openai) {
+      console.log('❌ OpenAI 인스턴스가 없습니다');
+      return res.status(500).json({ error: 'OpenAI service not available' });
+    }
+
+    // 대화 히스토리를 텍스트로 변환
+    const conversationContext = sortedHistory.map(msg => {
+      const speaker = msg.sender === 'user' ? (chat.persona?.name || '사용자') : chat.character.name;
+      return `${speaker}: ${msg.content}`;
+    }).join('\n');
+
+    console.log('🧠 OpenAI에게 대화 추천 요청 중...');
+    console.log('📖 대화 맥락:', conversationContext.substring(0, 200) + '...');
+
+    const recommendationPrompt = `다음은 ${chat.character.name}과 ${chat.persona?.name || '사용자'} 사이의 대화입니다:
+
+캐릭터 정보:
+- 이름: ${chat.character.name}
+- 성격: ${chat.character.personality}
+- 외모: ${chat.character.appearance}
+
+사용자 페르소나:
+- 이름: ${chat.persona?.name || '사용자'}
+- 성격: ${chat.persona?.personality || '일반적인 사용자'}
+
+대화 히스토리:
+${conversationContext}
+
+위 대화의 흐름과 맥락을 고려하여, 사용자(${chat.persona?.name || '사용자'})가 다음에 말할 수 있는 자연스럽고 흥미로운 대화 3가지를 추천해주세요.
+
+조건:
+1. 각 추천은 50자 이내로 작성
+2. 대화의 자연스러운 흐름 유지
+3. 캐릭터와의 관계 발전에 도움이 되는 내용
+4. 서로 다른 톤과 방향성 (예: 질문형, 감정 표현, 유머 등)
+
+형식:
+1. [첫 번째 추천]
+2. [두 번째 추천]  
+3. [세 번째 추천]`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'system',
+          content: '당신은 자연스럽고 매력적인 대화를 추천하는 AI 어시스턴트입니다. 주어진 대화 맥락을 분석하여 적절한 응답을 제안해주세요.'
+        },
+        {
+          role: 'user',
+          content: recommendationPrompt
+        }
+      ],
+      max_tokens: 300,
+      temperature: 0.8
+    });
+
+    const recommendations = completion.choices[0].message.content.trim();
+    console.log('✅ OpenAI 추천 완료:', recommendations);
+
+    // 응답을 파싱하여 배열로 변환
+    const recommendationList = recommendations
+      .split('\n')
+      .filter(line => line.match(/^\d+\./))
+      .map(line => line.replace(/^\d+\.\s*/, '').trim())
+      .filter(text => text.length > 0)
+      .slice(0, 3); // 최대 3개만
+
+    console.log('📋 파싱된 추천 목록:', recommendationList);
+
+    // 추천이 3개 미만인 경우 기본 추천 추가
+    while (recommendationList.length < 3) {
+      const fallbacks = [
+        '그런데 당신은 어떻게 생각하세요?',
+        '오늘 하루는 어떠셨어요?',
+        '재미있는 이야기가 있으시면 들려주세요!'
+      ];
+      const fallback = fallbacks[recommendationList.length];
+      if (fallback && !recommendationList.includes(fallback)) {
+        recommendationList.push(fallback);
+      }
+    }
+
+    res.json({
+      success: true,
+      recommendations: recommendationList.slice(0, 3)
+    });
+
+  } catch (error) {
+    console.error('❌ 대화 추천 생성 실패:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate recommendations',
+      details: error.message 
+    });
+  }
+});
+
 // OpenAI를 사용한 AI 응답 생성 함수
 async function generateAIResponseWithOpenAI(userMessage, character, persona, messageHistory) {
   try {
@@ -477,6 +771,12 @@ ${conversationHistory}
 이제 ${character.name}의 입장에서 이 메시지에 대해 자연스럽고 캐릭터답게 응답해주세요.`;
 
     console.log('🚀 Sending request to OpenAI...');
+    console.log('🔑 OpenAI API Key (first 20 chars):', process.env.OPENAI_API_KEY?.substring(0, 20) + '...');
+    console.log('🌐 OpenAI instance available:', !!openai);
+    
+    if (!openai) {
+      throw new Error('OpenAI instance not available');
+    }
     
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
@@ -498,7 +798,13 @@ ${conversationHistory}
     });
 
     const response = completion.choices[0].message.content.trim();
-    console.log('✅ OpenAI response generated successfully:', response);
+    console.log('✅ OpenAI API call successful!');
+    console.log('📊 OpenAI Response details:', {
+      model: completion.model,
+      usage: completion.usage,
+      responseLength: response.length,
+      response: response.substring(0, 100) + (response.length > 100 ? '...' : '')
+    });
     
     // 응답 품질 검증
     if (response.length < 5) {
@@ -506,6 +812,7 @@ ${conversationHistory}
       return generateCharacterBasedResponse(userMessage, character);
     }
     
+    console.log('🎯 Final OpenAI response:', response);
     return response;
     
   } catch (error) {
@@ -561,6 +868,170 @@ function generateCharacterBasedResponse(userMessage, character) {
   ];
 
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+}
+
+// AI를 통한 대화 추천 생성 함수
+async function generateChatRecommendations(character, persona, messageHistory, currentRelation) {
+  try {
+    const openai = global.openai;
+    if (!openai) {
+      console.log('⚠️ OpenAI not available, using fallback recommendations');
+      return generateFallbackRecommendations(character, currentRelation);
+    }
+
+    console.log('🧠 AI 대화 추천 분석 시작...');
+    
+    // 대화 히스토리 요약
+    const conversationSummary = messageHistory.length > 0 ? 
+      messageHistory.slice(-10).map((msg, index) => {
+        const speaker = msg.isFromUser ? '사용자' : character.name;
+        return `${index + 1}. ${speaker}: ${msg.content}`;
+      }).join('\n') : '아직 대화가 없습니다.';
+
+    // 현재 관계 정보
+    const relationshipContext = currentRelation ? `
+현재 관계 상태:
+- 호감도 점수: ${currentRelation.score}/1000
+- 관계 단계: ${getRelationshipStage(currentRelation.stage)}
+- 총 대화 수: ${currentRelation.totalMessages || 0}회
+` : '새로운 관계 시작';
+
+    const prompt = `당신은 AI 채팅 어시스턴트로서 사용자에게 매력적이고 관계 발전에 도움이 되는 대화 주제 3개를 추천해주세요.
+
+=== 캐릭터 정보 ===
+이름: ${character.name}
+성격: ${character.personality || '친근하고 다정함'}
+나이: ${character.age || '불명'}
+성별: ${character.gender === 'male' ? '남성' : character.gender === 'female' ? '여성' : '비공개'}
+첫인상: ${character.firstImpression || '친근하고 접근하기 쉬운 사람'}
+좋아하는 것: ${character.likes || '새로운 사람들과의 대화'}
+싫어하는 것: ${character.dislikes || '무례한 행동'}
+
+=== 현재 관계 상황 ===
+${relationshipContext}
+
+=== 최근 대화 히스토리 ===
+${conversationSummary}
+
+=== 대화 상대 정보 ===
+${persona ? `
+이름: ${persona.name}
+성격: ${persona.personality || '정보 없음'}
+기본 정보: ${persona.basicInfo || '정보 없음'}
+` : '기본 사용자'}
+
+다음 기준으로 대화 주제 3개를 추천해주세요:
+
+1. **관계 발전 잠재력**: 현재 관계 단계에서 다음 단계로 발전할 수 있는 주제
+2. **캐릭터 맞춤**: 캐릭터의 성격과 관심사에 잘 맞는 주제
+3. **대화 연속성**: 이전 대화의 자연스러운 연장선상에 있는 주제
+4. **감정적 교감**: 서로를 더 잘 알아갈 수 있는 주제
+5. **자연스러움**: 실제 대화에서 자연스럽게 나올 수 있는 주제
+
+**추천 형식:**
+각 추천은 다음과 같이 구성해주세요:
+- 20-50자의 자연스러운 대화문
+- 이모지 1-2개 포함
+- 질문형 또는 공감형 문장
+- 관계 발전에 도움이 되는 내용
+
+**예시:**
+1. "오늘 하루는 어땠어? 나는 너와 이야기할 생각에 하루 종일 기대했어 😊"
+2. "우리 둘만의 특별한 추억을 만들어보지 않을래? 💕"
+3. "가끔 혼자 있을 때 뭘 하면서 시간을 보내는지 궁금해 🤔"
+
+JSON 형식으로 응답해주세요:
+{
+  "recommendations": [
+    {"text": "추천 대화문 1", "type": "친밀감 증진"},
+    {"text": "추천 대화문 2", "type": "관심사 공유"},
+    {"text": "추천 대화문 3", "type": "감정적 교감"}
+  ]
+}`;
+
+    console.log('🤖 OpenAI로 대화 추천 요청 중...');
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { 
+          role: 'system', 
+          content: '당신은 AI 채팅 추천 전문가입니다. 사용자의 관계 발전에 도움이 되는 자연스럽고 매력적인 대화를 추천해주세요.' 
+        },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 400,
+      temperature: 0.8
+    });
+
+    const analysisResult = response.choices[0]?.message?.content?.trim();
+    console.log('🧠 AI 추천 결과:', analysisResult);
+    
+    try {
+      const parsedResult = JSON.parse(analysisResult);
+      if (parsedResult.recommendations && Array.isArray(parsedResult.recommendations)) {
+        console.log('✅ AI 대화 추천 파싱 성공:', parsedResult.recommendations.length, '개');
+        return parsedResult.recommendations;
+      }
+    } catch (parseError) {
+      console.log('⚠️ AI 응답 파싱 실패, 폴백 사용');
+    }
+    
+    return generateFallbackRecommendations(character, currentRelation);
+    
+  } catch (error) {
+    console.error('❌ AI 대화 추천 오류:', error);
+    return generateFallbackRecommendations(character, currentRelation);
+  }
+}
+
+// 관계 단계 이름 반환
+function getRelationshipStage(stage) {
+  const stages = {
+    0: '아는 사람',
+    1: '친구',
+    2: '썸 전야',
+    3: '연인',
+    4: '진지한 관계',
+    5: '약혼',
+    6: '결혼'
+  };
+  return stages[stage] || '알 수 없음';
+}
+
+// AI 실패 시 폴백 추천
+function generateFallbackRecommendations(character, currentRelation) {
+  console.log('🔄 폴백 대화 추천 시스템 사용');
+  
+  const stage = currentRelation?.stage || 0;
+  const characterName = character.name;
+  
+  // 관계 단계별 추천
+  const recommendationsByStage = {
+    0: [ // 아는 사람
+      { text: `${characterName}님은 평소에 어떤 일을 하세요? 궁금해요 😊`, type: '기본 정보 파악' },
+      { text: '오늘 하루는 어떻게 보내셨나요? 🌟', type: '일상 공유' },
+      { text: '혹시 취미가 있으시다면 뭘 좋아하세요? 🎨', type: '관심사 탐색' }
+    ],
+    1: [ // 친구
+      { text: '우리 더 친해지면 좋겠어요! 어떤 이야기를 나누고 싶으세요? 💫', type: '친밀감 증진' },
+      { text: '가장 기억에 남는 추억이 있다면 들려주세요 📸', type: '개인사 공유' },
+      { text: '힘든 일이 있을 때는 어떻게 극복하시나요? 🤗', type: '감정적 지지' }
+    ],
+    2: [ // 썸 전야
+      { text: '당신과 함께 있으면 마음이 편안해져요 💕', type: '감정 표현' },
+      { text: '둘만의 특별한 시간을 보내고 싶어요 ✨', type: '친밀감 발전' },
+      { text: '나에 대해 어떻게 생각하시는지 솔직히 말해주세요 💝', type: '관계 확인' }
+    ],
+    3: [ // 연인
+      { text: '당신이 있어서 정말 행복해요 💖', type: '사랑 표현' },
+      { text: '우리 미래에 대해 함께 꿈꿔볼까요? 🌈', type: '미래 계획' },
+      { text: '서로에게 더 소중한 사람이 되고 싶어요 👫', type: '관계 심화' }
+    ]
+  };
+  
+  // 현재 단계에 맞는 추천 반환, 없으면 기본값
+  return recommendationsByStage[Math.min(stage, 3)] || recommendationsByStage[0];
 }
 
 module.exports = router; 

@@ -9,26 +9,45 @@ router.get('/balance', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.id;
     
+    console.log('💎 하트 잔액 조회 요청:', {
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { hearts: true }
+      select: { 
+        hearts: true,
+        username: true,
+        createdAt: true
+      }
     });
     
     if (!user) {
+      console.log('❌ 사용자를 찾을 수 없음:', userId);
       return res.status(404).json({ 
         success: false, 
         error: 'User not found' 
       });
     }
     
+    console.log('✅ 하트 잔액 조회 성공:', {
+      userId,
+      username: user.username,
+      hearts: user.hearts,
+      memberSince: user.createdAt
+    });
+    
     res.json({
       success: true,
       data: {
-        hearts: user.hearts || 0
+        hearts: user.hearts || 0,
+        userId: userId,
+        lastUpdated: new Date().toISOString()
       }
     });
   } catch (error) {
-    console.error('Error fetching heart balance:', error);
+    console.error('❌ 하트 잔액 조회 실패:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'
@@ -42,62 +61,209 @@ router.post('/spend', authenticateUser, async (req, res) => {
     const userId = req.user.id;
     const { amount, description } = req.body;
     
+    console.log('💎 하트 차감 요청:', {
+      userId,
+      amount,
+      description,
+      timestamp: new Date().toISOString()
+    });
+    
     if (!amount || amount <= 0) {
+      console.log('❌ 잘못된 차감 금액:', amount);
       return res.status(400).json({
         success: false,
         error: 'Invalid amount'
       });
     }
     
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { hearts: true }
+    // 트랜잭션으로 안전하게 처리
+    const result = await prisma.$transaction(async (tx) => {
+      // 현재 사용자 정보 조회 (row lock)
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { hearts: true, username: true }
+      });
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      console.log('💎 차감 전 하트 잔액:', {
+        userId,
+        username: user.username,
+        currentHearts: user.hearts,
+        requestedAmount: amount
+      });
+      
+      if (user.hearts < amount) {
+        console.log('❌ 하트 부족:', {
+          required: amount,
+          available: user.hearts,
+          deficit: amount - user.hearts
+        });
+        throw new Error('Insufficient hearts');
+      }
+      
+      // 하트 차감
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          hearts: {
+            decrement: amount
+          }
+        },
+        select: { hearts: true }
+      });
+      
+      // 하트 사용 기록 생성
+      const transaction = await tx.heartTransaction.create({
+        data: {
+          userId: userId,
+          amount: -amount,
+          type: 'spend',
+          description: description || 'Message sent',
+          balance: updatedUser.hearts
+        }
+      });
+      
+      console.log('✅ 하트 차감 완료:', {
+        userId,
+        previousBalance: user.hearts,
+        newBalance: updatedUser.hearts,
+        amountSpent: amount,
+        transactionId: transaction.id
+      });
+      
+      return {
+        hearts: updatedUser.hearts,
+        spent: amount,
+        transactionId: transaction.id,
+        previousBalance: user.hearts
+      };
     });
     
-    if (!user) {
+    res.json({
+      success: true,
+      data: result
+    });
+    
+  } catch (error) {
+    console.error('❌ 하트 차감 실패:', error);
+    
+    if (error.message === 'User not found') {
       return res.status(404).json({
         success: false,
         error: 'User not found'
       });
     }
     
-    if (user.hearts < amount) {
+    if (error.message === 'Insufficient hearts') {
       return res.status(400).json({
         success: false,
         error: 'Insufficient hearts'
       });
     }
     
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        hearts: {
-          decrement: amount
-        }
-      },
-      select: { hearts: true }
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// 하트 복구 (메시지 전송 실패 시)
+router.post('/refund', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { amount, description } = req.body;
+    
+    console.log('💎 하트 복구 요청:', {
+      userId,
+      amount,
+      description,
+      timestamp: new Date().toISOString()
     });
     
-    // 하트 사용 기록 생성
-    await prisma.heartTransaction.create({
-      data: {
-        userId: userId,
-        amount: -amount,
-        type: 'spend',
-        description: description || 'Message sent',
-        balance: updatedUser.hearts
+    if (!amount || amount <= 0) {
+      console.log('❌ 잘못된 복구 금액:', amount);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid amount'
+      });
+    }
+    
+    // 트랜잭션으로 안전하게 처리
+    const result = await prisma.$transaction(async (tx) => {
+      // 현재 사용자 정보 조회
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { hearts: true, username: true }
+      });
+      
+      if (!user) {
+        throw new Error('User not found');
       }
+      
+      console.log('💎 복구 전 하트 잔액:', {
+        userId,
+        username: user.username,
+        currentHearts: user.hearts,
+        refundAmount: amount
+      });
+      
+      // 하트 복구
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          hearts: {
+            increment: amount
+          }
+        },
+        select: { hearts: true }
+      });
+      
+      // 하트 복구 기록 생성
+      const transaction = await tx.heartTransaction.create({
+        data: {
+          userId: userId,
+          amount: amount,
+          type: 'refund',
+          description: description || 'Message send failure refund',
+          balance: updatedUser.hearts
+        }
+      });
+      
+      console.log('✅ 하트 복구 완료:', {
+        userId,
+        previousBalance: user.hearts,
+        newBalance: updatedUser.hearts,
+        amountRefunded: amount,
+        transactionId: transaction.id
+      });
+      
+      return {
+        hearts: updatedUser.hearts,
+        refunded: amount,
+        transactionId: transaction.id,
+        previousBalance: user.hearts
+      };
     });
     
     res.json({
       success: true,
-      data: {
-        hearts: updatedUser.hearts,
-        spent: amount
-      }
+      data: result
     });
+    
   } catch (error) {
-    console.error('Error spending hearts:', error);
+    console.error('❌ 하트 복구 실패:', error);
+    
+    if (error.message === 'User not found') {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Internal server error'

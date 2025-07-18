@@ -205,7 +205,7 @@ const ChatListPage: React.FC = () => {
         </p>
       </div>
 
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-100 pb-20">
         {sortedChats.map((chat) => (
           <div
             key={chat.id}

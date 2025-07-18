@@ -29,7 +29,47 @@ const ChatPage = () => {
   const [newMessage, setNewMessage] = useState('');
   const [chatInfo, setChatInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [hearts, setHearts] = useState(150);
+  // 하트 초기값을 로컬 스토리지에서 가져오기
+  const getInitialHearts = () => {
+    try {
+      const cached = localStorage.getItem('heartBalance');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // 캐시가 1시간 이내인 경우에만 사용
+        if (Date.now() - parsed.timestamp < 3600000) {
+          console.log('📦 로컬 캐시에서 하트 잔액 복원:', parsed.hearts);
+          return parsed.hearts;
+        }
+      }
+    } catch (e) {
+      console.warn('로컬 스토리지 로드 실패:', e);
+    }
+    return 150; // 기본값
+  };
+
+  const [hearts, setHearts] = useState(getInitialHearts);
+
+  // 하트 업데이트 통합 함수 (로컬 스토리지 동기화 포함)
+  const updateHearts = (newHearts, transactionId = null) => {
+    setHearts(newHearts);
+    
+    // 로컬 스토리지 동기화
+    try {
+      localStorage.setItem('heartBalance', JSON.stringify({
+        hearts: newHearts,
+        timestamp: Date.now(),
+        lastTransaction: transactionId
+      }));
+    } catch (e) {
+      console.warn('로컬 스토리지 동기화 실패:', e);
+    }
+    
+    console.log('💎 하트 잔액 업데이트:', {
+      새잔액: newHearts,
+      트랜잭션ID: transactionId,
+      시간: new Date().toLocaleTimeString()
+    });
+  };
   const [heartLoading, setHeartLoading] = useState(false);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [hasInitiallyScrolled, setHasInitiallyScrolled] = useState(false);
@@ -40,6 +80,8 @@ const ChatPage = () => {
   
   // 호감도 관련 상태
   const [relationInfo, setRelationInfo] = useState(null);
+  
+
 
   
   // 모바일 터치 최적화 상태
@@ -186,7 +228,7 @@ const ChatPage = () => {
     if (isInApp()) {
       const removeListener = listenForHeartUpdates((newHearts) => {
         console.log('📱 네이티브에서 하트 업데이트 수신:', newHearts);
-        setHearts(newHearts);
+        updateHearts(newHearts, 'native-update');
       });
       
       return removeListener;
@@ -255,26 +297,50 @@ const ChatPage = () => {
     }
   }, [chatInfo, messages.length]);
 
-  const fetchHeartBalance = async () => {
+  const fetchHeartBalance = async (force = false) => {
     try {
-      console.log('💎 하트 잔액 조회 시도...');
+      console.log('💎 하트 잔액 조회 시도...', { force, currentHearts: hearts });
+      
       const response = await heartsAPI.getBalance();
-      if (response.data && typeof response.data.hearts === 'number') {
-        setHearts(response.data.hearts);
-        console.log('✅ 하트 잔액 조회 성공:', response.data.hearts);
+      
+      if (response.data && response.data.success && typeof response.data.data.hearts === 'number') {
+        const newHearts = response.data.data.hearts;
+        const previousHearts = hearts;
+        
+        updateHearts(newHearts);
+        
+        console.log('✅ 하트 잔액 조회 성공:', {
+          이전잔액: previousHearts,
+          현재잔액: newHearts,
+          변동량: newHearts - previousHearts,
+          lastUpdated: response.data.data.lastUpdated
+        });
+
+        // 하트가 0이 되면 사용자에게 알림
+        if (newHearts === 0 && previousHearts > 0) {
+          console.log('⚠️ 하트가 모두 소진되었습니다!');
+          // 선택적으로 사용자에게 알림 표시
+        }
+        
+        return newHearts;
       } else {
         console.warn('⚠️ 하트 잔액 응답 형식 오류:', response.data);
-        // 기본값 유지 (현재 hearts 상태값 그대로)
+        return hearts; // 기존 값 유지
       }
     } catch (error) {
       console.error('❌ 하트 잔액 조회 실패:', error);
-      // 네트워크 오류 시 구분
-      if (error.response?.status >= 500) {
+      
+      // 에러 유형별 처리
+      if (error.response?.status === 401) {
+        console.error('인증 오류 - 로그인이 필요합니다');
+        // 로그인 페이지로 리다이렉트 고려
+      } else if (error.response?.status >= 500) {
         console.error('서버 에러로 하트 잔액 조회 실패');
       } else if (error.code === 'NETWORK_ERROR') {
         console.error('네트워크 에러로 하트 잔액 조회 실패');
       }
-      // 실패 시 기본값 유지 (현재 hearts 상태값 그대로)
+      
+      return hearts; // 실패 시 기존 값 유지
     }
   };
 
@@ -353,6 +419,7 @@ const ChatPage = () => {
     
     // 하트가 부족한 경우
     if (hearts < 1) {
+      console.log('💔 하트 부족으로 메시지 전송 차단:', { currentHearts: hearts });
       handleButtonPress('heart-insufficient');
       if (isInApp()) {
         // 네이티브 앱에서는 네이티브 하트샵 열기
@@ -366,6 +433,8 @@ const ChatPage = () => {
       }
       return;
     }
+
+    console.log('💎 메시지 전송 시작 - 현재 하트:', hearts, '| 차감 예정:', 1);
 
     // 전송할 메시지 내용을 미리 저장 (언어 변환 방지)
     const userMessageContent = newMessage.trim();
@@ -420,9 +489,23 @@ const ChatPage = () => {
         throw new Error(`하트 차감 실패: ${heartError?.message || '알 수 없는 오류'}`);
       }
       
-      // 하트 잔액 업데이트
-      setHearts(heartResponse.data.hearts);
-      console.log('💎 하트 차감 완료. 새 잔액:', heartResponse.data.hearts);
+      // 하트 잔액 업데이트 (로컬 스토리지 동기화 포함)
+      const newHeartBalance = heartResponse.data.hearts;
+      updateHearts(newHeartBalance, heartResponse.data.transactionId);
+      
+      console.log('💎 하트 차감 완료:', {
+        이전잔액: hearts,
+        새잔액: newHeartBalance,
+        차감량: hearts - newHeartBalance,
+        트랜잭션ID: heartResponse.data.transactionId || 'N/A'
+      });
+
+      // 하트 잔액이 0이 되면 즉시 알림
+      if (newHeartBalance === 0) {
+        console.log('⚠️ 하트 잔액이 0이 되었습니다. 다음 메시지부터 차단됩니다.');
+      } else if (newHeartBalance <= 5) {
+        console.log('⚠️ 하트 잔액이 부족합니다:', newHeartBalance, '개 남음');
+      }
 
       console.log('📨 메시지 전송 시작...');
       
@@ -453,8 +536,13 @@ const ChatPage = () => {
         // 메시지 전송 실패 시 하트 복구 시도
         console.log('🔄 메시지 전송 실패로 인한 하트 복구 시도...');
         try {
-          await heartsAPI.refund(1, '메시지 전송 실패로 인한 복구');
-          setHearts(prev => prev + 1);
+          const refundResponse = await heartsAPI.refund(1, '메시지 전송 실패로 인한 복구');
+          if (refundResponse.data && refundResponse.data.hearts) {
+            updateHearts(refundResponse.data.hearts, refundResponse.data.transactionId);
+          } else {
+            // 응답에 하트 정보가 없으면 기존 값에 1 추가
+            updateHearts(hearts + 1);
+          }
           console.log('✅ 하트 복구 완료');
         } catch (refundError) {
           console.error('❌ 하트 복구 실패:', refundError);
@@ -486,11 +574,13 @@ const ChatPage = () => {
         
 
         
-        // 메시지 전송 후 관계 정보 다시 불러오기 (최종 동기화 보장)
+        // 메시지 전송 후 관계 정보와 하트 잔액 다시 불러오기 (최종 동기화 보장)
         setTimeout(() => {
           if (chatInfo?.character?.id) {
             fetchRelationInfo(chatInfo.character.id);
           }
+          // 하트 잔액도 새로고침하여 서버와 동기화
+          fetchHeartBalance(true);
         }, 500);
       } else {
         // 호감도 데이터가 없는 경우에도 관계 정보 새로고침
@@ -614,6 +704,8 @@ const ChatPage = () => {
 
 
 
+
+
   // 실제 데이터만 사용 - 더미 하트 수 제거됨
 
   if (loading) {
@@ -677,28 +769,28 @@ const ChatPage = () => {
           </div>
           
           {/* 오른쪽 하트 카운터와 메뉴 */}
-          <div className="flex-shrink-0 flex items-center gap-2">
+          <div className="flex-shrink-0 flex items-center gap-1">
             <div 
-              className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all duration-200 ${
-                hearts < 10 
-                  ? 'bg-red-50 text-red-600' 
-                  : hearts < 50 
-                    ? 'bg-amber-50 text-amber-600'
-                    : 'bg-pink-50 text-pink-600'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 border ${
+                hearts < 1 
+                  ? 'bg-red-50 text-red-600 border-red-200' 
+                  : hearts < 10 
+                    ? 'bg-red-50 text-red-600 border-red-200' 
+                    : hearts < 50 
+                      ? 'bg-amber-50 text-amber-600 border-amber-200'
+                      : 'bg-pink-50 text-pink-600 border-pink-200'
               }`}
               onClick={() => hearts < 1 && handleButtonPress('heart-insufficient')}
             >
-              <HeartIcon className="w-3.5 h-3.5" />
-              <span className="text-sm font-medium">
+              <HeartIcon className={`w-4 h-4 ${hearts < 1 ? 'fill-current' : ''}`} />
+              <span className="text-sm font-bold min-w-[20px] text-center">
                 {hearts}
               </span>
+              {hearts < 1 && (
+                <span className="text-xs">충전필요</span>
+              )}
             </div>
-            
-            <button className="p-1.5 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-all duration-200">
-              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01" />
-              </svg>
-            </button>
+
             
             {heartLoading && (
               <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin opacity-70"></div>
@@ -776,6 +868,7 @@ const ChatPage = () => {
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'}`}>
               <div className="max-w-[270px] group">
+                {/* 캐릭터 메시지 (왼쪽) - 캐릭터 아바타 */}
                 {!message.isFromUser && (
                   <div className="flex items-center gap-2 mb-1 px-1">
                     <Avatar 
@@ -791,6 +884,24 @@ const ChatPage = () => {
                     </span>
                   </div>
                 )}
+                
+                {/* 사용자 메시지 (오른쪽) - 페르소나 아바타 */}
+                {message.isFromUser && (
+                  <div className="flex items-center gap-2 mb-1 px-1 justify-end">
+                    <span className="text-xs font-medium text-gray-700">
+                      {chatInfo?.persona?.name || '나'}
+                    </span>
+                    <Avatar 
+                      src={chatInfo?.persona?.avatarUrl}
+                      alt={chatInfo?.persona?.name || '나'}
+                      name={chatInfo?.persona?.name || '나'}
+                      size="xs"
+                      fallbackType="icon"
+                      className="w-6 h-6"
+                    />
+                  </div>
+                )}
+                
                 <div className={`px-4 py-3 transition-all duration-200 ${
                   message.isFromUser
                     ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl rounded-br-md shadow-sm group-hover:shadow-md'
@@ -818,6 +929,21 @@ const ChatPage = () => {
         {isTyping && typingMessage && (
           <div key={`typing-${typingMessage.id}`} className="flex justify-start">
             <div className="max-w-[280px] group">
+              {/* 캐릭터 아바타 */}
+              <div className="flex items-center gap-2 mb-1 px-1">
+                <Avatar 
+                  src={chatInfo?.character?.avatarUrl}
+                  alt={chatInfo?.character?.name}
+                  name={chatInfo?.character?.name}
+                  size="xs"
+                  fallbackType="emoji"
+                  className="w-6 h-6"
+                />
+                <span className="text-xs font-medium text-gray-700">
+                  {chatInfo?.character?.name}
+                </span>
+              </div>
+              
               <div className="px-4 py-3 rounded-2xl bg-white text-gray-900 border border-gray-200 shadow-sm group-hover:shadow-md transition-all duration-200">
                 <p className="text-sm leading-relaxed break-words">
                   <TypingAnimation
@@ -843,7 +969,22 @@ const ChatPage = () => {
         {/* 응답 생성 중일 때 로딩 인디케이터 표시 - 개선된 디자인 */}
         {isGeneratingResponse && !isTyping && (
           <div className="flex justify-start">
-            <div className="max-w-[280px]">
+            <div className="max-w-[280px] group">
+              {/* 캐릭터 아바타 */}
+              <div className="flex items-center gap-2 mb-1 px-1">
+                <Avatar 
+                  src={chatInfo?.character?.avatarUrl}
+                  alt={chatInfo?.character?.name}
+                  name={chatInfo?.character?.name}
+                  size="xs"
+                  fallbackType="emoji"
+                  className="w-6 h-6"
+                />
+                <span className="text-xs font-medium text-gray-700">
+                  {chatInfo?.character?.name}
+                </span>
+              </div>
+              
               <div className="px-4 py-3 rounded-2xl bg-white border border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
@@ -865,14 +1006,6 @@ const ChatPage = () => {
       {/* Message Input - 참고 이미지 스타일 */}
       <div className="flex-shrink-0 bg-white border-t border-gray-100 safe-area-bottom">
         <div className="flex items-center gap-3 px-4 py-4">
-          <div className="flex-shrink-0">
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </button>
-          </div>
-          
           <div className="flex-1 relative">
             <input
               ref={inputRef}
@@ -880,13 +1013,26 @@ const ChatPage = () => {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && !heartLoading && hearts >= 1 && !isGeneratingResponse && !sendingMessage && handleSendWithPreventDuplication()}
-              onClick={() => hearts < 1 && handleButtonPress('heart-insufficient')}
-              placeholder={hearts < 1 ? "하트가 부족합니다! 💖" : "메시지를 입력하세요"}
+              onClick={() => {
+                if (hearts < 1) {
+                  handleButtonPress('heart-insufficient');
+                  console.log('💔 하트 부족으로 입력 불가:', { currentHearts: hearts });
+                }
+              }}
+              placeholder={
+                hearts < 1 
+                  ? "💖 하트를 충전하고 대화해보세요!" 
+                  : isGeneratingResponse 
+                    ? "AI가 응답 중입니다..." 
+                    : "메시지를 입력하세요 (하트 1개 소모)"
+              }
               disabled={hearts < 1 || heartLoading || isGeneratingResponse || sendingMessage}
-              className={`w-full px-4 py-3 border rounded-2xl bg-gray-50 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200 ${
-                hearts < 1 || heartLoading || isGeneratingResponse || sendingMessage
-                  ? 'border-gray-200 bg-gray-100' 
-                  : 'border-gray-200 focus:border-purple-300 focus:bg-white'
+              className={`w-full px-4 py-3 border rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200 ${
+                hearts < 1 
+                  ? 'border-red-200 bg-red-50 text-red-600 placeholder-red-400' 
+                  : heartLoading || isGeneratingResponse || sendingMessage
+                    ? 'border-gray-200 bg-gray-100' 
+                    : 'border-gray-200 bg-gray-50 focus:border-purple-300 focus:bg-white'
               }`}
               style={{
                 fontSize: '16px', // iOS 줌 방지
@@ -896,7 +1042,20 @@ const ChatPage = () => {
             
             {hearts < 1 && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded-full">💖 1하트 필요</span>
+                <button
+                  onClick={() => navigate('/heart-shop')}
+                  className="text-xs text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-full font-medium transition-colors"
+                >
+                  💖 하트 충전
+                </button>
+              </div>
+            )}
+            
+            {hearts >= 1 && hearts <= 5 && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                  💖 {hearts}개 남음
+                </span>
               </div>
             )}
           </div>
@@ -941,6 +1100,8 @@ const ChatPage = () => {
           onEdit={() => {}} // 편집 기능은 비활성화
         />
       )}
+
+
       </div>
     </div>
   );

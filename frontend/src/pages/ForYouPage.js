@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, UserIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { HeartIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/LoginModal';
@@ -11,7 +11,7 @@ import { usePopup } from '../context/PopupContext';
 import CharacterIntroCard from '../components/CharacterIntroCard';
 import RecommendationTimer from '../components/RecommendationTimer';
 import CharacterDetail from './CharacterCreation/CharacterDetail';
-import ChatProfileSelector from '../components/ChatProfileSelector';
+
 
 const ForYouPage = () => {
   const { isLoggedIn } = useAuth();
@@ -31,7 +31,7 @@ const ForYouPage = () => {
   const [countdown, setCountdown] = useState({ minutes: 0, seconds: 0 });
   const [showCharacterDetail, setShowCharacterDetail] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
-  const [showChatProfileSelector, setShowChatProfileSelector] = useState(false);
+
   
   // 터치/스와이프 관련 상태
   const [touchStartX, setTouchStartX] = useState(0);
@@ -171,14 +171,39 @@ const ForYouPage = () => {
     };
   }, []);
 
-  // 터치 이벤트 핸들러
+  // 터치 이벤트 핸들러 - 버튼과 인터랙티브 요소 제외
   const handleTouchStart = (e) => {
+    // 버튼이나 인터랙티브 요소는 터치 스와이프에서 제외
+    const target = e.target;
+    const isInteractive = target.closest('button') || 
+                         target.closest('[data-interactive]') || 
+                         target.closest('a') ||
+                         target.closest('input') ||
+                         target.closest('.card-modern');
+    
+    if (isInteractive) {
+      setIsDragging(false);
+      return;
+    }
+    
     setTouchStartX(e.touches[0].clientX);
     setIsDragging(true);
   };
 
   const handleTouchMove = (e) => {
     if (!isDragging) return;
+    
+    // 인터랙티브 요소 위에서는 스와이프 비활성화
+    const target = e.target;
+    const isInteractive = target.closest('button') || 
+                         target.closest('[data-interactive]') || 
+                         target.closest('.card-modern');
+    
+    if (isInteractive) {
+      setIsDragging(false);
+      return;
+    }
+    
     setTouchEndX(e.touches[0].clientX);
   };
 
@@ -200,10 +225,15 @@ const ForYouPage = () => {
   };
 
   const handleStartChat = () => {
+    console.log('🚀 ForYouPage - handleStartChat 호출됨', { isLoggedIn });
+    
     if (!isLoggedIn) {
+      console.log('❌ 로그인되지 않음 - 로그인 모달 표시');
       setShowLoginModal(true);
       return;
     }
+    
+    console.log('✅ 페르소나 선택 모달 열기');
     setShowPersonaSelection(true);
   };
 
@@ -332,11 +362,18 @@ const ForYouPage = () => {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
-        <div className="flex justify-center items-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500" style={{ height: 'calc(100vh - 60px)' }}>
-          <div className="text-white text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-white border-t-transparent mx-auto mb-4"></div>
-            <p className="text-lg font-medium">추천 캐릭터를 불러오는 중...</p>
+      <div className="max-w-md mx-auto bg-gradient-to-br from-violet-50 to-purple-50" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="flex justify-center items-center p-6" style={{ height: 'calc(100vh - 60px)' }}>
+          <div className="text-center max-w-sm">
+            <div className="relative mb-6">
+              <div className="animate-pulse w-12 h-12 bg-gradient-to-r from-violet-400 to-purple-400 rounded-full mx-auto mb-2"></div>
+              <div className="flex justify-center space-x-1">
+                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+            <p className="text-body-sm font-medium text-gray-700">추천 캐릭터를 불러오는 중...</p>
           </div>
         </div>
       </div>
@@ -346,29 +383,29 @@ const ForYouPage = () => {
   // 로그인하지 않은 경우 게스트 화면
   if (!isLoggedIn) {
     return (
-      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
-        <div className="relative w-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 overflow-hidden" style={{ height: 'calc(100vh - 60px)' }}>
+      <div className="max-w-md mx-auto bg-gradient-to-br from-violet-500 via-purple-500 to-pink-500" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="relative w-full overflow-hidden" style={{ height: 'calc(100vh - 60px)' }}>
           {/* Header */}
-          <div className="relative z-10 flex items-center justify-between p-6 pt-14">
-            <div className="flex items-center space-x-3">
-              <h1 className="text-white text-2xl font-bold">FOR YOU</h1>
-              <HeartIcon className="w-6 h-6 text-pink-300" />
+          <div className="relative z-10 flex items-center justify-between p-6 pt-12">
+            <div className="flex items-center space-x-2">
+              <h1 className="text-white text-heading-lg font-semibold">FOR YOU</h1>
+              <HeartIcon className="w-5 h-5 text-pink-200" />
             </div>
-            <div className="bg-white bg-opacity-20 rounded-full px-4 py-2 backdrop-blur-sm">
-              <span className="text-white text-sm font-medium">게스트</span>
+            <div className="glass-dark rounded-full px-3 py-1.5">
+              <span className="text-white text-caption font-medium">게스트</span>
             </div>
           </div>
 
           {/* Content */}
           <div className="absolute inset-0 flex items-center justify-center p-6">
-            <div className="text-center text-white">
-              <div className="text-8xl mb-6">💕</div>
-              <h2 className="text-3xl font-bold mb-4">AI 캐릭터와 채팅하세요</h2>
-              <p className="text-xl mb-8 opacity-90">다양한 성격의 AI 캐릭터들이 기다리고 있어요</p>
+            <div className="text-center text-white max-w-xs">
+              <div className="text-6xl mb-6">💕</div>
+              <h2 className="text-2xl font-semibold mb-3">AI 캐릭터와 채팅하세요</h2>
+              <p className="text-lg mb-8 opacity-90 leading-relaxed">다양한 성격의 AI 캐릭터들이 기다리고 있어요</p>
               
               <button 
                 onClick={() => setShowLoginModal(true)}
-                className="bg-white text-purple-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 active:bg-gray-200 transition-colors shadow-lg"
+                className="glass text-white px-6 py-3 rounded-xl font-medium text-body-md hover:bg-white/20 active:bg-white/30 transition-all shadow-lg backdrop-blur-md"
               >
                 로그인하고 시작하기
               </button>
@@ -389,15 +426,15 @@ const ForYouPage = () => {
 
   if (error) {
     return (
-      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
-        <div className="flex justify-center items-center bg-gradient-to-br from-red-400 to-pink-500 p-6" style={{ height: 'calc(100vh - 60px)' }}>
-          <div className="text-white text-center">
-            <div className="text-6xl mb-6">😞</div>
-            <h3 className="text-xl font-bold mb-4">문제가 발생했어요</h3>
-            <p className="mb-6 text-base opacity-90">{error}</p>
+      <div className="max-w-md mx-auto bg-gradient-to-br from-red-50 to-rose-50" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="flex justify-center items-center p-6" style={{ height: 'calc(100vh - 60px)' }}>
+          <div className="text-center max-w-sm">
+            <div className="text-5xl mb-4">😞</div>
+            <h3 className="text-heading-md text-gray-900 mb-3">문제가 발생했어요</h3>
+            <p className="text-body-sm text-gray-600 mb-6 leading-relaxed">{error}</p>
             <button 
               onClick={fetchForYouCharacters}
-              className="bg-white text-red-500 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-colors"
+              className="btn-gradient px-6 py-2.5 rounded-lg text-body-sm font-medium"
             >
               다시 시도
             </button>
@@ -409,15 +446,15 @@ const ForYouPage = () => {
 
   if (characters.length === 0) {
     return (
-      <div className="max-w-md mx-auto bg-white" style={{ minHeight: 'calc(100vh - 60px)' }}>
-        <div className="flex justify-center items-center bg-gradient-to-br from-gray-400 to-gray-600 p-6" style={{ height: 'calc(100vh - 60px)' }}>
-          <div className="text-white text-center">
-            <div className="text-7xl mb-6">🎭</div>
-            <h3 className="text-xl font-bold mb-2">캐릭터가 없어요</h3>
-            <p className="text-base opacity-90 mb-6">아직 추천할 캐릭터가 없습니다.</p>
+      <div className="max-w-md mx-auto bg-gradient-to-br from-gray-50 to-slate-100" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="flex justify-center items-center p-6" style={{ height: 'calc(100vh - 60px)' }}>
+          <div className="text-center max-w-sm">
+            <div className="text-5xl mb-4">🎭</div>
+            <h3 className="text-heading-md text-gray-900 mb-2">캐릭터가 없어요</h3>
+            <p className="text-body-sm text-gray-600 mb-6 leading-relaxed">아직 추천할 캐릭터가 없습니다.</p>
             <button 
               onClick={fetchForYouCharacters}
-              className="bg-white text-gray-600 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-colors"
+              className="btn-gradient px-6 py-2.5 rounded-lg text-body-sm font-medium"
             >
               새로고침
             </button>
@@ -478,8 +515,8 @@ const ForYouPage = () => {
           </button>
         )}
 
-        {/* Main Content Flow */}
-        <div className="relative z-10 h-full flex flex-col justify-between p-6 pt-12 pb-12">
+                  {/* Main Content Flow */}
+          <div className="relative z-10 h-full flex flex-col justify-between p-6 pt-12 pb-20">
           {/* Character Profile Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -488,38 +525,23 @@ const ForYouPage = () => {
                 alt={currentCharacter.name}
                 name={currentCharacter.name}
                 size="lg"
-                className="ring-4 ring-white ring-opacity-50"
+                className="ring-3 ring-white/30 shadow-lg"
                 onClick={handleAvatarClick}
               />
               <div className="min-w-0 flex-1">
-                <h1 className="text-white text-xl font-bold truncate">{currentCharacter.name}</h1>
-                {currentCharacter.isOwner && (
-                  <span className="bg-white bg-opacity-20 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
-                    내 캐릭터
-                  </span>
-                )}
+                <h1 className="text-white text-lg font-semibold truncate drop-shadow-sm">{currentCharacter.name}</h1>
+                <p className="text-white text-sm opacity-90 mt-1">
+                  {currentCharacter.age && `${currentCharacter.age}세`}
+                  {currentCharacter.age && currentCharacter.characterType && ' • '}
+                  {currentCharacter.characterType}
+                </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowChatProfileSelector(true)}
-                className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white backdrop-blur-sm hover:bg-opacity-30 transition-all"
-                title="프로필 선택"
-              >
-                <UserIcon className="w-5 h-5" />
-              </button>
-            </div>
+
           </div>
 
-          {/* Character Age and Type - moved below header */}
-          <div className="mb-6 px-6">
-            <p className="text-white text-sm opacity-90 text-center">
-              {currentCharacter.age && `${currentCharacter.age}세`}
-              {currentCharacter.age && currentCharacter.characterType && ' • '}
-              {currentCharacter.characterType}
-            </p>
-          </div>
+
 
           {/* Character Introduction Card */}
           <div className="flex-1 flex items-center justify-center px-4">
@@ -557,21 +579,7 @@ const ForYouPage = () => {
           />
         )}
 
-        {/* Chat Profile Selector Modal */}
-        {showChatProfileSelector && (
-          <ChatProfileSelector
-            onClose={() => setShowChatProfileSelector(false)}
-            onSelect={(profileData) => {
-              console.log('프로필 선택됨:', profileData);
-              setShowChatProfileSelector(false);
-              // 여기서 선택된 프로필로 채팅을 시작할 수 있습니다
-              // 예: 현재 캐릭터와 선택된 프로필로 채팅 시작
-              if (currentCharacter) {
-                handleStartChat();
-              }
-            }}
-          />
-        )}
+
       </div>
     </div>
   );

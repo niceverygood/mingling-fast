@@ -523,7 +523,8 @@ export const chatsAPI = {
   update: (id, chatData) => apiCall('put', API_ENDPOINTS.CHATS.BY_ID(id), chatData),
   delete: (id) => apiCall('delete', API_ENDPOINTS.CHATS.BY_ID(id)),
   getMessages: (chatId) => apiCall('get', API_ENDPOINTS.CHATS.MESSAGES(chatId)),
-  sendMessage: (chatId, messageData) => apiCall('post', API_ENDPOINTS.CHATS.MESSAGES(chatId), messageData)
+  sendMessage: (chatId, messageData) => apiCall('post', API_ENDPOINTS.CHATS.MESSAGES(chatId), messageData),
+  getRecommendations: (chatId) => apiCall('get', `${API_ENDPOINTS.CHATS.BY_ID(chatId)}/recommendations`)
 };
 
 // Conversations API

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeftIcon, PencilIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { charactersAPI } from '../../services/api';
-import PersonaSelection from '../PersonaCreation/PersonaSelection';
 import Avatar from '../../components/Avatar';
 
 const CharacterDetail = ({ characterId, onClose, onEdit }) => {
@@ -55,9 +54,7 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
     }
   };
 
-  const handleEdit = () => {
-    onEdit(character);
-  };
+
 
   if (loading) {
     return (
@@ -111,12 +108,6 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-black">캐릭터 상세</h2>
               <div className="flex items-center space-x-2">
-                <button 
-                  onClick={handleEdit}
-                  className="p-2 text-gray-600 hover:text-gray-800"
-                >
-                  <PencilIcon className="w-5 h-5" />
-                </button>
                 <button onClick={onClose} className="p-2">
                   <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
                 </button>
@@ -248,12 +239,6 @@ const CharacterDetail = ({ characterId, onClose, onEdit }) => {
               {!character.personality && !character.background && !character.likes && !character.dislikes && !character.firstImpression && !character.basicSetting && (
                 <div className="text-center py-8">
                   <p className="text-gray-500">추가 정보가 없습니다.</p>
-                  <button 
-                    onClick={handleEdit}
-                    className="mt-4 text-blue-500 hover:text-blue-600 font-medium"
-                  >
-                    정보 추가하기
-                  </button>
                 </div>
               )}
             </div>

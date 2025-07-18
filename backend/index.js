@@ -4,6 +4,8 @@ const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const OpenAI = require('openai');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const path = require('path');
 require('dotenv').config();
 
 // 🔧 환경 변수 검증 및 로깅
@@ -335,6 +337,9 @@ app.use((req, res, next) => {
   
   next();
 });
+
+// 정적 파일 서빙 (로컬 업로드 파일들)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 요청 로깅 미들웨어 추가 (디버깅용)
 app.use((req, res, next) => {

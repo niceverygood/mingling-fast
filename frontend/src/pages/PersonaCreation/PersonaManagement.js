@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
 import { personasAPI } from '../../services/api';
 import PersonaCreation from './PersonaCreation';
 import PersonaEdit from './PersonaEdit';
 import Avatar from '../../components/Avatar';
 
 const PersonaManagement = () => {
+  const navigate = useNavigate();
   const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -50,10 +52,11 @@ const PersonaManagement = () => {
   };
 
   const handleBack = () => {
-    window.history.back();
+    navigate(-1); // 이전 페이지로 이동
   };
 
   const handleCreatePersona = () => {
+    console.log('🆕 페르소나 생성 모달 열기');
     setShowCreateModal(true);
   };
 

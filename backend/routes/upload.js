@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
-const { uploadMiddlewares, deleteFileFromS3 } = require('../config/s3');
+const { uploadMiddlewares, deleteFileFromS3, isLocal, getFileUrl } = require('../config/s3');
 
 // 캐릭터 아바타 업로드
 router.post('/character-avatar', uploadMiddlewares.character.single('avatar'), (req, res) => {
@@ -15,13 +15,18 @@ router.post('/character-avatar', uploadMiddlewares.character.single('avatar'), (
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log('✅ Character avatar uploaded successfully:', req.file.location);
+    // 로컬 환경에서는 파일 URL을 직접 생성
+    const fileUrl = isLocal 
+      ? `http://localhost:8001/uploads/characters/${req.file.filename}`
+      : req.file.location;
+
+    console.log('✅ Character avatar uploaded successfully:', fileUrl);
     res.json({
       success: true,
       message: 'Character avatar uploaded successfully',
       data: {
-        url: req.file.location,
-        key: req.file.key,
+        url: fileUrl,
+        key: req.file.key || req.file.filename,
         size: req.file.size,
         mimetype: req.file.mimetype
       }
@@ -44,13 +49,18 @@ router.post('/persona-avatar', uploadMiddlewares.persona.single('avatar'), (req,
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log('✅ Persona avatar uploaded successfully:', req.file.location);
+    // 로컬 환경에서는 파일 URL을 직접 생성
+    const fileUrl = isLocal 
+      ? `http://localhost:8001/uploads/personas/${req.file.filename}`
+      : req.file.location;
+
+    console.log('✅ Persona avatar uploaded successfully:', fileUrl);
     res.json({
       success: true,
       message: 'Persona avatar uploaded successfully',
       data: {
-        url: req.file.location,
-        key: req.file.key,
+        url: fileUrl,
+        key: req.file.key || req.file.filename,
         size: req.file.size,
         mimetype: req.file.mimetype
       }
@@ -73,13 +83,18 @@ router.post('/user-profile', uploadMiddlewares.user.single('profile'), (req, res
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log('✅ User profile uploaded successfully:', req.file.location);
+    // 로컬 환경에서는 파일 URL을 직접 생성
+    const fileUrl = isLocal 
+      ? `http://localhost:8001/uploads/users/${req.file.filename}`
+      : req.file.location;
+
+    console.log('✅ User profile uploaded successfully:', fileUrl);
     res.json({
       success: true,
       message: 'User profile image uploaded successfully',
       data: {
-        url: req.file.location,
-        key: req.file.key,
+        url: fileUrl,
+        key: req.file.key || req.file.filename,
         size: req.file.size,
         mimetype: req.file.mimetype
       }
@@ -102,13 +117,18 @@ router.post('/image', uploadMiddlewares.general.single('image'), (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log('✅ General image uploaded successfully:', req.file.location);
+    // 로컬 환경에서는 파일 URL을 직접 생성
+    const fileUrl = isLocal 
+      ? `http://localhost:8001/uploads/general/${req.file.filename}`
+      : req.file.location;
+
+    console.log('✅ General image uploaded successfully:', fileUrl);
     res.json({
       success: true,
       message: 'Image uploaded successfully',
       data: {
-        url: req.file.location,
-        key: req.file.key,
+        url: fileUrl,
+        key: req.file.key || req.file.filename,
         size: req.file.size,
         mimetype: req.file.mimetype
       }
@@ -128,8 +148,10 @@ router.post('/images', uploadMiddlewares.general.array('images', 5), (req, res) 
     }
 
     const uploadedFiles = req.files.map(file => ({
-      url: file.location,
-      key: file.key,
+      url: isLocal 
+        ? `http://localhost:8001/uploads/general/${file.filename}`
+        : file.location,
+      key: file.key || file.filename,
       size: file.size,
       mimetype: file.mimetype
     }));

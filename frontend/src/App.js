@@ -10,6 +10,8 @@ import MyPage from './pages/MyPage';
 import ChatListPage from './pages/ChatListPage';
 import ChatPage from './pages/ChatPage';
 import HeartShop from './pages/HeartShop/HeartShop';
+import PersonaManagement from './pages/PersonaCreation/PersonaManagement';
+import PersonaCreation from './pages/PersonaCreation/PersonaCreation';
 
 // 컴포넌트들
 import BottomNavigation from './components/BottomNavigation';
@@ -42,18 +44,18 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md mx-auto text-center p-6">
-            <div className="text-6xl mb-4">😵</div>
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-slate-100">
+          <div className="max-w-sm mx-auto text-center p-6">
+            <div className="text-5xl mb-4">😵</div>
+            <h1 className="text-heading-md text-gray-900 mb-3">
               앗, 문제가 발생했어요!
             </h1>
-            <p className="text-gray-600 mb-4">
+            <p className="text-body-sm text-gray-600 mb-6 leading-relaxed">
               페이지를 새로고침하거나 잠시 후 다시 시도해주세요.
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+              className="btn-gradient px-6 py-2.5 rounded-lg text-body-sm font-medium"
             >
               새로고침
             </button>
@@ -157,6 +159,8 @@ function App() {
                   <Route path="/chats" element={<ChatListPage />} />
                   <Route path="/chat/:chatId" element={<ChatPage />} />
                   <Route path="/heart-shop" element={<HeartShop />} />
+                  <Route path="/persona-management" element={<PersonaManagement />} />
+                  <Route path="/persona-creation" element={<PersonaCreation />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
                 <ConditionalBottomNavigation />
